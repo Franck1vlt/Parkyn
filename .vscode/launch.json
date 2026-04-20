@@ -1,0 +1,14 @@
+{
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Spring Boot-ParkynApiApplication<parkyn-api>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "app.parkyn.ParkynApiApplication",
+      "projectName": "parkyn-api",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
