@@ -10,6 +10,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +38,15 @@ public class JwtAuthFilter extends OncePerRequestFilter{
         }
 
         String token = authHeader.substring(7);
-        String email = jwtService.extractUsername(token);
+        String email;
+        try {
+            email = jwtService.extractUsername(token);
+        } catch (ExpiredJwtException e) {
+            System.out.println("JWT error: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
         System.out.println("Email from token: " + email);
 
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {

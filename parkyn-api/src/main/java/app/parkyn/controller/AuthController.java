@@ -11,7 +11,6 @@ import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.model.User;
 import app.parkyn.service.AuthService;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +44,6 @@ public class AuthController {
      * Post - Logout the authenticated user
      * @return - No content
      */
-    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
@@ -57,7 +55,6 @@ public class AuthController {
      * Read - Get the authenticated user's information
      * @return - The authenticated user's information
      */
-    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<MeResponse> me(@AuthenticationPrincipal User user) {

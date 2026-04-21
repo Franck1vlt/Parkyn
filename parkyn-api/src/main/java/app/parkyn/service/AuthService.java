@@ -34,6 +34,9 @@ public class AuthService {
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
 
+    @Value("${jwt.expiration-ms}")
+    private long accessExpirationMs;
+
     @Transactional
     public LoginResponse login(LoginRequest request) {
         authenticationManager.authenticate(
@@ -50,7 +53,8 @@ public class AuthService {
         rt.setExpiresAt(OffsetDateTime.now().plusDays(refreshExpirationDays));
         refreshTokenRepository.save(rt);
 
-        return new LoginResponse(accessToken, rawRefresh);
+        OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
+        return new LoginResponse(accessToken, accessExpiredAt, rawRefresh, rt.getExpiresAt());
     }
 
     @Transactional
@@ -73,7 +77,8 @@ public class AuthService {
         newRt.setExpiresAt(OffsetDateTime.now().plusDays(refreshExpirationDays));
         refreshTokenRepository.save(newRt);
 
-        return new LoginResponse(newAccess, newRaw);
+        OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
+        return new LoginResponse(newAccess, accessExpiredAt, newRaw, newRt.getExpiresAt());
     }
     
     @Transactional
