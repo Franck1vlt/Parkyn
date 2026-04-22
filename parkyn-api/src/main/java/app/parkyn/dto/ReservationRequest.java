@@ -15,6 +15,7 @@ public record ReservationRequest(
     UUID driverId,
     String driverFirstName,
     String driverLastName,
+    String driverEmail,
 
     @NotNull
     OffsetDateTime startDate,

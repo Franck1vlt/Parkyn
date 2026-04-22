@@ -28,16 +28,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
 public class ReservationController {
 
     private final ReservationService reservationService;
 
-    /**
-     * Read - Get all reservations
-     * @return - A list of all reservations
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("")
     public ResponseEntity<Page<ReservationResponse>> getRerservations(
@@ -47,10 +43,6 @@ public class ReservationController {
         return ResponseEntity.ok().body(reservationService.getReservations(status, pageable));
     }
 
-    /**
-     * Post - Create a new reservation
-     * @return - The created reservation
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PostMapping("")
     public ResponseEntity<ReservationResponse> addReservation(@Valid @RequestBody ReservationRequest request) {
@@ -58,10 +50,6 @@ public class ReservationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * Get - Get the details of a reservation by id
-     * @return - The reservation with the given id
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("/{id}")
     public ResponseEntity<ReservationResponse> getReservationById(@PathVariable UUID id) {
@@ -69,10 +57,6 @@ public class ReservationController {
         return ResponseEntity.ok().body(response);
     }
 
-    /**
-     * Post - Return a vehicle for a reservation
-     * @return - The updated reservation
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PostMapping("/{id}/return")
     public ResponseEntity<ReservationResponse> returnVehicle(@PathVariable UUID id, @Valid @RequestBody ReturnVehicleRequest request) {

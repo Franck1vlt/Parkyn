@@ -19,7 +19,6 @@ import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
 import app.parkyn.repository.ReservationRepository;
-import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +28,7 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final VehicleRepository vehicleRepository;
-    private final UserRepository userRepository;
+    private final DriverAssignmentService driverAssignmentService;
 
     @Transactional
     public Page<ReservationResponse> getReservations(Reservation.Condition status, Pageable pageable) {
@@ -49,12 +48,8 @@ public class ReservationService {
             .filter(v -> v.getDeletedAt() == null)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
 
-        if (vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule non disponible");
-        }        
-
-        User driver = userRepository.findById(request.driverId())
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conducteur introuvable"));
+        validateCreate(request, vehicle);
+        User driver = driverAssignmentService.getOrCreateDriver(request);
 
         User agent = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
@@ -80,9 +75,7 @@ public class ReservationService {
     public ReservationResponse returnVehicle(UUID id, ReturnVehicleRequest request) {
         Reservation reservation = findActiveReservation(id);
 
-        if (reservation.getReturnedAt() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule déjà retourné");
-        }
+        validateReturn(reservation, request);
 
         reservation.setReturnedAt(OffsetDateTime.now());
         reservation.setConditionAfter(request.conditionAfter());
@@ -100,8 +93,50 @@ public class ReservationService {
 
     private Reservation findActiveReservation(UUID id) {
         return reservationRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Reservation not found"));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
     }
 
+    private void validateCreate(ReservationRequest request, Vehicle vehicle){
+        // Le véhicule est disponible ?
+        if (vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule non disponible");
+        }
 
+        // Les dates sont cohérentes ?
+        if (!request.startDate().isBefore(request.endDate())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate must be before endDate");
+        }
+
+        // La réservation n'est pas dans le passé
+        if (request.startDate().isBefore(OffsetDateTime.now())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be in the past");
+        }
+
+        // Le kilométrage de départ est cohérent avec le véhicule
+        if (request.mileageStart() < vehicle.getMileageKM()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mileageStart cannot be less than vehicle current mileage");
+        }
+
+        // Pas de conflit de réservation
+        if (reservationRepository.hasConflict(vehicle.getId(), request.startDate(), request.endDate())){
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Vehicle already reserved for this period");
+        }
+    }
+
+    private void validateReturn(Reservation reservation, ReturnVehicleRequest request){
+        // La réservation n'est pas déjà retournée
+        if (reservation.getReturnedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "vehicle already returned");
+        }
+
+        // Le kilométrage de fin est cohérent avec le véhicule
+        if (request.mileageEnd() < reservation.getMileageStart()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mileageEnd cannot be less than mileageStart");
+        }
+
+        // Les dommages sont signalés, les détails doivent être fournis
+        if (request.damageReported() && (request.damageDetails() == null || request.damageDetails().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "damageDetails must be provided if damageReported is true");
+        }
+    }
 }

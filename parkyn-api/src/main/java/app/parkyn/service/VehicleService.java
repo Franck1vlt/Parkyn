@@ -19,6 +19,7 @@ import app.parkyn.dto.VehicleStatusRequest;
 import app.parkyn.dto.VehicleUpdateRequest;
 import app.parkyn.model.Vehicle;
 import app.parkyn.repository.VehicleRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -30,12 +31,12 @@ public class VehicleService {
     @Transactional
     public Page<VehicleResponse> getVehicles(Vehicle.VehicleStatus status, Pageable pageable) {
         Specification<Vehicle> spec = (root, query, cb) -> {
-            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            var predicates = new java.util.ArrayList<Predicate>();
             predicates.add(cb.isNull(root.get("deletedAt")));
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
             }
-            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
         return vehicleRepository.findAll(spec, pageable).map(VehicleResponse::from);
     }
