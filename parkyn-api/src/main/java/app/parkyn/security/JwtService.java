@@ -20,6 +20,17 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class JwtService {
 
+    private final String secret;
+    private final long expirationMs;
+
+    public JwtService(
+        @Value("${jwt.secret}") String secret,
+        @Value("${jwt.expiration-ms}") long expirationMs
+    ) {
+        this.secret = secret;
+        this.expirationMs = expirationMs;
+    }
+
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
@@ -41,12 +52,6 @@ public class JwtService {
     public void logConfig() {
         log.info("JWT expiration: {}ms", expirationMs);
     }
-
-    @Value("${jwt.secret}")
-    private String secret;
-
-    @Value("${jwt.expiration-ms}")
-    private long expirationMs;
     
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());

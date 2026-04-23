@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +34,7 @@ import app.parkyn.repository.UserRepository;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TestcontainersConfig.class)
 public class AuthControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -102,21 +104,10 @@ public class AuthControllerTest {
             .andExpect(jsonPath("$.token_type").value("Bearer"));
     }
     
-    private String getAccessToken() throws Exception {
-        LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD);
-        String response = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-                .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readValue(response, LoginResponse.class).accessToken();
-    }
-
     @Test
     public void testMe() throws Exception {
         String token = getAccessToken();
-
+        
         mockMvc.perform(get("/api/v1/auth/me")
                 .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON))
@@ -134,5 +125,16 @@ public class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/logout")
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isNoContent());
+    }
+
+    private String getAccessToken() throws Exception {
+        LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD);
+        String response = mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        return objectMapper.readValue(response, LoginResponse.class).accessToken();
     }
 }

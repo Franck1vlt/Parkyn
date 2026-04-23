@@ -25,9 +25,9 @@ public record ReservationResponse(
     public static ReservationResponse from(Reservation reservation) {
         return new ReservationResponse(
             reservation.getId(),
+            reservation.getVehicle() != null ? reservation.getVehicle().getId() : null,
             reservation.getDriver() != null ? reservation.getDriver().getId() : null,
             reservation.getAgent() != null ? reservation.getAgent().getId() : null,
-            reservation.getAgent().getId(),
             reservation.getStartDate(),
             reservation.getEndDate(),
             reservation.getReturnedAt(),
