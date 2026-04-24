@@ -8,7 +8,7 @@ RUN mvn dependency:go-offline -B
 
 # Compilation
 COPY src ./src
-RUN mvn package -DskipTests -B
+RUN mvn package -DskipTests -B --no-transfer-progress
 
 # ---- Runtime stage ----
 FROM eclipse-temurin:21-jre-alpine
