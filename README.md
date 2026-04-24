@@ -75,6 +75,14 @@ openssl rand -base64 64
 
 #### Avec Docker Compose (recommandé)
 
+Backend seul (db + api) :
+
+```bash
+docker compose up --build db api
+```
+
+Stack complète (db + api + web) :
+
 ```bash
 docker compose up --build
 ```
