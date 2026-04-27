@@ -1,21 +1,86 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import { ConditionSelectComponent } from '../condition-select/condition-select.component';
 import { DriverSelectComponent } from '../driver-select/driver-select.component';
+import { RouterLink } from '@angular/router';
+import {
+  ReservationResponse,
+  ReservationsService,
+} from '../../../../core/services/reservations.service';
+import { Page } from '../../../../core/models/page.model';
+import { DatePipe, JsonPipe, NgIf } from '@angular/common';
+import { UsersService } from '../../../../core/services/users.service';
+import { VehicleService } from '../../../../core/services/vehicles.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-reservations',
   standalone: true,
-  imports: [HeaderComponent, ConditionSelectComponent, DriverSelectComponent],
+  imports: [HeaderComponent, RouterLink, DatePipe],
   templateUrl: './reservations.component.html',
   styleUrl: './reservations.component.css',
 })
-export class ReservationsComponent {
-  onConditionSelected(value: string) {
-    console.log('Selected condition:', value);
+export class ReservationsComponent implements OnInit {
+  page = signal<Page<ReservationResponse> | null>(null);
+  currentPage = signal(0);
+  selectedStatus = signal<string | null>(null);
+  isLoading = signal(false);
+  vehicleNames = signal(new Map<string, string>());
+  agentNames = signal(new Map<string, string>());
+  driverNames = signal(new Map<string, string>());
+
+  constructor(
+    private reservationsService: ReservationsService,
+    private vehicleService: VehicleService,
+    private usersService: UsersService,
+  ) {}
+
+  ngOnInit(): void {
+    this.load();
+    forkJoin({
+      vehicles: this.vehicleService.getVehicles(),
+      users: this.usersService.getUsers(),
+    }).subscribe(({ vehicles, users }) => {
+      this.vehicleNames.set(
+        new Map(vehicles.content.map((v) => [v.id, `${v.brand} ${v.model} (${v.plateNumber})`])),
+      );
+      this.driverNames.set(
+        new Map(users.content.map((u) => [u.id, `${u.firstname} ${u.lastname}`])),
+      );
+      this.agentNames.set(
+        new Map(users.content.map((u) => [u.id, `${u.firstname} ${u.lastname}`])),
+      );
+    });
   }
 
-  onDriverSelected(value: string) {
-    console.log('Selected driver:', value);
+  load() {
+    this.isLoading.set(true);
+    this.reservationsService
+      .getReservations(this.currentPage(), 10, this.selectedStatus() || undefined)
+      .subscribe({
+        next: (page) => {
+          console.log('Première réservation :', page.content[0]);
+          console.log('API response:', page);
+          this.page.set(page);
+        },
+        error: (err) => console.error('Failed to load reservations', err),
+        complete: () => this.isLoading.set(false),
+      });
+  }
+
+  onStatusChange(event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedStatus.set(value || null);
+    this.currentPage.set(0);
+    this.load();
+  }
+
+  goTo(page: number) {
+    this.currentPage.set(page);
+    this.load();
+  }
+
+  isReturned(reservation: ReservationResponse): boolean {
+    return !!reservation.returnedAt;
   }
 }

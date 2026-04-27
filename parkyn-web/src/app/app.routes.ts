@@ -5,15 +5,19 @@ import { RoleGuard } from './core/guards/role.guard';
 import { AuthGuard } from './core/guards/auth.guard';
 import { ReservationsComponent } from './features/reservations/components/reservations/reservations.component';
 import { reservationsRoutes } from './features/reservations/reservations.routes';
+import { vehiclesRoutes } from './features/vehicles/vehicles.routes';
+import { ProfileComponent } from './features/profile/profile.component';
+import { DashboardComponent } from './features/dashboard/dashboard.component';
 
 export const routes: Routes = [
+  ...vehiclesRoutes,
   ...reservationsRoutes,
   ...authRoutes,
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
   {
-    path: 'reservations',
+    path: 'profile',
+    component: ProfileComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'AGENT'] },
-    component: ReservationsComponent,
   },
+  { path: '', component: DashboardComponent, canActivate: [AuthGuard] },
 ];

@@ -1,3 +1,9 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+@theme {
+  --color-warning: #f97316; /* orange-500 Tailwind */
+  --color-warning-strong: #ea580c; /* orange-600 */
+  --color-warning-medium: #fed7aa; /* orange-200 */
+}

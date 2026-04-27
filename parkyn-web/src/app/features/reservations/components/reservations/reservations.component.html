@@ -1,3 +1,96 @@
 <app-header />
-<app-condition-select (conditionChange)="onConditionSelected($event)" />
-<app-driver-select (driverChange)="onDriverSelected($event)" />
+
+<div class="px-6 py-8 max-w-7xl mx-auto">
+  <!-- En-tête + filtre -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-xl font-semibold text-white">Réservations</h1>
+      <p class="text-sm text-gray-400">Liste de toutes les réservations actives et retournées.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- Filtre statut -->
+      <select (change)="onStatusChange($event)" class="...">
+        <option value="">Tous</option>
+        <option value="ACTIVE">Actif</option>
+        <option value="RETURNED">Retourné</option>
+      </select>
+      <!-- Bouton nouvelle réservation -->
+      <button
+        type="button"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        <a routerLink="/reservations/new">Nouvelle réservation</a>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tableau -->
+  <table class="w-full text-sm text-left">
+    <thead>
+      <tr class="border-b border-black">
+        <th class="py-3 pr-6 text-black font-medium">Véhicule</th>
+        <th class="py-3 pr-6 text-black font-medium">Agent</th>
+        <th class="py-3 pr-6 text-black font-medium">Conducteur</th>
+        <th class="py-3 pr-6 text-black font-medium">Début</th>
+        <th class="py-3 pr-6 text-black font-medium">Fin</th>
+        <th class="py-3 pr-6 text-black font-medium">Statut</th>
+        <th class="py-3 pr-6 text-black font-medium">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of page()?.content; track r.id) {
+        <tr class="border-b border-white/5 hover:bg-white/5">
+          <td class="py-4 pr-6 text-black font-medium">
+            {{ vehicleNames().get(r.vehicleId) ?? r.vehicleId }}
+          </td>
+          <td class="py-4 pr-6 text-black">
+            {{ agentNames().get(r.agentId) ?? r.agentId }}
+          </td>
+          <td class="py-4 pr-6 text-black">
+            {{ driverNames().get(r.driverId) ?? r.driverId }}
+          </td>
+          <td class="py-4 pr-6 text-black">{{ r.startDate | date: 'dd/MM/yyyy' }}</td>
+          <td class="py-4 pr-6 text-black">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
+          <td class="py-4 pr-6">
+            <!-- Badge statut à faire -->
+            @if (isReturned(r)) {
+              <span class="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded"
+                >Retourné</span
+              >
+            } @else {
+              <span class="bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded"
+                >Actif</span
+              >
+            }
+          </td>
+          <td class="py-4 text-right">
+            <a [routerLink]="['/reservations', r.id]" class="text-indigo-400 hover:text-indigo-300"
+              >Voir</a
+            >
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  <div class="flex items-center justify-between mt-6 text-sm text-black">
+    <span>{{ page()?.page?.totalElements ?? 0 }} résultats</span>
+    <div class="flex gap-2">
+      <button
+        (click)="goTo(currentPage() - 1)"
+        [disabled]="currentPage() === 0"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        Previous
+      </button>
+      <button
+        (click)="goTo(currentPage() + 1)"
+        [disabled]="currentPage() === (page()?.page?.totalPages ?? 1) - 1"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>

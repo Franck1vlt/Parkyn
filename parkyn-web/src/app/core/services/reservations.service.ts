@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -52,8 +52,16 @@ export class ReservationsService {
 
   constructor(private http: HttpClient) {}
 
-  getReservations(): Observable<Page<ReservationResponse>> {
-    return this.http.get<Page<ReservationResponse>>(this.API_URL);
+  getReservations(
+    page: number = 0,
+    size: number = 10,
+    status?: string,
+  ): Observable<Page<ReservationResponse>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (status) {
+      params = params.set('status', status);
+    }
+    return this.http.get<Page<ReservationResponse>>(this.API_URL, { params });
   }
 
   addReservation(request: ReservationRequest): Observable<ReservationResponse> {
