@@ -1,0 +1,6 @@
+<select name="" id="" (change)="onSelect($event)">
+  <option value="">Select a condition</option>
+  <option *ngFor="let condition of conditions" [value]="condition">
+    {{ condition }}
+  </option>
+</select>

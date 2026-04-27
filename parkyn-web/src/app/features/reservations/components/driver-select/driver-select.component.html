@@ -1,0 +1,11 @@
+<input
+  type="text"
+  [value]="selectedDriverName"
+  (input)="onSearch($event)"
+  placeholder="Rechercher un conducteur..."
+/>
+<ul *ngIf="filteredDrivers.length > 0">
+  <li *ngFor="let driver of filteredDrivers" (click)="onSelect(driver)">
+    {{ driver.firstname }} {{ driver.lastname }}
+  </li>
+</ul>

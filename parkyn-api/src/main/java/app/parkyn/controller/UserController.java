@@ -80,8 +80,9 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("/drivers")
     public ResponseEntity<Page<UserResponse>> getDrivers(
+        @RequestParam(required = false) String search,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        return ResponseEntity.ok().body(userService.getDrivers(pageable));
+        return ResponseEntity.ok().body(userService.getDrivers(search, pageable));
     }
 }

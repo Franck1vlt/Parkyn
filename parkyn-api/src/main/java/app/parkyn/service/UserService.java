@@ -83,13 +83,23 @@ public class UserService {
     }
 
     @Transactional
-    public Page<UserResponse> getDrivers(Pageable pageable) {
-        Specification<User> spec = (root, query, cb) -> cb.and(
-            cb.isTrue(root.get("active")),
-            cb.equal(root.get("role"), User.Role.DRIVER)
-        );
+    public Page<UserResponse> getDrivers(String search, Pageable pageable) {
+        Specification<User> spec = (root, query, cb) -> {
+            var predicates = new java.util.ArrayList<Predicate>();
+            predicates.add(cb.isTrue(root.get("active")));
+            predicates.add(cb.equal(root.get("role"), User.Role.DRIVER));
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("firstName")), pattern),
+                    cb.like(cb.lower(root.get("lastName")), pattern)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
         return userRepository.findAll(spec, pageable).map(UserResponse::from);
     }
+
 
     @Transactional
     public UserResponse reactivateUserById(UUID id) {

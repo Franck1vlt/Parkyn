@@ -92,7 +92,6 @@ public class VehicleService {
         return VehicleResponse.from(vehicleRepository.save(vehicle));
     }
 
-
     private static final Map<Vehicle.VehicleStatus, Set<Vehicle.VehicleStatus>> ALLOWED_TRANSITIONS = Map.of(
         Vehicle.VehicleStatus.AVAILABLE,    Set.of(Vehicle.VehicleStatus.MAINTENANCE, Vehicle.VehicleStatus.RESERVED),
         Vehicle.VehicleStatus.RESERVED,     Set.of(Vehicle.VehicleStatus.AVAILABLE),
@@ -100,10 +99,7 @@ public class VehicleService {
         Vehicle.VehicleStatus.RETIRED,      Set.of()
     );
 
-
     private Vehicle findActiveVehicle(UUID id){
         return vehicleRepository.findById(id).filter(v -> v.getDeletedAt() == null).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Vehicle not found"));
     }
-
-
 }
