@@ -41,12 +41,18 @@ export class UsersService {
 
   constructor(private http: HttpClient) {}
 
-  getUsers(): Observable<Page<UserResponse>> {
-    return this.http.get<Page<UserResponse>>(this.API_URL);
+  getUsers(page = 0, size = 10, role?: string): Observable<Page<UserResponse>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (role) params = params.set('role', role);
+    return this.http.get<Page<UserResponse>>(this.API_URL, { params });
   }
 
   addUser(request: UserRequest): Observable<UserResponse> {
     return this.http.post<UserResponse>(this.API_URL, request);
+  }
+
+  getUserById(id: string): Observable<UserResponse> {
+    return this.http.get<UserResponse>(`${this.API_URL}/${id}`);
   }
 
   updateUserById(id: string, request: UserUpdateRequest): Observable<UserResponse> {

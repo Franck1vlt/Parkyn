@@ -38,10 +38,10 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN')")
     @GetMapping("")
     public ResponseEntity<Page<UserResponse>> getUsers(
-        @RequestParam(required = false) Boolean active,
+        @RequestParam(required = false) User.Role role,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        return ResponseEntity.ok().body(userService.getUsers(pageable));
+        return ResponseEntity.ok().body(userService.getUsers(role, pageable));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
@@ -54,7 +54,14 @@ public class UserController {
             .body(userService.addUser(currentUser, request));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @GetMapping("/{id}")
+    public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
+        return ResponseEntity.ok().body(userService.getUserById(id));
+    }
+
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PatchMapping("/{id}")
     public ResponseEntity<UserResponse> updateUserById(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
         UserResponse response = userService.updateUserById(id, request);

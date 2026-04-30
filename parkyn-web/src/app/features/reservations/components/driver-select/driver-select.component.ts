@@ -14,10 +14,10 @@ export class DriverSelectComponent implements OnInit, OnDestroy {
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
   selectedDriverName = '';
+  filteredDrivers: UserResponse[] = [];
 
   @Output() driverChange = new EventEmitter<string>();
-
-  filteredDrivers: UserResponse[] = [];
+  @Output() driverSelected = new EventEmitter<UserResponse>();
 
   constructor(private usersService: UsersService) {}
 
@@ -44,6 +44,7 @@ export class DriverSelectComponent implements OnInit, OnDestroy {
 
   onSelect(driver: UserResponse) {
     this.driverChange.emit(driver.id);
+    this.driverSelected.emit(driver);
     this.selectedDriverName = `${driver.firstname} ${driver.lastname}`;
     this.filteredDrivers = [];
   }

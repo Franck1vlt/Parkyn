@@ -28,7 +28,7 @@ export class LoginComponent implements OnInit {
       .login(this.loginForm.value.email, this.loginForm.value.password)
       .pipe(switchMap(() => this.auth.currentUserDetails()))
       .subscribe({
-        next: () => this.router.navigate(['/reservations']),
+        next: () => this.router.navigate(['/']),
         error: (err) => console.log(err),
       });
   }

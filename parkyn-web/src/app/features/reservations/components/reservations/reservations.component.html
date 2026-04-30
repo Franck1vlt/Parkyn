@@ -4,12 +4,15 @@
   <!-- En-tête + filtre -->
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-xl font-semibold text-white">Réservations</h1>
-      <p class="text-sm text-gray-400">Liste de toutes les réservations actives et retournées.</p>
+      <h1 class="text-xl font-semibold text-black">Réservations</h1>
+      <p class="text-sm text-gray-400">Liste de toutes les réservations.</p>
     </div>
     <div class="flex items-center gap-3">
       <!-- Filtre statut -->
-      <select (change)="onStatusChange($event)" class="...">
+      <select
+        (change)="onStatusChange($event)"
+        class="bg-white-700 text-black text-sm border-blue-500 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+      >
         <option value="">Tous</option>
         <option value="ACTIVE">Actif</option>
         <option value="RETURNED">Retourné</option>
@@ -28,6 +31,7 @@
   <table class="w-full text-sm text-left">
     <thead>
       <tr class="border-b border-black">
+        <th class="py-3 pr-6 text-black font-medium">Id</th>
         <th class="py-3 pr-6 text-black font-medium">Véhicule</th>
         <th class="py-3 pr-6 text-black font-medium">Agent</th>
         <th class="py-3 pr-6 text-black font-medium">Conducteur</th>
@@ -38,9 +42,12 @@
       </tr>
     </thead>
     <tbody>
-      @for (r of page()?.content; track r.id) {
+      @for (r of page()?.content; track r.id; let i = $index) {
         <tr class="border-b border-white/5 hover:bg-white/5">
           <td class="py-4 pr-6 text-black font-medium">
+            {{ currentPage() * 10 + i + 1 }}
+          </td>
+          <td class="py-4 pr-6 text-black">
             {{ vehicleNames().get(r.vehicleId) ?? r.vehicleId }}
           </td>
           <td class="py-4 pr-6 text-black">

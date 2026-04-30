@@ -14,14 +14,14 @@ export const reservationsRoutes: Routes = [
     data: { roles: ['ADMIN', 'AGENT'] },
   },
   {
-    path: 'reservations/:id',
-    component: DetailsReservationComponent,
+    path: 'reservations/new',
+    component: NewReservationComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'AGENT'] },
   },
   {
-    path: 'reservations/new',
-    component: NewReservationComponent,
+    path: 'reservations/:id',
+    component: DetailsReservationComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'AGENT'] },
   },

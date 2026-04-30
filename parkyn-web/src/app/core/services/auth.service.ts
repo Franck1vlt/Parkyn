@@ -56,10 +56,8 @@ export class AuthService {
   }
 
   logout(): void {
-    this.http.post<LoginResponse>(`${this.API_URL}/logout`, {}).subscribe({
-      complete: () => this.clearSession(),
-      error: () => this.clearSession(),
-    });
+    this.clearSession();
+    this.http.post<LoginResponse>(`${this.API_URL}/logout`, {}).subscribe();
   }
 
   currentUserDetails(): Observable<CurrentUser> {
@@ -90,6 +88,10 @@ export class AuthService {
   hasRole(...roles: Role[]): boolean {
     const role = this.getRole();
     return role !== null && roles.includes(role);
+  }
+
+  getEmail(): string | null {
+    return this.currentUserSubject.value?.email ?? null;
   }
 
   get currentUser(): CurrentUser | null {

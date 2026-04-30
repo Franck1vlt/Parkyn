@@ -31,11 +31,14 @@ public class ReservationService {
     private final DriverAssignmentService driverAssignmentService;
 
     @Transactional
-    public Page<ReservationResponse> getReservations(Reservation.Condition status, Pageable pageable) {
+    public Page<ReservationResponse> getReservations(Reservation.Condition status, UUID vehicleId, Pageable pageable) {
         Specification<Reservation> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (status != null) {
                 predicates.add(cb.equal(root.get("conditionBefore"), status));
+            }
+            if (vehicleId != null) {
+                predicates.add(cb.equal(root.get("vehicle").get("id"), vehicleId));
             }
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };

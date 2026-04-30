@@ -7,14 +7,14 @@ import { RoleGuard } from '../../core/guards/role.guard';
 
 export const vehiclesRoutes: Routes = [
   {
-    path: 'vehicles/:id',
-    component: DetailsVehicleComponent,
+    path: 'vehicles/new',
+    component: NewVehicleComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'AGENT'] },
   },
   {
-    path: 'vehicles/new',
-    component: NewVehicleComponent,
+    path: 'vehicles/:id',
+    component: DetailsVehicleComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'AGENT'] },
   },

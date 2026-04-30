@@ -30,18 +30,20 @@ export interface ReservationResponse {
   id: string;
   vehicleId: string;
   driverId: string;
+  driverFirstName: string;
+  driverLastName: string;
   agentId: string;
   startDate: string;
   endDate: string;
-  returnedAt: string;
+  returnedAt: string | null;
   conditionBefore: string;
   mileageStart: number;
-  notesBefore: string;
-  conditionAfter: string;
-  mileageEnd: number;
-  damageReported: boolean;
-  damageDetails: string;
-  notesAfter: string;
+  notesBefore: string | null;
+  conditionAfter: string | null;
+  mileageEnd: number | null;
+  damageReported: boolean | null;
+  damageDetails: string | null;
+  notesAfter: string | null;
 }
 
 @Injectable({
@@ -70,6 +72,11 @@ export class ReservationsService {
 
   getReservationById(id: string): Observable<ReservationResponse> {
     return this.http.get<ReservationResponse>(`${this.API_URL}/${id}`);
+  }
+
+  getReservationsByVehicle(vehicleId: string, page = 0, size = 10): Observable<Page<ReservationResponse>> {
+    const params = new HttpParams().set('vehicleId', vehicleId).set('page', page).set('size', size);
+    return this.http.get<Page<ReservationResponse>>(this.API_URL, { params });
   }
 
   returnVehicle(id: string, request: ReturnVehicleRequest): Observable<ReservationResponse> {

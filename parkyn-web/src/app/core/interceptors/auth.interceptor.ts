@@ -13,7 +13,11 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
     });
     return next(authReq).pipe(
       catchError((error) => {
-        if (error.status === 401) {
+        if (
+          error.status === 401 &&
+          !req.url.includes('/auth/refresh') &&
+          !req.url.includes('/auth/logout')
+        ) {
           return authService.refresh().pipe(
             switchMap((response) => {
               const retryReq = req.clone({
@@ -26,6 +30,10 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
               return throwError(() => error);
             }),
           );
+        }
+
+        if (error.status === 401) {
+          authService.logout();
         }
         return throwError(() => error);
       }),

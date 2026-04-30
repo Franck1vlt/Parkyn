@@ -1,4 +1,9 @@
-<select name="" id="" (change)="onSelect($event)">
+<select
+  name=""
+  id=""
+  (change)="onSelect($event)"
+  class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+>
   <option value="">Select a condition</option>
   <option *ngFor="let condition of conditions" [value]="condition">
     {{ condition }}

@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,14 +28,17 @@ public class UserService {
 
 
     @Transactional
-    public Page<UserResponse> getUsers(Pageable pageable) {
+    public Page<UserResponse> getUsers(User.Role role, Pageable pageable) {
         Specification<User> spec = (root, query, cb) -> {
-            var predicates = new java.util.ArrayList<Predicate>();
-            predicates.add(cb.isTrue(root.get("active")));
-            return cb.and(predicates.toArray(new Predicate[0]));
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (role != null) {
+                predicates.add(cb.equal(root.get("role"), role));
+            }
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
         return userRepository.findAll(spec, pageable).map(UserResponse::from);
     }
+
 
     @Transactional
     public UserResponse addUser(User currentUser, UserRequest request) {
@@ -56,6 +60,14 @@ public class UserService {
         user.setActive(request.active());
         return UserResponse.from(userRepository.saveAndFlush(user));
     }
+
+    @Transactional
+    public UserResponse getUserById(UUID id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
+        return UserResponse.from(user);
+    }
+
 
     @Transactional
     public UserResponse updateUserById(UUID id, UserUpdateRequest request) {

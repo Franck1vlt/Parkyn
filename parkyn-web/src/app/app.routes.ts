@@ -8,8 +8,10 @@ import { reservationsRoutes } from './features/reservations/reservations.routes'
 import { vehiclesRoutes } from './features/vehicles/vehicles.routes';
 import { ProfileComponent } from './features/profile/profile.component';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
+import { usersRoutes } from './features/users/users.routes';
 
 export const routes: Routes = [
+  ...usersRoutes,
   ...vehiclesRoutes,
   ...reservationsRoutes,
   ...authRoutes,
