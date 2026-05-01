@@ -88,6 +88,12 @@
             </div>
             <div>
               <label class="block mb-1.5 text-sm font-medium text-gray-700"
+                >État du véhicule</label
+              >
+              <app-condition-select (conditionChange)="onConditionChange($event)" />
+            </div>
+            <div>
+              <label class="block mb-1.5 text-sm font-medium text-gray-700"
                 >Mise en service le</label
               >
               <input

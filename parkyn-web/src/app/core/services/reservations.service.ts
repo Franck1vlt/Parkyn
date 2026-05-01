@@ -5,12 +5,12 @@ import { environment } from '../../../environments/environment';
 import { Page } from '../models/page.model';
 
 export interface ReservationRequest {
-  id: string;
   vehicleId: string;
   driverId: string;
   driverFirstName: string;
   driverLastName: string;
   driverEmail: string;
+  agentId?: string;
   startDate: string;
   endDate: string;
   conditionBefore: string;
@@ -33,6 +33,8 @@ export interface ReservationResponse {
   driverFirstName: string;
   driverLastName: string;
   agentId: string;
+  agentFirstName: string | null;
+  agentLastName: string | null;
   startDate: string;
   endDate: string;
   returnedAt: string | null;
@@ -74,12 +76,16 @@ export class ReservationsService {
     return this.http.get<ReservationResponse>(`${this.API_URL}/${id}`);
   }
 
-  getReservationsByVehicle(vehicleId: string, page = 0, size = 10): Observable<Page<ReservationResponse>> {
+  getReservationsByVehicle(
+    vehicleId: string,
+    page = 0,
+    size = 10,
+  ): Observable<Page<ReservationResponse>> {
     const params = new HttpParams().set('vehicleId', vehicleId).set('page', page).set('size', size);
     return this.http.get<Page<ReservationResponse>>(this.API_URL, { params });
   }
 
   returnVehicle(id: string, request: ReturnVehicleRequest): Observable<ReservationResponse> {
-    return this.http.patch<ReservationResponse>(`${this.API_URL}/${id}/return`, request);
+    return this.http.post<ReservationResponse>(`${this.API_URL}/${id}/return`, request);
   }
 }

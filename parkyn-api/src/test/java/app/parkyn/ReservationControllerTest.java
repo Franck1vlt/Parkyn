@@ -135,14 +135,15 @@ public class ReservationControllerTest {
         String token = getAccessToken();
         ReservationRequest request = new ReservationRequest(
             testVehicleId,
-            null, 
-            "Jean", 
-            "Dupont", 
-            "jean.dupont@parkyn.app", 
-            OffsetDateTime.now().plusDays(5), 
-            OffsetDateTime.now().plusDays(7), 
-            Reservation.Condition.GOOD, 
-            50000, 
+            null,
+            "Jean",
+            "Dupont",
+            "jean.dupont@parkyn.app",
+            null,
+            OffsetDateTime.now().plusDays(5),
+            OffsetDateTime.now().plusDays(7),
+            Reservation.Condition.GOOD,
+            50000,
             null
         );
         

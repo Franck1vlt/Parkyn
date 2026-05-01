@@ -13,6 +13,7 @@ public record VehicleResponse(
     String model,
     Integer year,
     Integer mileageKM,
+    Vehicle.VehicleCondition condition,
     VehicleStatus status,
     LocalDate commissionedAt,
     LocalDate createdAt
@@ -25,6 +26,7 @@ public record VehicleResponse(
             vehicle.getModel(),
             vehicle.getYear(),
             vehicle.getMileageKM(),
+            vehicle.getCondition(),
             vehicle.getStatus(),
             vehicle.getCommissionedAt(),
             vehicle.getCreatedAt().toLocalDate()

@@ -10,12 +10,11 @@ import {
 } from '@angular/forms';
 import { UsersService } from '../../../../core/services/users.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-new-user',
   standalone: true,
-  imports: [HeaderComponent, RouterLink, ReactiveFormsModule, JsonPipe],
+  imports: [HeaderComponent, RouterLink, ReactiveFormsModule],
   templateUrl: './new-user.component.html',
   styleUrl: './new-user.component.css',
 })

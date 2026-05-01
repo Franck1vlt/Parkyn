@@ -40,9 +40,10 @@ public class VehicleController {
     @GetMapping("")
     public ResponseEntity<Page<VehicleResponse>> getVehicles(
         @RequestParam(required = false) Vehicle.VehicleStatus status,
+        @RequestParam(required = false) String search,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        return ResponseEntity.ok().body(vehicleService.getVehicles(status, pageable));
+        return ResponseEntity.ok().body(vehicleService.getVehicles(status, search, pageable));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")

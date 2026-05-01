@@ -1,5 +1,13 @@
 import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
-import { debounceTime, distinctUntilChanged, Subject, switchMap, takeUntil } from 'rxjs';
+import {
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  Subject,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
 import { UserResponse, UsersService } from '../../../../core/services/users.service';
 import { NgFor, NgIf } from '@angular/common';
 
@@ -15,6 +23,7 @@ export class DriverSelectComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   selectedDriverName = '';
   filteredDrivers: UserResponse[] = [];
+  isLoading = false;
 
   @Output() driverChange = new EventEmitter<string>();
   @Output() driverSelected = new EventEmitter<UserResponse>();
@@ -24,12 +33,17 @@ export class DriverSelectComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.searchSubject
       .pipe(
-        debounceTime(300),
+        debounceTime(200),
         distinctUntilChanged(),
+        filter((query) => query.length >= 2),
+        tap(() => (this.isLoading = true)),
         switchMap((query) => this.usersService.searchDrivers(query)),
         takeUntil(this.destroy$),
       )
-      .subscribe((page) => (this.filteredDrivers = page.content));
+      .subscribe((page) => {
+        this.filteredDrivers = page.content;
+        this.isLoading = false;
+      });
   }
 
   ngOnDestroy(): void {

@@ -28,57 +28,79 @@
   </div>
 
   <!-- Tableau -->
-  <table class="w-full text-sm text-left">
-    <thead>
-      <tr class="border-b border-black">
-        <th class="py-3 pr-6 text-black font-medium">Id</th>
-        <th class="py-3 pr-6 text-black font-medium">Véhicule</th>
-        <th class="py-3 pr-6 text-black font-medium">Agent</th>
-        <th class="py-3 pr-6 text-black font-medium">Conducteur</th>
-        <th class="py-3 pr-6 text-black font-medium">Début</th>
-        <th class="py-3 pr-6 text-black font-medium">Fin</th>
-        <th class="py-3 pr-6 text-black font-medium">Statut</th>
-        <th class="py-3 pr-6 text-black font-medium">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (r of page()?.content; track r.id; let i = $index) {
-        <tr class="border-b border-white/5 hover:bg-white/5">
-          <td class="py-4 pr-6 text-black font-medium">
-            {{ currentPage() * 10 + i + 1 }}
-          </td>
-          <td class="py-4 pr-6 text-black">
-            {{ vehicleNames().get(r.vehicleId) ?? r.vehicleId }}
-          </td>
-          <td class="py-4 pr-6 text-black">
-            {{ agentNames().get(r.agentId) ?? r.agentId }}
-          </td>
-          <td class="py-4 pr-6 text-black">
-            {{ driverNames().get(r.driverId) ?? r.driverId }}
-          </td>
-          <td class="py-4 pr-6 text-black">{{ r.startDate | date: 'dd/MM/yyyy' }}</td>
-          <td class="py-4 pr-6 text-black">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
-          <td class="py-4 pr-6">
-            <!-- Badge statut à faire -->
-            @if (isReturned(r)) {
-              <span class="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded"
-                >Retourné</span
-              >
-            } @else {
-              <span class="bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded"
-                >Actif</span
-              >
-            }
-          </td>
-          <td class="py-4 text-right">
-            <a [routerLink]="['/reservations', r.id]" class="text-indigo-400 hover:text-indigo-300"
-              >Voir</a
-            >
-          </td>
+  <div
+    class="relative overflow-x-auto bg-neutral-primary-soft shadow-xs rounded-base border border-white"
+  >
+    <table class="w-full text-sm text-left">
+      <thead>
+        <tr class="border-b border-gray-200">
+          <th class="py-3 px-4 text-gray-500 font-medium">#</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Véhicule</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Agent</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Conducteur</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Début</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Fin</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Statut</th>
+          <th class="py-3 px-4 text-gray-500 font-medium">Actions</th>
         </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        @for (r of page()?.content; track r.id; let i = $index) {
+          <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+            <td class="py-3 px-4 text-gray-400">
+              {{ currentPage() * 10 + i + 1 }}
+            </td>
+            <td class="py-3 px-4 text-gray-400">
+              {{ vehicleNames().get(r.vehicleId) ?? '—' }}
+            </td>
+            <td class="py-3 px-4 text-gray-400">
+              {{ r.agentFirstName }} {{ r.agentLastName }}
+            </td>
+            <td class="py-3 px-4 text-gray-400">
+              {{ r.driverFirstName }} {{ r.driverLastName }}
+            </td>
+            <td class="py-4 pr-6 text-gray-400">{{ r.startDate | date: 'dd/MM/yyyy' }}</td>
+            <td class="py-4 pr-6 text-gray-400">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
+            <td class="py-4 pr-6">
+              <!-- Badge statut à faire -->
+              @if (isReturned(r)) {
+                <span class="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded"
+                  >Retourné</span
+                >
+              } @else {
+                <span class="bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded"
+                  >Actif</span
+                >
+              }
+            </td>
+            <td class="py-3 px-4 flex justify-start gap-3 pt-3 border-t border-gray-100">
+              <a [routerLink]="['/reservations', r.id]" class="text-gray-400 hover:text-orange-600">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="size-6"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
+                </svg>
+              </a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 
   <!-- Pagination -->
   <div class="flex items-center justify-between mt-6 text-sm text-black">

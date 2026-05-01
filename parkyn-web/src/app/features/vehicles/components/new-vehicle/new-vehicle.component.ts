@@ -3,11 +3,12 @@ import { HeaderComponent } from '../../../../core/components/header/header.compo
 import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VehicleService } from '../../../../core/services/vehicles.service';
+import { ConditionSelectComponent } from '../../../reservations/components/condition-select/condition-select.component';
 
 @Component({
   selector: 'app-new-vehicle',
   standalone: true,
-  imports: [HeaderComponent, RouterLink, ReactiveFormsModule],
+  imports: [HeaderComponent, RouterLink, ReactiveFormsModule, ConditionSelectComponent],
   templateUrl: './new-vehicle.component.html',
   styleUrl: './new-vehicle.component.css',
 })
@@ -27,6 +28,7 @@ export class NewVehicleComponent {
       model: ['', Validators.required],
       year: [null, [Validators.required, Validators.min(0)]],
       mileageKM: [null, [Validators.required, Validators.min(0)]],
+      condition: ['', Validators.required],
       commissionedAt: ['', Validators.required],
     });
   }
@@ -46,6 +48,7 @@ export class NewVehicleComponent {
         model: formValue.model,
         year: Number(formValue.year),
         mileageKM: Number(formValue.mileageKM),
+        condition: formValue.condition,
         commissionedAt: formValue.commissionedAt,
       })
       .subscribe({
@@ -55,5 +58,9 @@ export class NewVehicleComponent {
           this.isSubmitting = false;
         },
       });
+  }
+
+  onConditionChange(condition: string) {
+    this.vehicleForm.get('condition')?.setValue(condition);
   }
 }

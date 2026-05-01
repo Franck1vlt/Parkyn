@@ -67,6 +67,11 @@ export class UsersService {
     return this.http.get<Page<UserResponse>>(`${this.API_URL}/drivers`);
   }
 
+  searchAgents(query: string): Observable<Page<UserResponse>> {
+    const params = new HttpParams().set('search', query).set('size', '10').set('role', 'AGENT');
+    return this.http.get<Page<UserResponse>>(this.API_URL, { params });
+  }
+
   searchDrivers(query: string): Observable<Page<UserResponse>> {
     const params = new HttpParams().set('search', query).set('size', '10');
     return this.http.get<Page<UserResponse>>(`${this.API_URL}/drivers`, { params });

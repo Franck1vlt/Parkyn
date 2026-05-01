@@ -9,6 +9,7 @@ import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
+import app.parkyn.dto.RegisterRequest;
 import app.parkyn.model.User;
 import app.parkyn.service.AuthService;
 import jakarta.validation.Valid;
@@ -44,4 +45,9 @@ public class AuthController {
         return ResponseEntity.ok(authService.me(user));
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        authService.createAccount(request);
+        return ResponseEntity.status(201).build();
+    }
 }

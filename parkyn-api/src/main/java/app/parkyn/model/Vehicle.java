@@ -43,6 +43,10 @@ public class Vehicle {
     private Integer mileageKM = 0;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "condition", length = 20)
+    private VehicleCondition condition;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private VehicleStatus status = VehicleStatus.AVAILABLE;
 
@@ -58,5 +62,9 @@ public class Vehicle {
 
     public enum VehicleStatus {
         AVAILABLE, RESERVED, MAINTENANCE, RETIRED
+    }
+
+    public enum VehicleCondition {
+        EXCELLENT, GOOD, FAIR, POOR
     }
 }

@@ -2,6 +2,7 @@ package app.parkyn.repository;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import app.parkyn.model.Reservation;
+import app.parkyn.model.User;
 
 public interface ReservationRepository extends JpaRepository<Reservation, UUID>, JpaSpecificationExecutor<Reservation> {
 
@@ -24,4 +26,34 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
         @Param("startDate") OffsetDateTime startDate,
         @Param("endDate") OffsetDateTime endDate
     );
+
+    List<Reservation> findByReturnedAtIsNullAndEndDateBetween(OffsetDateTime start, OffsetDateTime end);
+
+    List<Reservation> findTop5ByOrderByCreatedAtDesc();
+
+    List<Reservation> findTop5ByAgentIdOrderByCreatedAtDesc(UUID agentId);
+
+    @Query("""
+        SELECT r.driver 
+        FROM Reservation r
+        WHERE (:agentId IS NULL OR r.agent.id = :agentId)
+        GROUP BY r.driver
+        ORDER BY MAX(r.createdAt) DESC
+        LIMIT 5
+            """)
+    List<User> findLatestDrivers(@Param("agentId") UUID agentId);
+
+    Long countByAgentId(@Param("agentId") UUID agentId);
+
+    @Query("""
+        SELECT r.agent.firstName, r.agent.lastName, COUNT(r) 
+        FROM Reservation r 
+        GROUP BY r.agent
+        """)
+    List<Object[]> countReservationsByAgent();
+
+    Long countByAgentIdAndReturnedAtIsNull(@Param("agentId") UUID agentId);
+
+    Long countByAgentIdAndStartDateBetween(UUID agentId, OffsetDateTime start, OffsetDateTime end);
+
 }

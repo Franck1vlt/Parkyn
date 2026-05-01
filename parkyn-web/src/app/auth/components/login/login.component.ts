@@ -12,6 +12,7 @@ import { switchMap } from 'rxjs';
 })
 export class LoginComponent implements OnInit {
   loginForm!: FormGroup;
+  showPassword = false;
 
   constructor(
     private auth: AuthService,

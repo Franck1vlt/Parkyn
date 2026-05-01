@@ -6,7 +6,7 @@ import {
   VehicleStatus,
 } from '../../../../core/services/vehicles.service';
 import { RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgClass } from '@angular/common';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import {
   ReservationResponse,
@@ -14,11 +14,19 @@ import {
 } from '../../../../core/services/reservations.service';
 import { Page } from '../../../../core/models/page.model';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ConditionSelectComponent } from '../../../reservations/components/condition-select/condition-select.component';
 
 @Component({
   selector: 'app-details-vehicle',
   standalone: true,
-  imports: [HeaderComponent, RouterLink, DatePipe, DecimalPipe, ReactiveFormsModule],
+  imports: [
+    HeaderComponent,
+    RouterLink,
+    DatePipe,
+    DecimalPipe,
+    ReactiveFormsModule,
+    ConditionSelectComponent,
+  ],
   templateUrl: './details-vehicle.component.html',
   styleUrl: './details-vehicle.component.css',
 })
@@ -46,6 +54,7 @@ export class DetailsVehicleComponent implements OnInit {
       plateNumber: [''],
       year: [null],
       mileageKM: [null],
+      condition: [''],
       commissionedAt: [''],
     });
   }
@@ -72,11 +81,33 @@ export class DetailsVehicleComponent implements OnInit {
   getStatusClass(status: VehicleStatus): string {
     const classes: Record<VehicleStatus, string> = {
       AVAILABLE: 'text-green-700',
-      RESERVED: 'text-blue-700',
+      RESERVED: 'text-indigo-700',
       MAINTENANCE: 'text-orange-700',
       RETIRED: 'text-gray-500',
     };
     return classes[status];
+  }
+
+  getConditionLabel(condition: string | null | undefined): string {
+    if (!condition) return '—';
+    const labels: Record<string, string> = {
+      EXCELLENT: 'Excellent',
+      GOOD: 'Bon',
+      FAIR: 'Moyen',
+      POOR: 'Mauvais',
+    };
+    return labels[condition] || condition;
+  }
+
+  getConditionClass(condition: string | null | undefined): string {
+    if (!condition) return '';
+    const classes: Record<string, string> = {
+      EXCELLENT: 'text-green-700',
+      GOOD: 'text-blue-700',
+      FAIR: 'text-orange-700',
+      POOR: 'text-red-500',
+    };
+    return classes[condition] || '';
   }
 
   loadVehicles() {
@@ -109,6 +140,7 @@ export class DetailsVehicleComponent implements OnInit {
       year: v.year,
       mileageKM: v.mileageKM,
       commissionedAt: v.commissionedAt,
+      condition: v.condition,
     });
     this.showUpdateModal.set(true);
   }
@@ -121,6 +153,18 @@ export class DetailsVehicleComponent implements OnInit {
         this.showUpdateModal.set(false);
       },
       error: (err) => console.error('Erreur mise à jour', err),
+    });
+  }
+
+  onConditionChange(condition: string) {
+    this.vehicleUpdateForm.get('condition')?.setValue(condition);
+  }
+
+  updateStatus(status: VehicleStatus) {
+    const id = this.vehicle()!.id;
+    this.vehicleService.updateVehicleStatus(id, { status }).subscribe({
+      next: (updated) => this.vehicle.set(updated),
+      error: (err) => console.error('Erreur mise à jour du statut', err),
     });
   }
 }

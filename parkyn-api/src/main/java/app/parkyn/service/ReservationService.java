@@ -18,7 +18,9 @@ import app.parkyn.dto.ReturnVehicleRequest;
 import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
+import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.repository.ReservationRepository;
+import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -28,7 +30,9 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final VehicleRepository vehicleRepository;
+    private final UserRepository userRepository;
     private final DriverAssignmentService driverAssignmentService;
+    private final NotificationService notificationService;
 
     @Transactional
     public Page<ReservationResponse> getReservations(Reservation.Condition status, UUID vehicleId, Pageable pageable) {
@@ -54,7 +58,13 @@ public class ReservationService {
         validateCreate(request, vehicle);
         User driver = driverAssignmentService.getOrCreateDriver(request);
 
-        User agent = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User agent;
+        if (request.agentId() != null) {
+            agent = userRepository.findById(request.agentId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent introuvable"));
+        } else {
+            agent = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        }
 
         Reservation reservation = new Reservation();
         reservation.setVehicle(vehicle);
@@ -66,7 +76,9 @@ public class ReservationService {
         reservation.setStartDate(request.startDate());
         reservation.setEndDate(request.endDate());
         vehicle.setStatus(Vehicle.VehicleStatus.RESERVED);
-        return ReservationResponse.from(reservationRepository.saveAndFlush(reservation));
+        Reservation saved = reservationRepository.saveAndFlush(reservation);
+        notificationService.createForAllAdminsAndAgents(NotificationType.NEW_RESERVATION, saved);
+        return ReservationResponse.from(saved);
     }
 
     @Transactional

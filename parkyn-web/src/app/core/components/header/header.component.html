@@ -81,10 +81,17 @@
       >
         <button
           type="button"
-          class="relative rounded-full p-1 text-gray-400 hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500"
+          (click)="toggleNotifications()"
+          class="relative rounded-full p-1 text-gray-400 hover:text-white"
         >
           <span class="absolute -inset-1.5"></span>
           <span class="sr-only">View notifications</span>
+          @if (unreadCount() > 0) {
+            <span
+              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full size-4 flex items-center justify-center"
+              >{{ unreadCount() }}</span
+            >
+          }
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -101,6 +108,44 @@
             />
           </svg>
         </button>
+        @if (isNotificationsOpen()) {
+          <div
+            class="absolute right-10 top-15 w-80 rounded-md bg-gray-800 py-1 outline -outline-offset-1 outline-white/10 z-50 max-h-80 overflow-y-auto"
+          >
+            <button
+              (click)="markAllAsRead()"
+              class="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 border-b border-white/10"
+            >
+              Marquer toutes comme lues
+            </button>
+            <span
+              *ngIf="notifications().length === 0"
+              class="block px-4 py-2 text-sm text-gray-500"
+            >
+              Aucune notification
+            </span>
+            <a
+              *ngFor="let notification of notifications()"
+              (click)="markAsRead(notification)"
+              [class]="
+                notification.isRead
+                  ? 'flex items-start gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-white/5 cursor-pointer'
+                  : 'flex items-start gap-2 px-4 py-2 text-sm text-white bg-white/5 hover:bg-white/10 cursor-pointer'
+              "
+            >
+              <span
+                *ngIf="!notification.isRead"
+                class="mt-1.5 shrink-0 size-2 rounded-full bg-orange-400"
+              ></span>
+              <span [class]="notification.isRead ? 'ml-4' : ''">
+                {{ getNotificationLabel(notification.type) }}
+                <span class="block text-xs text-gray-500">{{
+                  notification.createdAt | date: 'dd/MM HH:mm'
+                }}</span>
+              </span>
+            </a>
+          </div>
+        }
 
         <!-- Profile dropdown -->
         <div class="relative flex items-center gap-2 ml-3">

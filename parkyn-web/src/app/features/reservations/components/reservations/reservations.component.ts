@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, signal } from '@angular/core';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import { RouterLink } from '@angular/router';
 import {
@@ -6,10 +6,8 @@ import {
   ReservationsService,
 } from '../../../../core/services/reservations.service';
 import { Page } from '../../../../core/models/page.model';
-import { DatePipe, JsonPipe, NgIf } from '@angular/common';
-import { UsersService } from '../../../../core/services/users.service';
+import { DatePipe } from '@angular/common';
 import { VehicleService } from '../../../../core/services/vehicles.service';
-import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-reservations',
@@ -24,29 +22,18 @@ export class ReservationsComponent implements OnInit {
   selectedStatus = signal<string | null>(null);
   isLoading = signal(false);
   vehicleNames = signal(new Map<string, string>());
-  agentNames = signal(new Map<string, string>());
-  driverNames = signal(new Map<string, string>());
+  @Output() onDelete = new EventEmitter<string>();
 
   constructor(
     private reservationsService: ReservationsService,
     private vehicleService: VehicleService,
-    private usersService: UsersService,
   ) {}
 
   ngOnInit(): void {
     this.load();
-    forkJoin({
-      vehicles: this.vehicleService.getVehicles(),
-      users: this.usersService.getUsers(),
-    }).subscribe(({ vehicles, users }) => {
+    this.vehicleService.getVehicles().subscribe((vehicles) => {
       this.vehicleNames.set(
         new Map(vehicles.content.map((v) => [v.id, `${v.brand} ${v.model} (${v.plateNumber})`])),
-      );
-      this.driverNames.set(
-        new Map(users.content.map((u) => [u.id, `${u.firstname} ${u.lastname}`])),
-      );
-      this.agentNames.set(
-        new Map(users.content.map((u) => [u.id, `${u.firstname} ${u.lastname}`])),
       );
     });
   }

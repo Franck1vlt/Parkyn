@@ -48,6 +48,15 @@ export class AuthService {
       .pipe(tap((response) => this.storeToken(response)));
   }
 
+  register(firstname: string, lastname: string, email: string, password: string): Observable<void> {
+    return this.http.post<void>(`${this.API_URL}/register`, {
+      firstname,
+      lastname,
+      email,
+      password,
+    });
+  }
+
   refresh(): Observable<LoginResponse> {
     const refreshToken = this.getRefreshToken();
     return this.http

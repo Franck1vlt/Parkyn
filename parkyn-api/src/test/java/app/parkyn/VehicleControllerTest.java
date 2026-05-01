@@ -120,6 +120,7 @@ public class VehicleControllerTest {
             "Zoe",
             2023,
             21345,
+            Vehicle.VehicleCondition.GOOD,
             LocalDate.of(2026, 4, 21)
         );
 
@@ -165,7 +166,8 @@ public class VehicleControllerTest {
             null, 
             null, 
             2025, 
-            12500, 
+            12500,
+            Vehicle.VehicleCondition.EXCELLENT,
             null
         );
 

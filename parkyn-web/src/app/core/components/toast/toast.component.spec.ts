@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ReturnVehicleComponent } from './return-vehicle.component';
+import { ToastComponent } from './toast.component';
 
-describe('ReturnVehicleComponent', () => {
-  let component: ReturnVehicleComponent;
-  let fixture: ComponentFixture<ReturnVehicleComponent>;
+describe('ToastComponent', () => {
+  let component: ToastComponent;
+  let fixture: ComponentFixture<ToastComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ReturnVehicleComponent]
+      imports: [ToastComponent]
     })
     .compileComponents();
     
-    fixture = TestBed.createComponent(ReturnVehicleComponent);
+    fixture = TestBed.createComponent(ToastComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

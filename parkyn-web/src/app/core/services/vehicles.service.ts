@@ -12,6 +12,7 @@ export interface VehicleRequest {
   model: string;
   year: number;
   mileageKM: number;
+  condition: string;
   commissionedAt: string;
 }
 
@@ -21,6 +22,7 @@ export interface VehicleUpdateRequest {
   model?: string;
   year?: number;
   mileageKM?: number;
+  condition?: string;
   commissionedAt?: string;
 }
 
@@ -35,6 +37,7 @@ export interface VehicleResponse {
   model: string;
   year: number;
   mileageKM: number;
+  condition: string;
   status: VehicleStatus;
   commissionedAt: string;
   createdAt: string;

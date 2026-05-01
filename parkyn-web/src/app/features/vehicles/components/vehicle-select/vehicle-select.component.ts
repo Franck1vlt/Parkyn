@@ -1,7 +1,15 @@
 import { NgFor, NgIf } from '@angular/common';
 import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { VehicleResponse, VehicleService } from '../../../../core/services/vehicles.service';
-import { debounceTime, distinctUntilChanged, Subject, switchMap, takeUntil } from 'rxjs';
+import {
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  Subject,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
 
 @Component({
   selector: 'app-vehicle-select',
@@ -15,6 +23,7 @@ export class VehicleSelectComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   selectedVehicleName = '';
   filteredVehicles: VehicleResponse[] = [];
+  isLoading = false;
 
   @Output() vehicleChange = new EventEmitter<string>();
   @Output() vehicleSelected = new EventEmitter<VehicleResponse>();
@@ -26,10 +35,15 @@ export class VehicleSelectComponent implements OnInit, OnDestroy {
       .pipe(
         debounceTime(300),
         distinctUntilChanged(),
+        filter((query) => query.length >= 2),
+        tap(() => (this.isLoading = true)),
         switchMap((query) => this.vehiclesService.searchVehicles(query)),
         takeUntil(this.destroy$),
       )
-      .subscribe((page) => (this.filteredVehicles = page.content));
+      .subscribe((page) => {
+        this.filteredVehicles = page.content;
+        this.isLoading = false;
+      });
   }
 
   ngOnDestroy(): void {

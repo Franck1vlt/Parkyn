@@ -55,4 +55,40 @@ export class ProfileComponent {
     };
     return colors[this.userRole] ?? 'bg-gray-100 text-gray-700 border-gray-300';
   }
+
+  get permissions() {
+    const role = this.auth.getRole();
+    return [
+      {
+        label: 'Gestion des véhicules',
+        description: 'Consulter, ajouter, modifier, supprimer',
+        allowed: role === 'ADMIN' || role === 'AGENT',
+      },
+      {
+        label: 'Gestion des réservations',
+        description: 'Créer et clôturer des réservations',
+        allowed: role === 'ADMIN' || role === 'AGENT',
+      },
+      {
+        label: 'Gestion des utilisateurs',
+        description: 'Créer et gérer les utilisateurs',
+        allowed: role === 'ADMIN',
+      },
+      {
+        label: 'Gestion des conducteurs',
+        description: 'Créer et modifier les conducteurs',
+        allowed: role === 'ADMIN' || role === 'AGENT',
+      },
+      {
+        label: 'Réactiver les utilisateurs',
+        description: "Réactiver les comptes d'utilisateurs désactivés",
+        allowed: role === 'ADMIN',
+      },
+      {
+        label: 'Administration',
+        description: 'Accès complet à toutes les fonctionnalités',
+        allowed: role === 'ADMIN',
+      },
+    ];
+  }
 }

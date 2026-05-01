@@ -1,5 +1,6 @@
 package app.parkyn.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,4 +11,6 @@ import app.parkyn.model.User;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
     Optional<User> findByEmail(String email);
+
+    List<User> findByRoleIn(List<User.Role> roles);
 }

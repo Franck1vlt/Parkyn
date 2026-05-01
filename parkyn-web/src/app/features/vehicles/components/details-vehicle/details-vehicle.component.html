@@ -27,6 +27,25 @@
       </button>
 
       <div class="flex items-center gap-2">
+        @if (vehicle()?.status === 'AVAILABLE') {
+          <!-- bouton maintenance -->
+          <button
+            type="button"
+            (click)="updateStatus('MAINTENANCE')"
+            class="text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+          >
+            Mettre en maintenance
+          </button>
+        } @else if (vehicle()?.status === 'MAINTENANCE') {
+          <!-- bouton disponible -->
+          <button
+            type="button"
+            (click)="updateStatus('AVAILABLE')"
+            class="text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+          >
+            Rendre disponible
+          </button>
+        }
         <button
           type="button"
           (click)="openUpdateModal()"
@@ -82,7 +101,7 @@
                 Kilométrage
               </p>
               <p class="mt-2 text-2xl font-bold text-gray-800">
-                {{ v?.mileageKM | number: '1.0-0' }} km
+                {{ v?.mileageKM | number: '1.0-0' }}
               </p>
             </div>
           </div>
@@ -104,11 +123,12 @@
           <div class="relative ...">
             <div class="absolute inset-px rounded-lg bg-white"></div>
             <div class="relative flex h-full flex-col p-8">
-              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                MISE EN SERVICE
-              </p>
-              <p class="mt-2 text-2xl font-bold text-gray-800">
-                {{ v?.commissionedAt | date: 'dd/MM/yyyy' }}
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Etat</p>
+              <p
+                class="mt-2 text-2xl font-bold text-gray-800"
+                [class]="getConditionClass(v?.condition)"
+              >
+                {{ getConditionLabel(v?.condition) }}
               </p>
             </div>
           </div>
@@ -150,11 +170,15 @@
             <div class="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wide">État avant</p>
-                <p class="font-medium text-gray-700">{{ r.conditionBefore }}</p>
+                <p class="font-medium text-gray-700">
+                  {{ getConditionLabel(r.conditionBefore) || '—' }}
+                </p>
               </div>
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wide">État après</p>
-                <p class="font-medium text-gray-700">{{ r.conditionAfter }}</p>
+                <p class="font-medium text-gray-700">
+                  {{ getConditionLabel(r.conditionAfter ?? undefined) || '—' }}
+                </p>
               </div>
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wide">Km départ</p>
@@ -237,6 +261,10 @@
                 formControlName="mileageKM"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
+            </div>
+            <div>
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">Etat du véhicule</label>
+              <app-condition-select (conditionChange)="onConditionChange($event)" />
             </div>
             <div>
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Mise en service</label>

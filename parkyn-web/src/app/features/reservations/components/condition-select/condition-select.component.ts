@@ -17,4 +17,14 @@ export class ConditionSelectComponent {
     const value = (event.target as HTMLSelectElement).value;
     this.conditionChange.emit(value);
   }
+
+  getConditionLabel(condition: string): string {
+    const labels: Record<string, string> = {
+      EXCELLENT: 'Excellent',
+      GOOD: 'Bon',
+      FAIR: 'Moyen',
+      POOR: 'Mauvais',
+    };
+    return labels[condition] || condition;
+  }
 }

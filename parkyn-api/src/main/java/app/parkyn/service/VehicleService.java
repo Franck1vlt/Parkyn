@@ -17,6 +17,7 @@ import app.parkyn.dto.VehicleRequest;
 import app.parkyn.dto.VehicleResponse;
 import app.parkyn.dto.VehicleStatusRequest;
 import app.parkyn.dto.VehicleUpdateRequest;
+import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.model.Vehicle;
 import app.parkyn.repository.VehicleRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -27,19 +28,29 @@ import lombok.RequiredArgsConstructor;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final NotificationService notificationService;
 
     @Transactional
-    public Page<VehicleResponse> getVehicles(Vehicle.VehicleStatus status, Pageable pageable) {
+    public Page<VehicleResponse> getVehicles(Vehicle.VehicleStatus status, String search, Pageable pageable) {
         Specification<Vehicle> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<Predicate>();
             predicates.add(cb.isNull(root.get("deletedAt")));
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
             }
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("brand")), pattern),
+                    cb.like(cb.lower(root.get("model")), pattern),
+                    cb.like(cb.lower(root.get("plateNumber")), pattern)
+                ));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         return vehicleRepository.findAll(spec, pageable).map(VehicleResponse::from);
     }
+
 
     @Transactional
     public VehicleResponse addVehicle(VehicleRequest request) {
@@ -49,6 +60,7 @@ public class VehicleService {
         vehicle.setModel(request.model());
         vehicle.setYear(request.year());
         vehicle.setMileageKM(request.mileageKM());
+        vehicle.setCondition(request.condition());
         vehicle.setCommissionedAt(request.commissionedAt());
         return VehicleResponse.from(vehicleRepository.saveAndFlush(vehicle));
     }
@@ -66,6 +78,7 @@ public class VehicleService {
         if (request.model() != null)          vehicle.setModel(request.model());
         if (request.year() != null)           vehicle.setYear(request.year());
         if (request.mileageKM() != null)      vehicle.setMileageKM(request.mileageKM());
+        if (request.condition() != null)      vehicle.setCondition(request.condition());
         if (request.commissionedAt() != null) vehicle.setCommissionedAt(request.commissionedAt());
         return VehicleResponse.from(vehicleRepository.saveAndFlush(vehicle));
     }
@@ -89,6 +102,11 @@ public class VehicleService {
         }
 
         vehicle.setStatus(request.status());
+
+        if (Vehicle.VehicleStatus.MAINTENANCE == request.status()) {
+                    notificationService.createForAllAdminsAndAgents(
+            NotificationType.VEHICLE_MAINTENANCE, null);
+        }
         return VehicleResponse.from(vehicleRepository.save(vehicle));
     }
 
