@@ -35,11 +35,13 @@ public class ReservationService {
     private final NotificationService notificationService;
 
     @Transactional
-    public Page<ReservationResponse> getReservations(Reservation.Condition status, UUID vehicleId, Pageable pageable) {
+    public Page<ReservationResponse> getReservations(String status, UUID vehicleId, Pageable pageable) {
         Specification<Reservation> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
-            if (status != null) {
-                predicates.add(cb.equal(root.get("conditionBefore"), status));
+            if ("ACTIVE".equals(status)) {
+                predicates.add(cb.isNull(root.get("returnedAt")));
+            } else if ("RETURNED".equals(status)) {
+                predicates.add(cb.isNotNull(root.get("returnedAt")));
             }
             if (vehicleId != null) {
                 predicates.add(cb.equal(root.get("vehicle").get("id"), vehicleId));

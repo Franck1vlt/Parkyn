@@ -36,7 +36,7 @@ public class ReservationController {
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("")
     public ResponseEntity<Page<ReservationResponse>> getRerservations(
-        @RequestParam(required = false) Reservation.Condition status,
+        @RequestParam(required = false) String status,
         @RequestParam(required = false) UUID vehicleId,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {

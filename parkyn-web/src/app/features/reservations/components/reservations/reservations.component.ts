@@ -53,9 +53,8 @@ export class ReservationsComponent implements OnInit {
       });
   }
 
-  onStatusChange(event: Event) {
-    const value = (event.target as HTMLSelectElement).value;
-    this.selectedStatus.set(value || null);
+  setStatus(status: string | null) {
+    this.selectedStatus.set(status);
     this.currentPage.set(0);
     this.load();
   }

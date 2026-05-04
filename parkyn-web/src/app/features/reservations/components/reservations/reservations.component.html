@@ -10,7 +10,7 @@
     <div class="flex items-center gap-3">
       <!-- Filtre statut -->
       <select
-        (change)="onStatusChange($event)"
+        (change)="setStatus(($event.target as HTMLSelectElement).value || null)"
         class="bg-white-700 text-black text-sm border-blue-500 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
       >
         <option value="">Tous</option>
@@ -53,12 +53,8 @@
             <td class="py-3 px-4 text-gray-400">
               {{ vehicleNames().get(r.vehicleId) ?? '—' }}
             </td>
-            <td class="py-3 px-4 text-gray-400">
-              {{ r.agentFirstName }} {{ r.agentLastName }}
-            </td>
-            <td class="py-3 px-4 text-gray-400">
-              {{ r.driverFirstName }} {{ r.driverLastName }}
-            </td>
+            <td class="py-3 px-4 text-gray-400">{{ r.agentFirstName }} {{ r.agentLastName }}</td>
+            <td class="py-3 px-4 text-gray-400">{{ r.driverFirstName }} {{ r.driverLastName }}</td>
             <td class="py-4 pr-6 text-gray-400">{{ r.startDate | date: 'dd/MM/yyyy' }}</td>
             <td class="py-4 pr-6 text-gray-400">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
             <td class="py-4 pr-6">
