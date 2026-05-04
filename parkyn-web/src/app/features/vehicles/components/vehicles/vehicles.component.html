@@ -1,0 +1,59 @@
+<app-header />
+
+<div class="px-6 py-8 max-w-7xl mx-auto">
+  <!-- En-tête + filtre -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-xl font-semibold text-black">Véhicules</h1>
+      <p class="text-sm text-gray-400">Liste de tous les véhicules.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- Filtre statut -->
+      <select
+        (change)="onStatusChange($event)"
+        class="bg-white-700 text-black text-sm border-blue-500 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+      >
+        <option value="">Tous</option>
+        <option value="AVAILABLE">Disponible</option>
+        <option value="RESERVED">Réservé</option>
+        <option value="MAINTENANCE">Maintenance</option>
+        <option value="RETIRED">Retiré</option>
+      </select>
+      <!-- Bouton nouveau véhicule -->
+      <button
+        type="button"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        <a routerLink="/vehicles/new">Ajouter un véhicule</a>
+      </button>
+    </div>
+  </div>
+
+  <!-- Cards Véhicules -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @for (v of page()?.content; track v.id) {
+      <app-vehicle-card [vehicle]="v" (onDelete)="deleteVehicle($event)" />
+    }
+  </div>
+
+  <!-- Pagination -->
+  <div class="flex items-center justify-between mt-6 text-sm text-black">
+    <span>{{ page()?.page?.totalElements ?? 0 }} résultats</span>
+    <div class="flex gap-2">
+      <button
+        (click)="goTo(currentPage() - 1)"
+        [disabled]="currentPage() === 0"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        Previous
+      </button>
+      <button
+        (click)="goTo(currentPage() + 1)"
+        [disabled]="currentPage() === (page()?.page?.totalPages ?? 1) - 1"
+        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>

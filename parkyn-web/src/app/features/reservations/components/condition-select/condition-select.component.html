@@ -1,0 +1,11 @@
+<select
+  name=""
+  id=""
+  (change)="onSelect($event)"
+  class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+>
+  <option value="">Sélectionner un état</option>
+  <option *ngFor="let condition of conditions" [value]="condition">
+    {{ getConditionLabel(condition) }}
+  </option>
+</select>

@@ -9,41 +9,29 @@ import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
+import app.parkyn.dto.RegisterRequest;
 import app.parkyn.model.User;
 import app.parkyn.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
-
-    /**
-     * Post - Authenticate the user and return the access token and refresh token
-     * @return - The access token and refresh token
-     */
     @PostMapping("/login") 
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request){
         return ResponseEntity.ok(authService.login(request));
     }
 
-    /**
-     * Post - Refresh the access token
-     * @return - The new access token
-     */
     @PostMapping("/refresh") 
     public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshRequest request) {
         return ResponseEntity.ok(authService.refresh(request));
     }
 
-    /**
-     * Post - Logout the authenticated user
-     * @return - No content
-     */
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
@@ -51,14 +39,15 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Read - Get the authenticated user's information
-     * @return - The authenticated user's information
-     */
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<MeResponse> me(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(authService.me(user));
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        authService.createAccount(request);
+        return ResponseEntity.status(201).build();
+    }
 }

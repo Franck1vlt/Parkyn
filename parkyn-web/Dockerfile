@@ -1,13 +1,16 @@
-FROM node:22-alpine
-
+# ---- Build stage ----
+FROM node:24-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g @angular/cli
-
 COPY package*.json ./
-
-RUN npm install
+RUN npm ci
 
 COPY . .
+RUN npm run build
 
-EXPOSE 5000
+# ---- Runtime stage ----
+FROM nginx:alpine
+COPY --from=builder /app/dist/parkyn-web/browser /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

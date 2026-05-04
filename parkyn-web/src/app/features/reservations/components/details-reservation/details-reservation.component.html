@@ -1,0 +1,234 @@
+<app-header />
+<main class="min-h-screen py-8 px-4 bg-gray-100">
+  <div class="max-w-3xl mx-auto">
+    <!-- Barre de navigation -->
+    <div class="flex items-center justify-between mb-6">
+      <button
+        type="button"
+        routerLink="/reservations"
+        class="flex items-center gap-2 text-gray-600 hover:text-orange-600 hover:bg-orange-100 transition-colors py-2 px-3 rounded-2xl border-2"
+      >
+        <svg
+          class="w-6 h-6"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 8 14"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M7 1 1.3 6.326a.91.91 0 0 0 0 1.348L7 13"
+          />
+        </svg>
+        Retour aux réservations
+      </button>
+
+      @if (reservation(); as r) {
+        @if (!r.returnedAt) {
+          <button
+            type="button"
+            (click)="showReturnModal.set(true)"
+            class="text-white bg-orange-600 hover:bg-orange-700 focus:ring-4 focus:ring-orange-300 font-medium rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+          >
+            Clôturer la réservation
+          </button>
+        }
+      }
+    </div>
+
+    <!-- Informations de la réservation -->
+    <div>
+      <h2
+        class="text-2xl text-orange-500 font-bold uppercase flex items-center justify-center mb-6 mt-6"
+      >
+        Détails de la Réservation
+      </h2>
+
+      @if (reservation(); as r) {
+        <div class="grid gap-4 lg:grid-cols-4 lg:grid-rows-2">
+          <!-- Conducteur -->
+          <div class="relative lg:col-span-2 lg:row-span-2 ...">
+            <div class="absolute inset-px rounded-lg bg-white"></div>
+            <div class="relative flex h-full flex-col p-8">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Conducteur</p>
+              <div class="flex flex-col items-center justify-center flex-1 text-center">
+                <p class="text-3xl font-bold text-gray-800">
+                  {{ r.driverFirstName }} {{ r.driverLastName }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Période -->
+          <div class="relative ...">
+            <div class="absolute inset-px rounded-lg bg-white"></div>
+            <div class="relative flex h-full flex-col p-8">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Période</p>
+              <p class="mt-2 text-sm font-bold text-gray-800">
+                {{ r.startDate | date: 'dd/MM/yyyy' }} → {{ r.endDate | date: 'dd/MM/yyyy' }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Kilométrage départ -->
+          <div class="relative ...">
+            <div class="absolute inset-px rounded-lg bg-white"></div>
+            <div class="relative flex h-full flex-col p-8">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Km départ</p>
+              <p class="mt-2 text-2xl font-bold text-gray-800">
+                {{ r.mileageStart | number: '1.0-0' }} km
+              </p>
+            </div>
+          </div>
+
+          <!-- État avant -->
+          <div class="relative ...">
+            <div class="absolute inset-px rounded-lg bg-white"></div>
+            <div class="relative flex h-full flex-col p-8">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">État avant</p>
+              <p
+                class="mt-2 text-2xl font-bold"
+                [class]="getConditionClass(r.conditionBefore)"
+              >
+                {{ getConditionLabel(r.conditionBefore) }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Statut retour -->
+          <div class="relative ...">
+            <div class="absolute inset-px rounded-lg bg-white"></div>
+            <div class="relative flex h-full flex-col p-8">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Statut</p>
+              @if (r.returnedAt) {
+                <p class="mt-2 text-lg font-bold text-green-700">
+                  Retourné le {{ r.returnedAt | date: 'dd/MM/yyyy' }}
+                </p>
+              } @else {
+                <p class="mt-2 text-lg font-bold text-orange-600">En cours</p>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Remarques avant -->
+        @if (r.notesBefore) {
+          <div class="mt-4 bg-white rounded-2xl shadow-sm p-6">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              Remarques avant
+            </p>
+            <p class="text-gray-700 text-sm">{{ r.notesBefore }}</p>
+          </div>
+        }
+
+        <!-- Section retour (si clôturé) -->
+        @if (r.returnedAt) {
+          <div class="mt-6 bg-white rounded-2xl shadow-sm p-8">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-6">
+              Informations de retour
+            </h2>
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
+              <div>
+                <p class="text-xs text-gray-400 uppercase tracking-wide">État après</p>
+                <p class="font-bold mt-1" [class]="getConditionClass(r.conditionAfter)">
+                  {{ getConditionLabel(r.conditionAfter) }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 uppercase tracking-wide">Km retour</p>
+                <p class="font-bold mt-1 text-gray-800">
+                  {{ r.mileageEnd ? (r.mileageEnd | number: '1.0-0') + ' km' : '—' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 uppercase tracking-wide">Dommages</p>
+                <p class="font-bold mt-1" [class]="r.damageReported ? 'text-red-600' : 'text-green-700'">
+                  {{ r.damageReported ? 'Oui' : 'Non' }}
+                </p>
+              </div>
+              @if (r.damageDetails) {
+                <div>
+                  <p class="text-xs text-gray-400 uppercase tracking-wide">Détails</p>
+                  <p class="font-medium mt-1 text-red-600">{{ r.damageDetails }}</p>
+                </div>
+              }
+            </div>
+            @if (r.notesAfter) {
+              <div class="mt-4 pt-4 border-t border-gray-100">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                  Remarques après
+                </p>
+                <p class="text-gray-700 text-sm">{{ r.notesAfter }}</p>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- Modal clôture réservation -->
+  @if (showReturnModal()) {
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">Clôturer la réservation</h3>
+        <p class="text-gray-500 text-sm mb-6">Renseignez les informations de retour du véhicule.</p>
+        <form [formGroup]="returnForm" (ngSubmit)="onReturnSubmit()">
+          <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">État du véhicule</label>
+              <app-condition-select (conditionChange)="onConditionChange($event)" />
+            </div>
+            <div>
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">Kilométrage retour</label>
+              <input
+                type="number"
+                formControlName="mileageEnd"
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <div class="col-span-2 flex items-center gap-2">
+              <input type="checkbox" formControlName="damageReported" id="damage" class="w-4 h-4" />
+              <label for="damage" class="text-sm font-medium text-gray-700">Dommage signalé</label>
+            </div>
+            <div class="col-span-2">
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">Détails dommages</label>
+              <input
+                type="text"
+                formControlName="damageDetails"
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <div class="col-span-2">
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">Remarques après</label>
+              <textarea
+                formControlName="notesAfter"
+                rows="3"
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="showReturnModal.set(false)"
+              class="px-4 py-2 rounded-xl text-sm font-medium text-gray-700 border hover:bg-gray-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl text-sm font-medium text-white bg-orange-600 hover:bg-orange-700"
+            >
+              Confirmer le retour
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</main>

@@ -13,9 +13,23 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class JwtService {
+
+    private final String secret;
+    private final long expirationMs;
+
+    public JwtService(
+        @Value("${jwt.secret}") String secret,
+        @Value("${jwt.expiration-ms}") long expirationMs
+    ) {
+        this.secret = secret;
+        this.expirationMs = expirationMs;
+    }
 
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
@@ -34,11 +48,10 @@ public class JwtService {
         return extractUsername(token).equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
-    @Value("${jwt.secret}")
-    private String secret;
-
-    @Value("${jwt.expiration-ms}")
-    private long expirationMs;
+    @PostConstruct
+    public void logConfig() {
+        log.info("JWT expiration: {}ms", expirationMs);
+    }
     
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());

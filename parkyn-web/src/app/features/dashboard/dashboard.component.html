@@ -1,0 +1,177 @@
+<app-header />
+<div class="px-6 py-8 max-w-7xl mx-auto">
+  <div class="grid grid-cols-3 gap-5">
+    <!-- Dernières réservations : large -->
+    <div class="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
+        <h2 class="text-base font-semibold text-gray-800">Dernières réservations</h2>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="pb-2 text-left text-gray-400 font-medium">#</th>
+            <th class="pb-2 text-left text-gray-400 font-medium">Véhicule</th>
+            <th class="pb-2 text-left text-gray-400 font-medium">Conducteur</th>
+            <th class="pb-2 text-left text-gray-400 font-medium">Début</th>
+            <th class="pb-2 text-left text-gray-400 font-medium">Fin</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of dashboard()?.latestReservations; track r.id; let i = $index) {
+            <tr class="border-b border-gray-50 hover:bg-orange-50/40 transition-colors">
+              <td class="py-3 text-gray-300 text-xs">{{ i + 1 }}</td>
+              <td class="py-3 text-gray-700 font-medium">
+                {{ vehicleNames().get(r.vehicleId) ?? '—' }}
+              </td>
+              <td class="py-3 text-gray-600">{{ r.driverFirstName }} {{ r.driverLastName }}</td>
+              <td class="py-3 text-gray-500">{{ r.startDate | date: 'dd/MM/yyyy' }}</td>
+              <td class="py-3 text-gray-500">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="py-6 text-center text-gray-300 text-sm">Aucune réservation</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Véhicules en maintenance -->
+    <div class="col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
+        <h2 class="text-base font-semibold text-gray-800">En maintenance</h2>
+      </div>
+      <div class="flex flex-col gap-3">
+        @for (v of dashboard()?.vehiclesInMaintenance; track v.id) {
+          <div class="flex items-center justify-between py-2 border-b border-gray-50">
+            <div>
+              <p class="text-sm font-medium text-gray-700">{{ v.brand }} {{ v.model }}</p>
+              <p class="text-xs text-gray-400">{{ v.plateNumber }} · {{ v.year }}</p>
+              <p class="text-xs text-gray-400">{{ v.mileageKM | number: '1.0-0' }}</p>
+            </div>
+            <span [class]="'text-xs font-medium ' + getConditionClass(v.condition)">
+              {{ getConditionLabel(v.condition) }}
+            </span>
+          </div>
+        } @empty {
+          <p class="text-center text-gray-300 text-sm py-4">Aucun véhicule</p>
+        }
+      </div>
+    </div>
+
+    <!-- Derniers conducteurs -->
+    <div class="col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
+        <h2 class="text-base font-semibold text-gray-800">Derniers conducteurs</h2>
+      </div>
+      <div class="flex flex-col gap-2">
+        @for (d of dashboard()?.latestDrivers; track d.id) {
+          <div class="flex items-center gap-3 py-2 border-b border-gray-50">
+            <div
+              class="size-8 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold flex items-center justify-center shrink-0"
+            >
+              {{ d.firstname[0] }}{{ d.lastname[0] }}
+            </div>
+            <div>
+              <p class="text-sm font-medium text-gray-700">{{ d.firstname }} {{ d.lastname }}</p>
+              <p class="text-xs text-gray-400">{{ d.email }}</p>
+            </div>
+          </div>
+        } @empty {
+          <p class="text-center text-gray-300 text-sm py-4">Aucun conducteur</p>
+        }
+      </div>
+    </div>
+
+    <!-- Réservations par agent (ADMIN) -->
+    @if (isAdmin()) {
+      <div class="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
+          <h2 class="text-base font-semibold text-gray-800">Réservations par agent</h2>
+        </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100">
+              <th class="pb-2 text-left text-gray-400 font-medium">Agent</th>
+              <th class="pb-2 text-right text-gray-400 font-medium">Réservations</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of dashboard()?.reservationsByAgent; track a.agentName) {
+              <tr class="border-b border-gray-50 hover:bg-orange-50/40 transition-colors">
+                <td class="py-3 text-gray-700">{{ a.agentName }}</td>
+                <td class="py-3 text-right">
+                  <span
+                    class="bg-orange-50 text-orange-700 text-xs font-semibold px-2 py-1 rounded-full"
+                  >
+                    {{ a.count }}
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="2" class="py-6 text-center text-gray-300 text-sm">Aucune donnée</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- Mes stats (AGENT) -->
+    @if (!isAdmin()) {
+      <div class="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-5">
+          <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
+          <h2 class="text-base font-semibold text-gray-800">Mes statistiques</h2>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-5">
+          <div class="bg-orange-50 rounded-lg p-4">
+            <p class="text-3xl font-bold text-orange-700">
+              {{ dashboard()?.myStats?.totalReservations }}
+            </p>
+            <p class="text-sm text-gray-500 mt-1">Total réservations</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-3xl font-bold text-gray-700">
+              {{ dashboard()?.myStats?.activeReservations }}
+            </p>
+            <p class="text-sm text-gray-500 mt-1">En cours</p>
+          </div>
+        </div>
+        <div class="border-t border-gray-100 pt-4">
+          <p class="text-xs text-gray-400 mb-2 uppercase tracking-wide">Ce mois vs mois dernier</p>
+          <div class="flex items-center gap-3">
+            <span class="text-2xl font-bold text-gray-800">{{
+              dashboard()?.myStats?.thisMonthReservations
+            }}</span>
+            @if (getTrend(); as trend) {
+              <span
+                [class]="
+                  'flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ' +
+                  (trend.up ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500')
+                "
+              >
+                {{ trend.up ? '▲' : '▼' }} {{ trend.percent }}%
+              </span>
+            }
+            <span class="text-sm text-gray-400"
+              >vs {{ dashboard()?.myStats?.lastMonthReservations }} le mois dernier</span
+            >
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (!isAdmin()) {
+      <div>
+        <h2>Mes stats</h2>
+        <!-- dashboard()?.myStats?.totalReservations etc. -->
+      </div>
+    }
+  </div>
+</div>

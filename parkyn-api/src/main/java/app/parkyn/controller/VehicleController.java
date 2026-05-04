@@ -30,29 +30,22 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
-@RequestMapping("/api/vehicles")
+@RequestMapping("/api/v1/vehicles")
 @RequiredArgsConstructor
 public class VehicleController {
 
     private final VehicleService vehicleService;
 
-    /**
-     * Read - Get all vehicles
-     * @return - A list of all vehicles
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("")
     public ResponseEntity<Page<VehicleResponse>> getVehicles(
         @RequestParam(required = false) Vehicle.VehicleStatus status,
+        @RequestParam(required = false) String search,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        return ResponseEntity.ok().body(vehicleService.getVehicles(status, pageable));
+        return ResponseEntity.ok().body(vehicleService.getVehicles(status, search, pageable));
     }
 
-    /**
-     * Post - Create a new vehicle
-     * @return - The created vehicle
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PostMapping("")
     public ResponseEntity<VehicleResponse> addVehicle(@Valid @RequestBody VehicleRequest request) {
@@ -60,10 +53,6 @@ public class VehicleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * Read - Get a vehicle by id
-     * @return - The vehicle with the given id
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("/{id}")
     public ResponseEntity<VehicleResponse> getVehicleById(@PathVariable UUID id) {
@@ -71,21 +60,13 @@ public class VehicleController {
         return ResponseEntity.ok().body(response);
     }
 
-    /**
-     * Update - Update a vehicle by id
-     * @return - The updated vehicle
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PatchMapping("/{id}")
     public ResponseEntity<VehicleResponse> updateVehicleById(@RequestBody VehicleUpdateRequest request, @PathVariable UUID id) {
         VehicleResponse response = vehicleService.updateVehicleById(id, request);
         return ResponseEntity.ok().body(response);
     }
-    
-    /**
-     * Delete - Delete a vehicle by id
-     * @return - No content
-     */
+
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteVehicleById(@PathVariable UUID id) {
@@ -93,10 +74,6 @@ public class VehicleController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Update - Update the status of a vehicle by id
-     * @return - The updated vehicle
-     */
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<VehicleResponse> updateVehicleStatus(@PathVariable UUID id, @Valid @RequestBody VehicleStatusRequest request) {
