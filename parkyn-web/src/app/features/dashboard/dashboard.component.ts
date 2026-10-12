@@ -2,14 +2,14 @@ import { Component, computed, OnInit, signal } from '@angular/core';
 import { HeaderComponent } from '../../core/components/header/header.component';
 import { DashboardResponse, DashboardService } from '../../core/services/dashboard.service';
 import { AuthService } from '../../core/services/auth.service';
-import { DatePipe, DecimalPipe, NgFor } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { VehicleService } from '../../core/services/vehicles.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [HeaderComponent, NgFor, DatePipe, DecimalPipe],
+  imports: [HeaderComponent, DatePipe, DecimalPipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })

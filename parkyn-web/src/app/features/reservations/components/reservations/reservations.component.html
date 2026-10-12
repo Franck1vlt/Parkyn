@@ -10,7 +10,7 @@
     <div class="flex items-center gap-3">
       <!-- Filtre statut -->
       <select
-        (change)="setStatus(($event.target as HTMLSelectElement).value || null)"
+        (change)="setStatus($event)"
         class="bg-white-700 text-black text-sm border-blue-500 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
       >
         <option value="">Tous</option>

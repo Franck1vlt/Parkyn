@@ -4,6 +4,10 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +17,9 @@ import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 
 public interface ReservationRepository extends JpaRepository<Reservation, UUID>, JpaSpecificationExecutor<Reservation> {
+
+    @EntityGraph(attributePaths = {"driver", "agent", "vehicle"})
+    Page<Reservation> findAll(Specification<Reservation> spec, Pageable pageable);
 
     @Query("""
         SELECT COUNT(r) > 0 FROM Reservation r
