@@ -38,7 +38,7 @@ public class Reservation {
     private User driver;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agent_id", nullable = false, referencedColumnName = "id")
+    @JoinColumn(name = "agent_id", referencedColumnName = "id")
     private User agent;
 
     @Column(name = "start_date", nullable = false)
