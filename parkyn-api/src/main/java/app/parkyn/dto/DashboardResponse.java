@@ -11,5 +11,12 @@ public record DashboardResponse(
 ) {
     public record AgentStat(String agentName, long count) {}
     public record MyStats(long totalReservations, long activeReservations, long thisMonthReservations, long lastMonthReservations) {}
+
+    public DashboardResponse {
+        latestReservations = List.copyOf(latestReservations);
+        vehiclesInMaintenance = List.copyOf(vehiclesInMaintenance);
+        latestDrivers = List.copyOf(latestDrivers);
+        reservationsByAgent = reservationsByAgent == null ? null : List.copyOf(reservationsByAgent);
+    }
 }
 
