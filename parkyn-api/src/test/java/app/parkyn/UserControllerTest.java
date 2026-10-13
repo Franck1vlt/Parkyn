@@ -3,15 +3,11 @@ package app.parkyn;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
 
@@ -34,10 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import(TestcontainersConfig.class)
+@IntegrationTest
 public class UserControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -58,9 +52,6 @@ public class UserControllerTest {
 
     @BeforeEach
     void setUp() {
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-
         User user = new User();
         user.setFirstName("Test");
         user.setLastName("User");
@@ -104,12 +95,6 @@ public class UserControllerTest {
         user3.setActive(true);
         userRepository.saveAndFlush(user3);
         testDriverId = user3.getId();
-    }
-
-    @AfterEach
-    void tearDown() {
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
     }
 
     @Test

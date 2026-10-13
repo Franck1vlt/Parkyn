@@ -48,7 +48,7 @@ public class AuthService {
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
-        User user = userRepository.findByEmail(request.email()).orElseThrow();
+        User user = userRepository.findByEmail(User.normalizeEmail(request.email())).orElseThrow();
 
         String accessToken = jwtService.generateToken(user);
         String rawRefresh = UUID.randomUUID().toString();
@@ -95,7 +95,7 @@ public class AuthService {
 
     @Transactional
     public UserResponse createAccount(RegisterRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
+        if (userRepository.findByEmail(User.normalizeEmail(request.email())).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
         }
 

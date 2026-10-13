@@ -1,15 +1,11 @@
 package app.parkyn;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -31,10 +27,8 @@ import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 
-@SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import(TestcontainersConfig.class)
+@IntegrationTest
 public class AuthControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -49,9 +43,6 @@ public class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-
         User user = new User();
         user.setFirstName("Test");
         user.setLastName("User");
@@ -68,13 +59,6 @@ public class AuthControllerTest {
         rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt);
     }
-
-    @AfterEach
-    void tearDown() {
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-    }
-
 
     @Test
     public void testLogin() throws Exception {

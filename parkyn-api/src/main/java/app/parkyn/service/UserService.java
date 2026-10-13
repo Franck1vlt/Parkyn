@@ -26,7 +26,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-
     @Transactional
     public Page<UserResponse> getUsers(User.Role role, Pageable pageable) {
         Specification<User> spec = (root, query, cb) -> {
@@ -47,7 +46,7 @@ public class UserService {
                 "Agents can only create DRIVER accounts");
         }
 
-        if (userRepository.findByEmail(request.email()).isPresent()) {
+        if (userRepository.findByEmail(User.normalizeEmail(request.email())).isPresent()) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(409), "Email already in use");
         }
 
@@ -71,6 +70,7 @@ public class UserService {
 
     @Transactional
     public UserResponse updateUserById(UUID id, UserUpdateRequest request) {
+
         User user = findActiveUser(id);
         if (request.firstname() != null) user.setFirstName(request.firstname());
         if (request.lastname()  != null) user.setLastName(request.lastname());

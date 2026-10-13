@@ -18,6 +18,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.List;
+import java.util.Locale;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -74,4 +76,12 @@ public class User implements UserDetails {
 
 
     public enum Role { ADMIN, AGENT, DRIVER }
+
+    public void setEmail(String email) {
+        this.email = normalizeEmail(email);
+    }
+
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
 }

@@ -33,7 +33,7 @@ public class DriverAssignmentService {
         }
 
         // Email déjà utilisé ?
-        if (userRepository.findByEmail(request.driverEmail()).isPresent()) {
+        if (userRepository.findByEmail(User.normalizeEmail(request.driverEmail())).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
         }
 

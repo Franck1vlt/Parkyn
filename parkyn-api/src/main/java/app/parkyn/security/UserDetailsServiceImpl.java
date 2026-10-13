@@ -5,6 +5,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import app.parkyn.model.User;
 import app.parkyn.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -17,7 +18,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) {
         System.out.println("Loading user: " + email);
-        return userRepository.findByEmail(email)
+        return userRepository.findByEmail(User.normalizeEmail(email))
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }
 }
