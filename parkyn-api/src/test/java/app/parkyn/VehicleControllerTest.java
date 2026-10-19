@@ -24,6 +24,7 @@ import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.VehicleRequest;
 import app.parkyn.dto.VehicleStatusRequest;
+import app.parkyn.dto.VehicleUpdateRequest;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
@@ -146,7 +147,7 @@ public class VehicleControllerTest {
     @Test
     public void testUpdateVehicleById() throws Exception {
         String token = getAccessToken();
-        VehicleRequest request = new VehicleRequest(
+        VehicleUpdateRequest request = new VehicleUpdateRequest(
             null, 
             null, 
             null, 
