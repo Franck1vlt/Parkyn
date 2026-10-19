@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
 public class JwtAuthFilter extends OncePerRequestFilter{
 
     private final JwtService jwtService;
@@ -58,7 +58,6 @@ public class JwtAuthFilter extends OncePerRequestFilter{
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
                 System.out.println("Authentication set: " + auth.getPrincipal());
-                System.out.println("Authorities: " + auth.getAuthorities());
             }
         }
 
