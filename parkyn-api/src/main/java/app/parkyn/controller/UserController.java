@@ -56,15 +56,21 @@ public class UserController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
-        return ResponseEntity.ok().body(userService.getUserById(id));
+    public ResponseEntity<UserResponse> getUserById(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok().body(userService.getUserById(currentUser, id));
     }
-
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PatchMapping("/{id}")
-    public ResponseEntity<UserResponse> updateUserById(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
-        UserResponse response = userService.updateUserById(id, request);
+    public ResponseEntity<UserResponse> updateUserById(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id,
+        @Valid @RequestBody UserUpdateRequest request
+    ) {
+        UserResponse response = userService.updateUserById(currentUser, id, request);
         return ResponseEntity.ok().body(response);
     }
 
@@ -80,8 +86,11 @@ public class UserController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PatchMapping("/{id}/reactivate")
-    public ResponseEntity<UserResponse> reactivateUser(@PathVariable UUID id) {
-        return ResponseEntity.ok().body(userService.reactivateUserById(id));
+    public ResponseEntity<UserResponse> reactivateUser(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok().body(userService.reactivateUserById(currentUser, id));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")

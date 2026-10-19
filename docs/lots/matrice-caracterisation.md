@@ -54,12 +54,23 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 
 La matrice ne mesure que l'accès à l'endpoint. Ces cas sont couverts par des tests dédiés.
 
-| #   | Scénario                                            | Comportement actuel                                           | Comportement attendu                                                     | Test                                         |
-| --- | --------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
-| F1  | AGENT modifie un compte ADMIN (`PATCH /users/{id}`) | `200` : la modification est appliquée (mot de passe, rôle...) | `403` : un AGENT ne modifie que des comptes DRIVER                       | `UserControllerTest.testAgentUpdateUserById` |
-| F2  | AGENT modifie un DRIVER avec `"role": "ADMIN"`      | `200` : le DRIVER devient ADMIN (escalade de privilèges)      | `403` : on ne peut attribuer qu'un rôle que l'on est autorisé à déléguer | `AuthorizationMatrixTest`                    |
+| #   | Scénario | Avant correction | Après correction | Statut | Test |
+| --- | -------- | ---------------- | ---------------- | ------ | ---- |
+| F1  | AGENT modifie un compte ADMIN (`PATCH /users/{id}`) | `200` : la modification est appliquée (mot de passe, rôle...) | `403`, et l'ADMIN est inchangé en base | Corrigée | `UserControllerTest.testAgentUpdateUserById` |
+| F2  | AGENT modifie un DRIVER avec `"role": "ADMIN"` | `200` : le DRIVER devient ADMIN (escalade de privilèges) | `403`, et le DRIVER reste DRIVER en base | Corrigée | `UserControllerTest.testAgentUpdateDriverWithAdminRole` |
 
-Cause commune : `UserService.updateUserById` ne reçoit pas l'utilisateur courant et ne contrôle ni la cible ni le rôle demandé, contrairement à `addUser` et `deleteUserById`. Correction prévue : `UserAccessPolicy` (`AccessDecision`), dans un commit dédié, après la mise en place de cette matrice.
+Cause commune : `UserService.updateUserById` ne recevait pas l'utilisateur courant et ne contrôlait ni la cible ni le rôle demandé, contrairement à `addUser` et `deleteUserById`.
+
+Correction : `UserAccessPolicy` centralise les deux contrôles sur l'objet et les applique à la lecture, la création, la modification, la suppression et la réactivation :
+
+- `decide(actor, action, target)` : un AGENT n'agit que sur des comptes DRIVER (lecture de tous les comptes autorisée, comme avant) ;
+- `decideRoleAssignment(actor, requestedRole)` : un AGENT n'attribue que le rôle DRIVER, et un rôle absent de la requête n'est pas une attribution.
+
+`UserService` traduit la décision (`AccessDecision`, interface scellée) : `Denied` donne `403`, `NotFound` donne `404`. La matrice des 104 cas est restée identique après la correction.
+
+### Changement de comportement à traiter
+
+Depuis la correction, un AGENT ne peut plus modifier **son propre** compte (la cible n'est pas un DRIVER). Décision produit : un AGENT doit pouvoir modifier son nom et son mot de passe, mais pas son rôle, que seul un ADMIN peut changer. À implémenter dans `UserAccessPolicy` (cas où l'acteur est la cible), avec un test dédié, puis à exprimer par une permission `user:update:own` lors de A3.
 
 ## Écarts constatés
 

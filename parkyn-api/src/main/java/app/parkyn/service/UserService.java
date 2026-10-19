@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import app.parkyn.repository.UserRepository;
+import app.parkyn.security.authorization.AccessDecision;
+import app.parkyn.security.authorization.UserAccessPolicy;
+import app.parkyn.security.authorization.UserAction;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import app.parkyn.dto.UserRequest;
@@ -25,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserAccessPolicy userAccessPolicy;
 
     @Transactional
     public Page<UserResponse> getUsers(User.Role role, Pageable pageable) {
@@ -41,10 +45,7 @@ public class UserService {
 
     @Transactional
     public UserResponse addUser(User currentUser, UserRequest request) {
-        if (currentUser.getRole() == User.Role.AGENT && request.role() != User.Role.DRIVER) {
-            throw new ResponseStatusException(HttpStatusCode.valueOf(403),
-                "Agents can only create DRIVER accounts");
-        }
+        enforce(userAccessPolicy.decideRoleAssignment(currentUser, request.role()));
 
         if (userRepository.findByEmail(User.normalizeEmail(request.email())).isPresent()) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(409), "Email already in use");
@@ -61,17 +62,22 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse getUserById(UUID id) {
-        User user = userRepository.findById(id)
+    public UserResponse getUserById(User currentUser, UUID id) {
+        User target = userRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
-        return UserResponse.from(user);
+
+        enforce(userAccessPolicy.decide(currentUser, UserAction.READ, target));
+
+        return UserResponse.from(target);
     }
 
-
     @Transactional
-    public UserResponse updateUserById(UUID id, UserUpdateRequest request) {
+    public UserResponse updateUserById(User currentUser, UUID id, UserUpdateRequest request) {
 
         User user = findActiveUser(id);
+        enforce(userAccessPolicy.decide(currentUser, UserAction.UPDATE, user));
+        enforce(userAccessPolicy.decideRoleAssignment(currentUser, request.role()));
+
         if (request.firstname() != null) user.setFirstName(request.firstname());
         if (request.lastname()  != null) user.setLastName(request.lastname());
         if (request.email()     != null) user.setEmail(request.email());
@@ -84,11 +90,7 @@ public class UserService {
     @Transactional
     public void deleteUserById(User currentUser, UUID id) {
         User user = findActiveUser(id);
-
-        if (currentUser.getRole() == User.Role.AGENT && user.getRole() != User.Role.DRIVER) {
-            throw new ResponseStatusException(HttpStatusCode.valueOf(403),
-                "Agents can only delete DRIVER accounts");
-        }
+        enforce(userAccessPolicy.decide(currentUser, UserAction.DELETE, user));
 
         user.setActive(false);
         userRepository.save(user);
@@ -114,10 +116,11 @@ public class UserService {
 
 
     @Transactional
-    public UserResponse reactivateUserById(UUID id) {
+    public UserResponse reactivateUserById(User currentUser, UUID id) {
         User user = userRepository.findById(id)
             .filter(v -> !v.isActive())
             .orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Inactive user not found"));
+        enforce(userAccessPolicy.decide(currentUser, UserAction.REACTIVATE, user));
         user.setActive(true);
         return UserResponse.from(userRepository.save(user));
     }
@@ -126,4 +129,11 @@ public class UserService {
         return userRepository.findById(id).filter(v -> v.isActive()).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
     }
 
+    private void enforce(AccessDecision decision) {
+        switch (decision) {
+            case AccessDecision.Granted g -> { }
+            case AccessDecision.Denied d -> throw new ResponseStatusException(HttpStatus.FORBIDDEN, d.reason());
+            case AccessDecision.NotFound n -> throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable");
+        }
+    }
 }

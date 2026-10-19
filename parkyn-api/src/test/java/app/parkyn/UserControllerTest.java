@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -48,6 +49,7 @@ public class UserControllerTest {
     private String testRefreshToken;
     private String testRefreshToken2;
     private UUID testUserId;
+    private UUID testAdminId;
     private UUID testDriverId;
 
     @BeforeEach
@@ -60,6 +62,7 @@ public class UserControllerTest {
         user.setRole(User.Role.ADMIN);
         user.setActive(true);
         userRepository.saveAndFlush(user);
+        testAdminId = user.getId();
 
         User user2 = new User();
         user2.setFirstName("Test");
@@ -84,7 +87,7 @@ public class UserControllerTest {
         rt2.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt2);
 
-        testUserId = user2.getId();
+        testUserId = user.getId();
 
         User user3 = new User();
         user3.setFirstName("Test");
@@ -274,14 +277,42 @@ public class UserControllerTest {
             true
         );
 
-        mockMvc.perform(patch("/api/v1/users/" + testUserId)
+        mockMvc.perform(patch("/api/v1/users/" + testAdminId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isForbidden()) ;
+
+        // F1 : un AGENT ne modifie pas un ADMIN, et rien n'est enregistré
+        User admin = userRepository.findById(testAdminId).orElseThrow();
+        assertEquals("User", admin.getLastName());
+        assertEquals(User.Role.ADMIN, admin.getRole());
     }
-    
+
+    @Test
+    public void testAgentUpdateDriverWithAdminRole() throws Exception {
+        String token = getAccessToken(TEST_EMAIL2, TEST_PASSWORD);
+        UserUpdateRequest request = new UserUpdateRequest(
+            "Bob",
+            "Williams",
+            "bob.williams@parkyn.app",
+            "Password123!",
+            User.Role.ADMIN,
+            true
+        );
+
+        mockMvc.perform(patch("/api/v1/users/" + testDriverId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        User driver = userRepository.findById(testDriverId).orElseThrow();
+        assertEquals(User.Role.DRIVER, driver.getRole());
+    }
+
     @Test
     public void testDeleteUser() throws Exception {
         String token = getAccessToken(TEST_EMAIL, TEST_PASSWORD);
