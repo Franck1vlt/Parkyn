@@ -15,15 +15,15 @@
 
 - [ ] Tableau endpoints → permissions (23 endpoints) avec la portée (`own` / `all` / `n/a`)
 - [ ] Plan de migration Expand and Contract (numéros Flyway, source de vérité pendant la cohabitation, retour arrière à chaque étape)
-- [ ] Matrice de caractérisation 3 rôles × 23 endpoints (200 ou 403), écrite sur le code **actuel**
+- [x] Matrice de caractérisation : 26 endpoints × 4 acteurs (104 cas), écrite sur le code actuel ([matrice](matrice-caracterisation.md), `AuthorizationMatrixTest`)
 - [ ] Comptes de test : 2 DRIVER dans le même tenant + 1 utilisateur d'un autre tenant
 - [ ] ADR-0002 relu et réécrit avec mes mots (statut : proposé → accepté)
 
 ## Phase A : cadrage et données
 
-- [ ] A1 ADR et diagrammes (séquences login, refresh, inscription)
-- [ ] A2 Migrations Flyway (`tenants`, `roles`, `permissions`, `role_permissions`, `user_roles`, colonnes `tenant_id`, `driver_id`, `created_by`, `updated_by`)
-- [ ] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés)
+- [x] A1 ADR et diagrammes (séquences login, refresh, inscription)
+- [x] A2 Migrations Flyway V5 à V10 (`tenants`, `roles`, `permissions`, `role_permissions`, `user_roles`, `verification_tokens`, `user_sessions`, colonnes `tenant_id`, `status`, `created_by`, `updated_by`, emails normalisés)
+- [ ] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés). La matrice doit repasser à l'identique ; l'ouverture des endpoints au DRIVER se fait dans une étape séparée
 - [ ] A4 Hachage Argon2id
 
 ## Phase B : inscription et emails
@@ -49,8 +49,38 @@
 
 ## Phase E : qualité
 
-- [ ] E1 Tests d'intégration
+- [x] E1 Tests d'intégration : Testcontainers PostgreSQL, `@IntegrationTest` / `@RepositoryTest`, isolation par `TRUNCATE`, tests de migrations et de repositories
 - [ ] E2 Documentation et CI
+
+## Travaux réalisés hors phases
+
+- [x] Records pour tous les DTO, copie défensive des listes (`DashboardResponse`)
+- [x] `AccessDecision` (interface scellée : `Granted`, `Denied`, `NotFound`) et `UserAction`
+- [x] `UserAccessPolicy` : contrôle de la cible et anti-escalade de rôle (failles F1 et F2 corrigées)
+- [x] Emails normalisés en minuscules (`User.normalizeEmail`, V10)
+- [x] Réservation sans agent visible (`agent` nullable dans l'entité)
+- [x] Notification introuvable : 404 au lieu de 500
+
+## Migration Contract (après la bascule du code)
+
+- [ ] Mapper `tenantId` dans `User`, `Vehicle`, `Reservation`, `Notification` **avant** de retirer les `DEFAULT`
+- [ ] Retirer les `DEFAULT` temporaires (`users.status`, `tenant_id` des 4 tables)
+- [ ] Supprimer `users.role`, `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token`
+- [ ] Supprimer l'ancien `UNIQUE` sensible à la casse sur `users.email`
+
+## Points notés en chemin
+
+- [ ] Profil utilisateur : `PATCH /users/me` (prénom, nom) et `POST /users/me/password` (mot de passe actuel exigé), permission `user:update:own`. Décision : un AGENT modifie son nom et son mot de passe, seul l'ADMIN change son rôle. À faire après A3
+- [ ] Changement de mot de passe : révoquer les autres sessions (`user_sessions`, phase C)
+- [ ] `hasConflict` : exclure la réservation en cours de modification (`excludeId`) quand la modification de réservation existera
+- [ ] Mapper `createdBy`, `updatedBy`, `updatedAt` (`@UpdateTimestamp`) dans `Reservation`
+- [ ] `updateUserById` : vérifier qu'un nouvel email n'est pas déjà pris (409 au lieu de 500)
+- [ ] Ajouter un test du tableau de bord (`DashboardService`), absent de la suite
+- [ ] `DashboardService` : `@Transactional` sur une méthode privée, sans effet
+- [ ] Supprimer les `System.out.println` restants (`JwtAuthFilter`, `UserDetailsServiceImpl`)
+- [ ] Anonyme : renvoyer `401` plutôt que `403` (`authenticationEntryPoint`, phase C)
+- [ ] Séparer tests unitaires et d'intégration (Surefire / Failsafe) avec la CI (E2)
+- [ ] Invitations de conducteurs dans le tenant de leur entreprise (lot 4, nouvel ADR)
 
 ## Tests de portée
 
