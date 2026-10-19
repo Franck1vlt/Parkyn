@@ -3,9 +3,11 @@ package app.parkyn.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import app.parkyn.model.Notification;
 import app.parkyn.model.Reservation;
@@ -45,7 +47,7 @@ public class NotificationService {
     @Transactional
     public void markAsRead(UUID notificationId, UUID userId) {
         var notification = notificationRepository.findByIdAndUserId(notificationId, userId)
-            .orElseThrow(() -> new RuntimeException("Notification not found"));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification introuvable"));
         notification.setRead(true);
         notificationRepository.save(notification);
     }
