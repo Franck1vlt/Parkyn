@@ -36,7 +36,7 @@ public class ReservationController {
 
     private final ReservationService reservationService;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('reservation:read:all')")
     @GetMapping("")
     public ResponseEntity<Page<ReservationResponse>> getRerservations(
         @RequestParam(required = false) String status,
@@ -46,7 +46,7 @@ public class ReservationController {
         return ResponseEntity.ok().body(reservationService.getReservations(status, vehicleId, pageable));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('reservation:create:all')")
     @PostMapping("")
     public ResponseEntity<ReservationResponse> addReservation(
         @AuthenticationPrincipal User currentUser,
@@ -56,14 +56,14 @@ public class ReservationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('reservation:read:all')")
     @GetMapping("/{id}")
     public ResponseEntity<ReservationResponse> getReservationById(@PathVariable UUID id) {
         ReservationResponse response = reservationService.getReservationById(id);
         return ResponseEntity.ok().body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('reservation:return:all')")
     @PostMapping("/{id}/return")
     public ResponseEntity<ReservationResponse> returnVehicle(
         @AuthenticationPrincipal User currentUser,
