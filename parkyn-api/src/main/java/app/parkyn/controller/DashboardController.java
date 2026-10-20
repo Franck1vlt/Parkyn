@@ -19,7 +19,7 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('dashboard:read:all')")
     @GetMapping("")
     public ResponseEntity<DashboardResponse> getDashboard(@AuthenticationPrincipal User user){
         return ResponseEntity.ok(dashboardService.getDashboard(user));
