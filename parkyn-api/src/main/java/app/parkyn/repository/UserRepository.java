@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
@@ -13,4 +14,8 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
     Optional<User> findByEmail(String email);
 
     List<User> findByRoleIn(List<User.Role> roles);
+
+    // Charge l'utilisateur avec ses rôles et leurs permissions en une seule requête (filtre JWT)
+    @EntityGraph(attributePaths = {"roles", "roles.permissions"})
+    Optional<User> findWithRolesAndPermissionsByEmail(String email);
 }

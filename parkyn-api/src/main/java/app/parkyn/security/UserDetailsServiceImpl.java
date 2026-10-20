@@ -18,7 +18,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) {
         System.out.println("Loading user: " + email);
-        return userRepository.findByEmail(User.normalizeEmail(email))
+        return userRepository.findWithRolesAndPermissionsByEmail(User.normalizeEmail(email))
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }
 }

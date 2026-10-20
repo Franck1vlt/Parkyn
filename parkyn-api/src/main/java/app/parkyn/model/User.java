@@ -13,12 +13,18 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
-import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -56,9 +62,17 @@ public class User implements UserDetails {
     @Column(name = "created_at", updatable = false, nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT NOW()")
     private OffsetDateTime createdAt;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<app.parkyn.model.Role> roles = new HashSet<>();
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
-        return List.of(new SimpleGrantedAuthority("ROLE_"+role.name()));
+        Set<String> authorities = new LinkedHashSet<>();
+        authorities.add("ROLE_" + role.name());
+        roles.forEach(userRole -> userRole.getPermissions().forEach(permission ->
+                authorities.add(permission.getCode())));
+        return authorities.stream().map(SimpleGrantedAuthority::new).toList();
     }
 
     @Override
