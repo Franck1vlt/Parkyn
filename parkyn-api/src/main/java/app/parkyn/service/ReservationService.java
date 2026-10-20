@@ -52,7 +52,7 @@ public class ReservationService {
     }
 
     @Transactional
-    public ReservationResponse addReservation(ReservationRequest request) {
+    public ReservationResponse addReservation(User currentUser, ReservationRequest request) {
         Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
             .filter(v -> v.getDeletedAt() == null)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
@@ -77,6 +77,8 @@ public class ReservationService {
         reservation.setNotesBefore(request.notesBefore());
         reservation.setStartDate(request.startDate());
         reservation.setEndDate(request.endDate());
+        reservation.setCreatedBy(currentUser);
+        reservation.setUpdatedBy(currentUser);
         vehicle.setStatus(Vehicle.VehicleStatus.RESERVED);
         Reservation saved = reservationRepository.saveAndFlush(reservation);
         notificationService.createForAllAdminsAndAgents(NotificationType.NEW_RESERVATION, saved);
@@ -89,7 +91,7 @@ public class ReservationService {
     }
 
     @Transactional
-    public ReservationResponse returnVehicle(UUID id, ReturnVehicleRequest request) {
+    public ReservationResponse returnVehicle(User currentUser, UUID id, ReturnVehicleRequest request) {
         Reservation reservation = findActiveReservation(id);
 
         validateReturn(reservation, request);
@@ -100,6 +102,7 @@ public class ReservationService {
         reservation.setDamageReported(request.damageReported());
         reservation.setDamageDetails(request.damageDetails());
         reservation.setNotesAfter(request.notesAfter());
+        reservation.setUpdatedBy(currentUser);
 
         Vehicle vehicle = reservation.getVehicle();
         vehicle.setStatus(Vehicle.VehicleStatus.AVAILABLE);

@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -77,8 +78,20 @@ public class Reservation {
     private String notesAfter;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false, nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT NOW()")
+    @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt;
+
+    @UpdateTimestamp 
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", referencedColumnName = "id", updatable = false, nullable = true)
+    private User createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by", referencedColumnName = "id", nullable = true)
+    private User updatedBy;
 
     public enum Condition {
         EXCELLENT, GOOD, FAIR, POOR

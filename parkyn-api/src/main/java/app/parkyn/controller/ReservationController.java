@@ -10,6 +10,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,7 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 import app.parkyn.dto.ReservationRequest;
 import app.parkyn.dto.ReservationResponse;
 import app.parkyn.dto.ReturnVehicleRequest;
+import app.parkyn.dto.UserRequest;
 import app.parkyn.model.Reservation;
+import app.parkyn.model.User;
 import app.parkyn.service.ReservationService;
 import org.springframework.web.bind.annotation.RequestBody;
 import jakarta.validation.Valid;
@@ -45,8 +48,11 @@ public class ReservationController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PostMapping("")
-    public ResponseEntity<ReservationResponse> addReservation(@Valid @RequestBody ReservationRequest request) {
-        ReservationResponse response = reservationService.addReservation(request);
+    public ResponseEntity<ReservationResponse> addReservation(
+        @AuthenticationPrincipal User currentUser,
+        @Valid @RequestBody ReservationRequest request
+    ) {
+        ReservationResponse response = reservationService.addReservation(currentUser, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -59,8 +65,12 @@ public class ReservationController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     @PostMapping("/{id}/return")
-    public ResponseEntity<ReservationResponse> returnVehicle(@PathVariable UUID id, @Valid @RequestBody ReturnVehicleRequest request) {
-        ReservationResponse response = reservationService.returnVehicle(id, request);
+    public ResponseEntity<ReservationResponse> returnVehicle(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id, 
+        @Valid @RequestBody ReturnVehicleRequest request
+    ) {
+        ReservationResponse response = reservationService.returnVehicle(currentUser, id, request);
         return ResponseEntity.ok().body(response);
     }
 }

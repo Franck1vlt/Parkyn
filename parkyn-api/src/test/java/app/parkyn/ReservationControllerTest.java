@@ -5,8 +5,12 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
@@ -42,10 +46,12 @@ public class ReservationControllerTest {
     @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired ReservationRepository reservationRepository;
     @Autowired VehicleRepository vehicleRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private static final String TEST_EMAIL = "test@parkyn.app";
     private static final String TEST_PASSWORD = "Password123!";
     private String testRefreshToken;
+    private UUID testUserId;
     private UUID testVehicleId;
     private UUID testReservationId;
 
@@ -60,6 +66,7 @@ public class ReservationControllerTest {
         user.setRole(User.Role.ADMIN);
         user.setActive(true);
         userRepository.saveAndFlush(user);
+        testUserId = user.getId();
 
         testRefreshToken = UUID.randomUUID().toString();
         RefreshToken rt = new RefreshToken();
@@ -83,7 +90,12 @@ public class ReservationControllerTest {
         reservation.setEndDate(OffsetDateTime.now().plusDays(3));
         reservation.setConditionBefore(Reservation.Condition.GOOD);
         reservation.setMileageStart(45650);
+        reservation.setCreatedBy(user);
         reservationRepository.saveAndFlush(reservation);
+        jdbcTemplate.update(
+            "UPDATE reservations SET updated_at = '2020-01-01T00:00:00Z' WHERE id = ?",
+            reservation.getId()
+        );
 
         testVehicleId = vehicle.getId();
         testReservationId = reservation.getId();
@@ -149,6 +161,13 @@ public class ReservationControllerTest {
             .andExpect(jsonPath("$.damageDetails").doesNotExist())
             .andExpect(jsonPath("$.notesAfter").doesNotExist())
             .andExpect(status().isCreated());
+
+        Reservation createdReservation = reservationRepository.findAll().stream()
+            .filter(reservation -> !reservation.getId().equals(testReservationId))
+            .findFirst()
+            .orElseThrow();
+        assertNotNull(createdReservation.getCreatedBy());
+        assertEquals(testUserId, createdReservation.getCreatedBy().getId());
     }
 
 
@@ -206,6 +225,15 @@ public class ReservationControllerTest {
             .andExpect(jsonPath("$.damageDetails").isString())
             .andExpect(jsonPath("$.notesAfter").isString())
             .andExpect(status().isOk());
+
+        Reservation returnedReservation = reservationRepository.findById(testReservationId).orElseThrow();
+        assertNotNull(returnedReservation.getCreatedBy());
+        assertEquals(testUserId, returnedReservation.getCreatedBy().getId());
+        assertNotNull(returnedReservation.getUpdatedBy());
+        assertEquals(testUserId, returnedReservation.getUpdatedBy().getId());
+        assertNotNull(returnedReservation.getCreatedAt());
+        assertNotNull(returnedReservation.getUpdatedAt());
+        assertTrue(returnedReservation.getUpdatedAt().isAfter(OffsetDateTime.parse("2020-01-01T00:00:00Z")));
     }
 
 
