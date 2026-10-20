@@ -44,7 +44,7 @@ public class UserController {
         return ResponseEntity.ok().body(userService.getUsers(role, pageable));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:create')")
     @PostMapping("")
     public ResponseEntity<UserResponse> addUser(
         @AuthenticationPrincipal User currentUser,
@@ -54,7 +54,7 @@ public class UserController {
             .body(userService.addUser(currentUser, request));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:read:all')")
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(
         @AuthenticationPrincipal User currentUser,
@@ -63,7 +63,7 @@ public class UserController {
         return ResponseEntity.ok().body(userService.getUserById(currentUser, id));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:update')")
     @PatchMapping("/{id}")
     public ResponseEntity<UserResponse> updateUserById(
         @AuthenticationPrincipal User currentUser,
@@ -74,7 +74,7 @@ public class UserController {
         return ResponseEntity.ok().body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:status:update')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(
         @AuthenticationPrincipal User currentUser,
@@ -84,7 +84,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:status:update')")
     @PatchMapping("/{id}/reactivate")
     public ResponseEntity<UserResponse> reactivateUser(
         @AuthenticationPrincipal User currentUser,
@@ -93,7 +93,7 @@ public class UserController {
         return ResponseEntity.ok().body(userService.reactivateUserById(currentUser, id));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('user:read:all')")
     @GetMapping("/drivers")
     public ResponseEntity<Page<UserResponse>> getDrivers(
         @RequestParam(required = false) String search,
