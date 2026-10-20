@@ -10,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
@@ -41,6 +42,7 @@ public class UserControllerTest {
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired VehicleRepository vehicleRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private static final String TEST_EMAIL = "test@parkyn.app";
     private static final String TEST_EMAIL2 = "test2@parkyn.app";
@@ -54,24 +56,14 @@ public class UserControllerTest {
 
     @BeforeEach
     void setUp() {
-        User user = new User();
-        user.setFirstName("Test");
-        user.setLastName("User");
-        user.setEmail(TEST_EMAIL);
-        user.setHashedPwd(passwordEncoder.encode(TEST_PASSWORD));
-        user.setRole(User.Role.ADMIN);
-        user.setActive(true);
-        userRepository.saveAndFlush(user);
+        TestUsers testUsers = new TestUsers(userRepository, jdbcTemplate, passwordEncoder);
+
+        User user = testUsers
+            .create(TEST_EMAIL, TEST_PASSWORD, User.Role.ADMIN);
         testAdminId = user.getId();
 
-        User user2 = new User();
-        user2.setFirstName("Test");
-        user2.setLastName("User2");
-        user2.setEmail(TEST_EMAIL2);
-        user2.setHashedPwd(passwordEncoder.encode(TEST_PASSWORD));
-        user2.setRole(User.Role.AGENT);
-        user2.setActive(true);
-        userRepository.saveAndFlush(user2);
+        User user2 = testUsers
+            .create(TEST_EMAIL2, TEST_PASSWORD, User.Role.AGENT);
 
         testRefreshToken = UUID.randomUUID().toString();
         RefreshToken rt = new RefreshToken();
@@ -89,14 +81,8 @@ public class UserControllerTest {
 
         testUserId = user.getId();
 
-        User user3 = new User();
-        user3.setFirstName("Test");
-        user3.setLastName("Driver");
-        user3.setEmail(TEST_EMAIL3);
-        user3.setHashedPwd(passwordEncoder.encode(TEST_PASSWORD));
-        user3.setRole(User.Role.DRIVER);
-        user3.setActive(true);
-        userRepository.saveAndFlush(user3);
+        User user3 = testUsers
+            .create(TEST_EMAIL3, TEST_PASSWORD, User.Role.DRIVER);
         testDriverId = user3.getId();
     }
 
@@ -277,6 +263,8 @@ public class UserControllerTest {
             true
         );
 
+        String adminLastNameBefore = userRepository.findById(testAdminId).orElseThrow().getLastName();
+
         mockMvc.perform(patch("/api/v1/users/" + testAdminId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -286,7 +274,7 @@ public class UserControllerTest {
 
         // F1 : un AGENT ne modifie pas un ADMIN, et rien n'est enregistré
         User admin = userRepository.findById(testAdminId).orElseThrow();
-        assertEquals("User", admin.getLastName());
+        assertEquals(adminLastNameBefore, admin.getLastName());
         assertEquals(User.Role.ADMIN, admin.getRole());
     }
 

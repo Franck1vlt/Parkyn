@@ -11,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +43,7 @@ public class VehicleControllerTest {
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired VehicleRepository vehicleRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private static final String TEST_EMAIL = "test@parkyn.app";
     private static final String TEST_PASSWORD = "Password123!";
@@ -50,14 +52,8 @@ public class VehicleControllerTest {
 
     @BeforeEach
     void setUp() {
-        User user = new User();
-        user.setFirstName("Test");
-        user.setLastName("User");
-        user.setEmail(TEST_EMAIL);
-        user.setHashedPwd(passwordEncoder.encode(TEST_PASSWORD));
-        user.setRole(User.Role.ADMIN);
-        user.setActive(true);
-        userRepository.saveAndFlush(user);
+        User user = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+            .create(TEST_EMAIL, TEST_PASSWORD, User.Role.ADMIN);
 
         testRefreshToken = UUID.randomUUID().toString();
         RefreshToken rt = new RefreshToken();

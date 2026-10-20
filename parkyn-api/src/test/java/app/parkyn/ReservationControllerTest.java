@@ -58,14 +58,8 @@ public class ReservationControllerTest {
 
     @BeforeEach
     void setUp() {
-        User user = new User();
-        user.setFirstName("Test");
-        user.setLastName("User");
-        user.setEmail(TEST_EMAIL);
-        user.setHashedPwd(passwordEncoder.encode(TEST_PASSWORD));
-        user.setRole(User.Role.ADMIN);
-        user.setActive(true);
-        userRepository.saveAndFlush(user);
+        User user = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+            .create(TEST_EMAIL, TEST_PASSWORD, User.Role.ADMIN);
         testUserId = user.getId();
 
         testRefreshToken = UUID.randomUUID().toString();

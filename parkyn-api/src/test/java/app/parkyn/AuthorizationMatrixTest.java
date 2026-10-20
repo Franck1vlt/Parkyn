@@ -28,6 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -64,6 +65,7 @@ class AuthorizationMatrixTest {
     @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired JwtService jwtService;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     enum Actor { ADMIN, AGENT, DRIVER, ANONYMOUS }
 
@@ -89,37 +91,24 @@ class AuthorizationMatrixTest {
     private static final String RANDOM_ID = UUID.randomUUID().toString();
     private static final UUID RANDOM_UUID = UUID.randomUUID();
     private static final String LOGIN_EMAIL = "admin@parkyn.app";
+    private static final String AGENT_EMAIL = "agent@parkyn.app";
+    private static final String DRIVER_EMAIL = "driver@parkyn.app";
     private static final String LOGIN_PASSWORD = "Password123!";
     private static final String REFRESH_TOKEN = UUID.randomUUID().toString();
 
     @BeforeEach
     void setUp() {
-        User[] adminUser = new User[1];
-        Map.of(
-            Actor.ADMIN, new Object[] { "admin@parkyn.app", User.Role.ADMIN },
-            Actor.AGENT, new Object[] { "agent@parkyn.app", User.Role.AGENT },
-            Actor.DRIVER, new Object[] { "driver@parkyn.app", User.Role.DRIVER }
-        ).forEach((actor, values) -> {
-            String email = (String) values[0];
-            User.Role role = (User.Role) values[1];
-            User user = new User();
-            user.setFirstName("Test");
-            user.setLastName(role.name());
-            user.setEmail(email);
-            user.setHashedPwd(email.equals(LOGIN_EMAIL)
-                ? passwordEncoder.encode(LOGIN_PASSWORD)
-                : "not-used");
-            user.setRole(role);
-            user.setActive(true);
-            User savedUser = userRepository.saveAndFlush(user);
-            tokens.put(actor, jwtService.generateToken(savedUser));
-            if (role == User.Role.ADMIN) {
-                adminUser[0] = savedUser;
-            }
-        });
-
+        User admin = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+            .create(LOGIN_EMAIL, LOGIN_PASSWORD, User.Role.ADMIN);
+        User agent = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+            .createWithoutPassword(AGENT_EMAIL, User.Role.AGENT);
+        User driver = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+            .createWithoutPassword(DRIVER_EMAIL, User.Role.DRIVER);
+        tokens.put(Actor.ADMIN, jwtService.generateToken(admin));
+        tokens.put(Actor.AGENT, jwtService.generateToken(agent));
+        tokens.put(Actor.DRIVER, jwtService.generateToken(driver));
         RefreshToken rt = new RefreshToken();
-        rt.setUser(adminUser[0]);
+        rt.setUser(admin);
         rt.setToken(REFRESH_TOKEN);
         rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt);
