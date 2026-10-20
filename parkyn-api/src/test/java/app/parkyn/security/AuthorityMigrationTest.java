@@ -73,7 +73,9 @@ public class AuthorityMigrationTest {
             Arguments.of(HttpMethod.PATCH, "/api/v1/users/" + UUID.randomUUID(), TestRequests.validUserUpdateRequest()),
             Arguments.of(HttpMethod.DELETE, "/api/v1/users/" + UUID.randomUUID(), null),
             Arguments.of(HttpMethod.PATCH, "/api/v1/users/" + UUID.randomUUID() + "/reactivate", null),
-            Arguments.of(HttpMethod.GET, "/api/v1/users/drivers", null)
+            Arguments.of(HttpMethod.GET, "/api/v1/users/drivers", null),
+            Arguments.of(HttpMethod.PATCH, "/api/v1/vehicles/" + UUID.randomUUID(), TestRequests.validVehicleUpdateRequest()),
+            Arguments.of(HttpMethod.PATCH, "/api/v1/vehicles/" + UUID.randomUUID() + "/status", TestRequests.validVehicleStatusRequest())
         );
     }
 

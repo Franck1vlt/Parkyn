@@ -60,7 +60,7 @@ public class VehicleController {
         return ResponseEntity.ok().body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:update')")
     @PatchMapping("/{id}")
     public ResponseEntity<VehicleResponse> updateVehicleById(@RequestBody VehicleUpdateRequest request, @PathVariable UUID id) {
         VehicleResponse response = vehicleService.updateVehicleById(id, request);
@@ -74,7 +74,7 @@ public class VehicleController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:status:update')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<VehicleResponse> updateVehicleStatus(@PathVariable UUID id, @Valid @RequestBody VehicleStatusRequest request) {
         VehicleResponse response = vehicleService.updateVehicleStatus(id, request);
