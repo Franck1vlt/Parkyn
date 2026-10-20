@@ -5,21 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 
 import java.util.EnumMap;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -89,7 +78,6 @@ class AuthorizationMatrixTest {
 
     private final Map<Actor, String> tokens = new EnumMap<>(Actor.class);
     private static final String RANDOM_ID = UUID.randomUUID().toString();
-    private static final UUID RANDOM_UUID = UUID.randomUUID();
     private static final String LOGIN_EMAIL = "admin@parkyn.app";
     private static final String AGENT_EMAIL = "agent@parkyn.app";
     private static final String DRIVER_EMAIL = "driver@parkyn.app";
@@ -124,98 +112,12 @@ class AuthorizationMatrixTest {
         );
     }
 
-    static RegisterRequest validRegisterRequest() {
-        return new RegisterRequest(
-            "Jean", 
-            "Dupont", 
-            "jean.dupont@parkyn.app", 
-            "Password123!"
-        );
-    }
-
-    static ReservationRequest validReservationRequest() {
-        return new ReservationRequest(
-            RANDOM_UUID,
-            null,
-            "Jean",
-            "Dupont",
-            "jean.dupont@parkyn.app",
-            null,
-            OffsetDateTime.now().plusYears(4),
-            OffsetDateTime.now().plusYears(4).plusDays(7),
-            Reservation.Condition.GOOD,
-            50000,
-            null
-        );
-    }
-
-    static ReturnVehicleRequest validReturnVehicleRequest() {
-        return new ReturnVehicleRequest(
-            Reservation.Condition.GOOD, 
-            50256, 
-            true, 
-            "Rayure sur le pare-choc arrière", 
-            "Carburant à moitié"
-        );
-    }
-
-    static UserRequest validUserRequest() {
-        return new UserRequest(
-            "Bob",
-            "Williams",
-            "bob.williams@parkyn.app",
-            "Password123!",
-            User.Role.DRIVER,
-            true
-        );
-    }
-
-    static UserUpdateRequest validUserUpdateRequest() {
-        return new UserUpdateRequest(
-            "Bob",
-            "Williams",
-            "bob.williams@parkyn.app",
-            "Password123!",
-            User.Role.DRIVER,
-            true
-        );
-    }
-
-    static VehicleRequest validVehicleRequest() {
-        return new VehicleRequest(
-            "AA-123-AA", 
-            "Renault", 
-            "Clio", 
-            2020, 
-            50000, 
-            Vehicle.VehicleCondition.GOOD, 
-            LocalDate.of(2020, 1, 15)
-        );
-    }
-
-    static VehicleUpdateRequest validVehicleUpdateRequest() {
-        return new VehicleUpdateRequest(
-            null, 
-            null, 
-            null, 
-            2025, 
-            12500,
-            Vehicle.VehicleCondition.EXCELLENT,
-            null
-        );
-    }
-
-    static VehicleStatusRequest validVehicleStatusRequest() {
-        return new VehicleStatusRequest(Vehicle.VehicleStatus.RESERVED);
-    }
-
-
     static Stream<MatrixCase> matrix() {
         return Stream.of(
             // Endpoints d'Authentification
             row(HttpMethod.POST, "/api/v1/auth/login", validLoginRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
             row(HttpMethod.POST, "/api/v1/auth/refresh", validRefreshRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
-            row(HttpMethod.POST, "/api/v1/auth/register", validRegisterRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
+            row(HttpMethod.POST, "/api/v1/auth/register", TestRequests.validRegisterRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
             row(HttpMethod.POST, "/api/v1/auth/logout", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.GET, "/api/v1/auth/me", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
 
@@ -229,26 +131,26 @@ class AuthorizationMatrixTest {
 
             // Endpoints de réservations
             row(HttpMethod.GET, "/api/v1/reservations", null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.POST, "/api/v1/reservations", validReservationRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.POST, "/api/v1/reservations", TestRequests.validReservationRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/reservations/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", TestRequests.validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints d'utilisateurs
             row(HttpMethod.GET, "/api/v1/users", null, ALLOWED, DENIED, DENIED, DENIED),
-            row(HttpMethod.POST, "/api/v1/users", validUserRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.POST, "/api/v1/users", TestRequests.validUserRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/users/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/users/" + RANDOM_ID, validUserUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.PATCH, "/api/v1/users/" + RANDOM_ID, TestRequests.validUserUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.DELETE, "/api/v1/users/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/users/" + RANDOM_ID + "/reactivate", null, ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/users/drivers", null, ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints de véhicules
             row(HttpMethod.GET, "/api/v1/vehicles", null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.POST, "/api/v1/vehicles", validVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.POST, "/api/v1/vehicles", TestRequests.validVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID, validVehicleUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID, TestRequests.validVehicleUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.DELETE, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED)
+            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED)
         ).flatMap(s -> s);
     }
 
