@@ -18,6 +18,7 @@ public class DriverAssignmentService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoleAssignmentService roleAssignmentService;
 
     public User getOrCreateDriver(ReservationRequest request) {
         // Cas 1 : driverId fourni -> chercher le driver existant
@@ -42,7 +43,7 @@ public class DriverAssignmentService {
         driver.setLastName(request.driverLastName());
         driver.setEmail(request.driverEmail());
         driver.setHashedPwd(passwordEncoder.encode(UUID.randomUUID().toString()));
-        driver.setRole(User.Role.DRIVER);
+        roleAssignmentService.assign(driver, User.Role.DRIVER);
         driver.setActive(true);
         return userRepository.saveAndFlush(driver);
     }

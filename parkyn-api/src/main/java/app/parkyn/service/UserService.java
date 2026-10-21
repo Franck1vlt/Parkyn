@@ -29,6 +29,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserAccessPolicy userAccessPolicy;
+    private final RoleAssignmentService roleAssignmentService;
+
 
     @Transactional
     public Page<UserResponse> getUsers(User.Role role, Pageable pageable) {
@@ -56,7 +58,7 @@ public class UserService {
         user.setLastName(request.lastname());
         user.setEmail(request.email());
         user.setHashedPwd(passwordEncoder.encode(request.password()));
-        user.setRole(request.role());
+        roleAssignmentService.assign(user, request.role());
         user.setActive(request.active());
         return UserResponse.from(userRepository.saveAndFlush(user));
     }
@@ -82,7 +84,7 @@ public class UserService {
         if (request.lastname()  != null) user.setLastName(request.lastname());
         if (request.email()     != null) user.setEmail(request.email());
         if (request.password()  != null) user.setHashedPwd(passwordEncoder.encode(request.password()));
-        if (request.role()      != null) user.setRole(request.role());
+        if (request.role() != null) roleAssignmentService.assign(user, request.role());
         if (request.active()    != null) user.setActive(request.active());
         return UserResponse.from(userRepository.saveAndFlush(user));
     }

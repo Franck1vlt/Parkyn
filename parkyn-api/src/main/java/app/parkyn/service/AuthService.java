@@ -36,6 +36,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final RoleAssignmentService roleAssignmentService;
 
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
@@ -104,7 +105,7 @@ public class AuthService {
         user.setLastName(request.lastname());
         user.setEmail(request.email());
         user.setHashedPwd(passwordEncoder.encode(request.password()));
-        user.setRole(User.Role.DRIVER);
+        roleAssignmentService.assign(user, User.Role.DRIVER);
         user.setActive(true);
         return UserResponse.from(userRepository.saveAndFlush(user));
     }
