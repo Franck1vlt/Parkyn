@@ -75,7 +75,7 @@
 - [x] Bascule `hasRole` → `hasAuthority` : réservations, tableau de bord, utilisateurs (sauf `GET /users`), véhicules (`PATCH /{id}`, `PATCH /{id}/status`). Preuve : `AuthorityMigrationTest`
 - [x] `user_roles` écrit à chaque création ou changement de rôle (`RoleAssignmentService`, `RoleAssignmentTest`)
 - [x] Cache des permissions (`@Cacheable` + Caffeine, 60 s, clé = id utilisateur) et révocation au changement de rôle (`PermissionCacheTest`)
-- [ ] Test « deny by default » et annotation `@PublicEndpoint`
+- [x] Test « deny by default » et annotation `@PublicEndpoint`
 - [ ] Changements de comportement (endpoints † de la matrice), avant le Contract
 - [ ] Contract partiel : plus de `ROLE_` dans les autorités, suppression de `users.role`, `AuthorityMigrationTest` et `setRole` dans `TestUsers`
 

@@ -25,7 +25,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('notification:read:own')")
     @GetMapping("")
     public ResponseEntity<List<NotificationResponse>> getUserNotifications(@AuthenticationPrincipal User user){
         var notifications = notificationService.getUserNotifications(user.getId())
@@ -35,14 +35,14 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('notification:read:own')")
     @PatchMapping("/{id}/read")
     public ResponseEntity<Void> markAsRead(@AuthenticationPrincipal User user, @PathVariable UUID id){
         notificationService.markAsRead(id, user.getId());
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('notification:read:own')")
     @PatchMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal User user){
         notificationService.markAllAsRead(user.getId());

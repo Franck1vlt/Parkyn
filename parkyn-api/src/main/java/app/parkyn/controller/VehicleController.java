@@ -36,7 +36,7 @@ public class VehicleController {
 
     private final VehicleService vehicleService;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:read')")
     @GetMapping("")
     public ResponseEntity<Page<VehicleResponse>> getVehicles(
         @RequestParam(required = false) Vehicle.VehicleStatus status,
@@ -53,7 +53,7 @@ public class VehicleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:read')")
     @GetMapping("/{id}")
     public ResponseEntity<VehicleResponse> getVehicleById(@PathVariable UUID id) {
         VehicleResponse response = vehicleService.getVehicleById(id);

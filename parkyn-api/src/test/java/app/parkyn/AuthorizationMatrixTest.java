@@ -125,9 +125,9 @@ class AuthorizationMatrixTest {
             row(HttpMethod.GET, "/api/v1/dashboard", null, ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints de notifications
-            row(HttpMethod.GET, "/api/v1/notifications", null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/notifications/" + RANDOM_ID + "/read", null, ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/notifications/read-all", null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/notifications", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
+            row(HttpMethod.PATCH, "/api/v1/notifications/" + RANDOM_ID + "/read", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
+            row(HttpMethod.PATCH, "/api/v1/notifications/read-all", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
 
             // Endpoints de réservations
             row(HttpMethod.GET, "/api/v1/reservations", null, ALLOWED, ALLOWED, DENIED, DENIED),
@@ -145,9 +145,9 @@ class AuthorizationMatrixTest {
             row(HttpMethod.GET, "/api/v1/users/drivers", null, ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints de véhicules
-            row(HttpMethod.GET, "/api/v1/vehicles", null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/vehicles", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.POST, "/api/v1/vehicles", TestRequests.validVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.GET, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID, TestRequests.validVehicleUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.DELETE, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED)
