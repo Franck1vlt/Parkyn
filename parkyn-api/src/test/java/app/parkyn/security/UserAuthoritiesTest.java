@@ -8,14 +8,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import java.io.IOException;
+
+import jakarta.servlet.ServletException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import app.parkyn.IntegrationTest;
 import app.parkyn.TestUsers;
@@ -29,20 +36,32 @@ public class UserAuthoritiesTest {
     @Autowired UserRepository userRepository;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired JwtAuthFilter jwtAuthFilter;
+    @Autowired JwtService jwtService;
 
     @ParameterizedTest(name = "{0} : {1} autorités")
     @MethodSource("rolesAndAuthorities")
     void roleHasExpectedAuthorities(User.Role role, int expectedAuthorityCount,
-            String[] expectedPermissions, String[] forbiddenPermissions) {
+            String[] expectedPermissions, String[] forbiddenPermissions)
+            throws ServletException, IOException {
         String email = "test." + role.name().toLowerCase() + "@parkyn.app";
 
         new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
             .createWithoutPassword(email, role);
 
-        // Rechargé comme le fait JwtAuthFilter : rôles et permissions viennent de la base
-        UserDetails loadedUser = userDetailsService.loadUserByUsername(email);
+        // Vérifie l'authentification effectivement construite par JwtAuthFilter.
+        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(email));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
 
-        Set<String> authorities = loadedUser.getAuthorities().stream()
+        SecurityContextHolder.clearContext();
+        jwtAuthFilter.doFilter(request, response, (req, res) -> { });
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        assertTrue(authentication != null, "Authentification absente après le passage dans JwtAuthFilter");
+
+        Set<String> authorities = authentication.getAuthorities().stream()
             .map(auth -> auth.getAuthority())
             .collect(Collectors.toSet());
 
@@ -54,6 +73,7 @@ public class UserAuthoritiesTest {
             assertFalse(authorities.contains(permission), permission + " interdite pour " + role);
         }
         assertEquals(expectedAuthorityCount, authorities.size());
+        SecurityContextHolder.clearContext();
     }
 
     // Nombre d'autorités = 1 ROLE_ + permissions du rôle (V6 + V11)

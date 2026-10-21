@@ -74,9 +74,6 @@ class RoleAssignmentTest {
     // Scénario 1 : un compte créé via l'API reçoit les permissions de son rôle
     @Test
     void agentCreatedThroughApiCanAccessReservations() throws Exception {
-        // POST /users avec le token de l'ADMIN, nouvel AGENT (rôle AGENT)
-        // connexion du nouvel agent avec login(...)
-        // GET /reservations avec son token -> 200
         UserRequest userRequest = new UserRequest("John", "Doe", "john.doe@example.com", PASSWORD, User.Role.AGENT, true);
         mockMvc.perform(post("/api/v1/users")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN_EMAIL, PASSWORD))
@@ -93,9 +90,6 @@ class RoleAssignmentTest {
     // Scénario 2 : l'inscription donne un rôle en base
     @Test
     void registeredAccountHasItsRole() throws Exception {
-        // POST /auth/register (corps valide, nouvel email)
-        // retrouver l'id du compte créé (par son email)
-        // roleNamesOf(id) contient exactement le rôle prévu par AuthService.register
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(TestRequests.validRegisterRequest()))
@@ -112,8 +106,6 @@ class RoleAssignmentTest {
     // Scénario 3 : un changement de rôle remplace l'ancien rôle
     @Test
     void roleChangeReplacesPreviousRole() throws Exception {
-        // PATCH /users/{driverId} avec le token de l'ADMIN, rôle AGENT
-        // roleNamesOf(driverId) vaut exactement ["AGENT"]
         UserUpdateRequest userUpdateRequest = new UserUpdateRequest(null, null, null, null, User.Role.AGENT, true);
         mockMvc.perform(patch("/api/v1/users/" + driverId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(ADMIN_EMAIL, PASSWORD))
@@ -129,10 +121,6 @@ class RoleAssignmentTest {
     // Scénario 4 : un conducteur créé lors d'une réservation reçoit le rôle DRIVER
     @Test
     void driverCreatedByReservationHasDriverRole() throws Exception {
-        // POST /reservations avec le token de l'AGENT, vehicleId réel,
-        //        sans driverId mais avec un driverEmail inconnu (prénom, nom, email)
-        // retrouver l'id du conducteur créé (par son email)
-        // roleNamesOf(id) vaut exactement ["DRIVER"]
         String driverEmail = "john.doe@example.com";
         ReservationRequest reservationRequest = new ReservationRequest(
             vehicleId,

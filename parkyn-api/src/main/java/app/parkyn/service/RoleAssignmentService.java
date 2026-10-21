@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor 
 public class RoleAssignmentService {
 
+    private final PermissionService permissionService;
     private final RoleRepository roleRepository;
  
     public void assign(User user, User.Role role) {
@@ -18,6 +19,9 @@ public class RoleAssignmentService {
         user.getRoles().clear();
         user.getRoles().add(systemRole);
         user.setRole(role);
-    }
 
+        if (user.getId() != null) {
+            permissionService.evict(user.getId());
+        }
+    }
 }

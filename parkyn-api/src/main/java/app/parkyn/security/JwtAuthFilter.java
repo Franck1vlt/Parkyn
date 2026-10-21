@@ -1,8 +1,11 @@
 package app.parkyn.security;
 
+import app.parkyn.service.PermissionService;
 import java.io.IOException;
+import java.util.stream.Stream;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -10,6 +13,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import app.parkyn.model.User;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor 
 public class JwtAuthFilter extends OncePerRequestFilter{
 
+    private final PermissionService permissionService;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
@@ -28,11 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter{
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
-        System.out.println("=== JWT FILTER === " + request.getRequestURI());
-        System.out.println("Authorization header: " + authHeader);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("No Bearer token, skipping");
             filterChain.doFilter(request, response);
             return;
         }
@@ -42,22 +44,24 @@ public class JwtAuthFilter extends OncePerRequestFilter{
         try {
             email = jwtService.extractUsername(token);
         } catch (ExpiredJwtException e) {
-            System.out.println("JWT error: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
-        System.out.println("Email from token: " + email);
-
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
             boolean valid = jwtService.isTokenValid(token, userDetails);
-            System.out.println("Token valid: " + valid);
             if (valid) {
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                User user = (User) userDetails;
+                SimpleGrantedAuthority roleAuthority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
+                var permissionAuthorities = permissionService.permissionCodesOf(user.getId()).stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .toList();
+                var allAuthorities = Stream.concat(Stream.of(roleAuthority), permissionAuthorities.stream())
+                    .toList();
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, allAuthorities);
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                System.out.println("Authentication set: " + auth.getPrincipal());
             }
         }
 
