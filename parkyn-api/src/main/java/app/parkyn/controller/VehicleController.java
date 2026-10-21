@@ -46,7 +46,7 @@ public class VehicleController {
         return ResponseEntity.ok().body(vehicleService.getVehicles(status, search, pageable));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:create')")
     @PostMapping("")
     public ResponseEntity<VehicleResponse> addVehicle(@Valid @RequestBody VehicleRequest request) {
         VehicleResponse response = vehicleService.addVehicle(request);
@@ -67,7 +67,7 @@ public class VehicleController {
         return ResponseEntity.ok().body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAuthority('vehicle:delete')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteVehicleById(@PathVariable UUID id) {
         vehicleService.deleteVehicleById(id);

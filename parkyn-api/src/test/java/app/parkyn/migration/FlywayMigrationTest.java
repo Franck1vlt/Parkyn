@@ -62,7 +62,7 @@ class FlywayMigrationTest {
             (String) row.get("name"), ((Number) row.get("permission_count")).intValue()));
 
         assertEquals(18, permissionCounts.get("ADMIN"));
-        assertEquals(15, permissionCounts.get("AGENT"));
+        assertEquals(14, permissionCounts.get("AGENT"));
         assertEquals(7, permissionCounts.get("DRIVER"));
     }
 

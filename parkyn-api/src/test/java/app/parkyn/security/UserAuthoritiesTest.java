@@ -82,9 +82,9 @@ public class UserAuthoritiesTest {
             Arguments.of(User.Role.ADMIN, 19,
                 new String[] { "vehicle:delete", "user:create", "roles:manage" },
                 new String[] {}),
-            Arguments.of(User.Role.AGENT, 16,
-                new String[] { "user:create", "user:update", "user:status:update", "vehicle:create" },
-                new String[] { "vehicle:delete", "roles:manage", "user:roles:assign" }),
+            Arguments.of(User.Role.AGENT, 15,
+                new String[] { "user:create", "user:update", "user:status:update" },
+                new String[] { "vehicle:delete", "roles:manage", "user:roles:assign", "vehicle:create" }),
             Arguments.of(User.Role.DRIVER, 8,
                 new String[] { "reservation:read:own", "reservation:create:own", "user:read:own" },
                 new String[] { "reservation:read:all", "user:create", "vehicle:delete", "dashboard:read:all" })

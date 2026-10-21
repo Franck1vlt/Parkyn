@@ -35,7 +35,7 @@ public class UserController {
 
     private final UserService userService;
 
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAuthority('user:read:all')")
     @GetMapping("")
     public ResponseEntity<Page<UserResponse>> getUsers(
         @RequestParam(required = false) User.Role role,

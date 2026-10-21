@@ -35,7 +35,7 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | `403`     | `403`      | `reservation:read:all` |
 | 13                | POST    | `/api/v1/reservations/{id}/return` | `ReturnVehicleRequest` | OK    | OK    | `403`     | `403`      | `reservation:return:all` |
 | **Utilisateurs**  |
-| 14                | GET     | `/api/v1/users`                    | -                      | OK    | `403`    | `403`     | `403`      | `user:read:all` † |
+| 14                | GET     | `/api/v1/users`                    | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
 | 15                | POST    | `/api/v1/users`                    | `UserRequest`          | OK    | OK    | `403`     | `403`      | `user:create` |
 | 16                | GET     | `/api/v1/users/{id}`               | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
 | 17                | PATCH   | `/api/v1/users/{id}`               | `UserUpdateRequest`    | OK    | OK    | `403`     | `403`      | `user:update` |
@@ -44,16 +44,16 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 20                | GET     | `/api/v1/users/drivers`            | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
 | **Véhicules**     |
 | 21                | GET     | `/api/v1/vehicles`                 | -                      | OK    | OK    | OK     | `403`      | `vehicle:read` |
-| 22                | POST    | `/api/v1/vehicles`                 | `VehicleRequest`       | OK    | OK    | `403`     | `403`      | `vehicle:create` † |
+| 22                | POST    | `/api/v1/vehicles`                 | `VehicleRequest`       | OK    | `403` | `403`     | `403`      | `vehicle:create` |
 | 23                | GET     | `/api/v1/vehicles/{id}`            | -                      | OK    | OK    | OK     | `403`      | `vehicle:read` |
 | 24                | PATCH   | `/api/v1/vehicles/{id}`            | `VehicleUpdateRequest` | OK    | OK    | `403`     | `403`      | `vehicle:update` |
-| 25                | DELETE  | `/api/v1/vehicles/{id}`            | -                      | OK    | OK    | `403`     | `403`      | `vehicle:delete` † |
+| 25                | DELETE  | `/api/v1/vehicles/{id}`            | -                      | OK    | `403` | `403`     | `403`      | `vehicle:delete` |
 | 26                | PATCH   | `/api/v1/vehicles/{id}/status`     | `VehicleStatusRequest` | OK    | OK    | `403`     | `403`      | `vehicle:status:update` |
 
 **Colonne « Permission cible »** : la permission que l'endpoint exigera après A3.
 
 - **†** : la permission cible **change le comportement** (le DRIVER gagne l'accès aux véhicules et à ses notifications ; l'AGENT perd la création et la suppression de véhicules). Ces endpoints gardent `hasRole` pendant la bascule A3, puis passent à leur permission dans une étape séparée « changements de comportement », avec mise à jour de cette matrice.
-- Ligne 14 (`GET /users`) : décision produit, l'AGENT peut voir la liste de tous les comptes (il ne peut créer, modifier ou désactiver que des conducteurs, grâce à `UserAccessPolicy`). C'est un changement de comportement (†) : l'AGENT passera de `403` à `OK` lors de l'étape séparée.
+- Ligne 14 (`GET /users`) : décision produit, l'AGENT peut voir la liste de tous les comptes (il ne peut créer, modifier ou désactiver que des conducteurs, grâce à `UserAccessPolicy`). Changement de comportement appliqué : l'AGENT est passé de `403` à `OK` (voir « Changements de comportement »).
 - `user:create`, `user:update` et `user:status:update` sont accordées à l'AGENT par la V11 : la permission ouvre la gestion des comptes, `UserAccessPolicy` la limite aux conducteurs.
 
 ## Changements de comportement
@@ -64,10 +64,15 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | ---- | ------ | ---- | ----- | ----- | ------ |
 | 2026-10-21 | 7, 8, 9 (notifications) | DRIVER | `403` | OK | Le conducteur a un espace personnel et reçoit ses propres notifications (`notification:read:own`). La portée est garantie par `findByIdAndUserId` et le filtre par utilisateur |
 | 2026-10-21 | 21, 23 (lecture des véhicules) | DRIVER | `403` | OK | Le conducteur consulte les véhicules pour réserver (`vehicle:read`) |
+| 2026-10-21 | 14 (`GET /users`) | AGENT | `403` | OK | L'agent consulte la liste de tous les comptes (`user:read:all`). Il ne crée, modifie ou désactive que des conducteurs (`UserAccessPolicy`). La réponse ne contient aucune donnée sensible (pas de hash de mot de passe) |
+| 2026-10-21 | 22 (`POST /vehicles`) | AGENT | OK | `403` | Seul l'ADMIN ajoute des véhicules au parc (`vehicle:create` retirée à l'AGENT par la V12) |
+| 2026-10-21 | 25 (`DELETE /vehicles/{id}`) | AGENT | OK | `403` | Seul l'ADMIN retire un véhicule du parc (`vehicle:delete`, réservée à l'ADMIN depuis la V11). L'AGENT garde la modification et le statut |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.
 
-Restent marqués † : `GET /users` (AGENT, ouverture) et `POST` / `DELETE /vehicles` (AGENT, restrictions, avec la V12).
+Plus aucune case n'est marquée † : tous les endpoints protégés utilisent une permission, sauf `/auth/me` et `/auth/logout` (`isAuthenticated()`).
+
+À prévoir côté frontend (phase D3) : masquer « Ajouter un véhicule » et « Supprimer » pour l'AGENT, qui reçoit désormais `403`.
 
 ## Failles connues (contrôle sur l'objet, hors matrice)
 

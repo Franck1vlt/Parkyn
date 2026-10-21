@@ -76,7 +76,7 @@
 - [x] `user_roles` écrit à chaque création ou changement de rôle (`RoleAssignmentService`, `RoleAssignmentTest`)
 - [x] Cache des permissions (`@Cacheable` + Caffeine, 60 s, clé = id utilisateur) et révocation au changement de rôle (`PermissionCacheTest`)
 - [x] Test « deny by default » et annotation `@PublicEndpoint`
-- [ ] Changements de comportement (endpoints † de la matrice), avant le Contract
+- [x] Changements de comportement (8 cases de la matrice, V12) : notifications et véhicules ouverts au DRIVER, liste des comptes ouverte à l'AGENT, création et suppression de véhicules réservées à l'ADMIN
 - [ ] Contract partiel : plus de `ROLE_` dans les autorités, suppression de `users.role`, `AuthorityMigrationTest` et `setRole` dans `TestUsers`
 
 ## Points notés en chemin

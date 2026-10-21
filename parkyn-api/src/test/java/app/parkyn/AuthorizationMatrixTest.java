@@ -136,7 +136,7 @@ class AuthorizationMatrixTest {
             row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", TestRequests.validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints d'utilisateurs
-            row(HttpMethod.GET, "/api/v1/users", null, ALLOWED, DENIED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/users", null, ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.POST, "/api/v1/users", TestRequests.validUserRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/users/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/users/" + RANDOM_ID, TestRequests.validUserUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
@@ -146,10 +146,10 @@ class AuthorizationMatrixTest {
 
             // Endpoints de véhicules
             row(HttpMethod.GET, "/api/v1/vehicles", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
-            row(HttpMethod.POST, "/api/v1/vehicles", TestRequests.validVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.POST, "/api/v1/vehicles", TestRequests.validVehicleRequest(), ALLOWED, DENIED, DENIED, DENIED),
             row(HttpMethod.GET, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID, TestRequests.validVehicleUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.DELETE, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.DELETE, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, DENIED, DENIED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED)
         ).flatMap(s -> s);
     }

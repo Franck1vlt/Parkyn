@@ -104,13 +104,13 @@ public class UserControllerTest {
     }
 
     @Test
-    public void testGetUsersWithAgentUser() throws Exception {
+    public void testGetUsersWithAgentUserCanGetUsers() throws Exception {
         String token = getAccessToken(TEST_EMAIL2, TEST_PASSWORD);
 
         mockMvc.perform(get("/api/v1/users")
                 .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isOk());
     }
 
     @Test

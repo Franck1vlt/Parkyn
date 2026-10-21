@@ -80,7 +80,9 @@ public class AuthorityMigrationTest {
             Arguments.of(HttpMethod.PATCH, "/api/v1/notifications/" + UUID.randomUUID() + "/read", null),
             Arguments.of(HttpMethod.PATCH, "/api/v1/notifications/read-all", null),
             Arguments.of(HttpMethod.GET, "/api/v1/vehicles", null),
-            Arguments.of(HttpMethod.GET, "/api/v1/vehicles/" + UUID.randomUUID(), null)
+            Arguments.of(HttpMethod.GET, "/api/v1/vehicles/" + UUID.randomUUID(), null),
+            Arguments.of(HttpMethod.POST, "/api/v1/vehicles", TestRequests.validVehicleRequest()),
+            Arguments.of(HttpMethod.DELETE, "/api/v1/vehicles/" + UUID.randomUUID(), null)
         );
     }
 
