@@ -68,16 +68,31 @@
 - [ ] Supprimer `users.role`, `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token`
 - [ ] Supprimer l'ancien `UNIQUE` sensible à la casse sur `users.email`
 
+## A3 : avancement
+
+- [x] Entités `Role` et `Permission`, relations `User.roles` et `Role.permissions`
+- [x] Tests migrés vers `TestUsers` (rôle hérité + ligne `user_roles`)
+- [x] Bascule `hasRole` → `hasAuthority` : réservations, tableau de bord, utilisateurs (sauf `GET /users`), véhicules (`PATCH /{id}`, `PATCH /{id}/status`). Preuve : `AuthorityMigrationTest`
+- [x] `user_roles` écrit à chaque création ou changement de rôle (`RoleAssignmentService`, `RoleAssignmentTest`)
+- [x] Cache des permissions (`@Cacheable` + Caffeine, 60 s, clé = id utilisateur) et révocation au changement de rôle (`PermissionCacheTest`)
+- [ ] Test « deny by default » et annotation `@PublicEndpoint`
+- [ ] Changements de comportement (endpoints † de la matrice), avant le Contract
+- [ ] Contract partiel : plus de `ROLE_` dans les autorités, suppression de `users.role`, `AuthorityMigrationTest` et `setRole` dans `TestUsers`
+
 ## Points notés en chemin
 
+- [ ] Cache des permissions : retirer l'entrée **après** le commit de la transaction (`@TransactionalEventListener`) pour éviter qu'une requête concurrente remette en cache l'ancien rôle
+- [ ] Délégation générale « on ne délègue que ce qu'on possède » (permissions de l'acteur ⊇ permissions du rôle attribué) : avec les rôles personnalisés (lot 4)
+- [ ] Méta-annotation `@ApiIntegrationTest` (`@IntegrationTest` + `@AutoConfigureMockMvc`) pour ne plus oublier MockMvc
+- [ ] `TestRequests` : corps partagés réservés aux tests où le contenu n'importe pas ; écrire dans le test les corps dont le contenu est le sujet
 - [ ] Profil utilisateur : `PATCH /users/me` (prénom, nom) et `POST /users/me/password` (mot de passe actuel exigé), permission `user:update:own`. Décision : un AGENT modifie son nom et son mot de passe, seul l'ADMIN change son rôle. À faire après A3
 - [ ] Changement de mot de passe : révoquer les autres sessions (`user_sessions`, phase C)
 - [ ] `hasConflict` : exclure la réservation en cours de modification (`excludeId`) quand la modification de réservation existera
-- [ ] Mapper `createdBy`, `updatedBy`, `updatedAt` (`@UpdateTimestamp`) dans `Reservation`
+- [x] Mapper `createdBy`, `updatedBy`, `updatedAt` (`@UpdateTimestamp`) dans `Reservation` (audit renseigné à la création et au retour)
 - [ ] `updateUserById` : vérifier qu'un nouvel email n'est pas déjà pris (409 au lieu de 500)
 - [ ] Ajouter un test du tableau de bord (`DashboardService`), absent de la suite
 - [ ] `DashboardService` : `@Transactional` sur une méthode privée, sans effet
-- [ ] Supprimer les `System.out.println` restants (`JwtAuthFilter`, `UserDetailsServiceImpl`)
+- [ ] Supprimer le dernier `System.out.println` (`UserDetailsServiceImpl` : email à chaque requête). Ceux de `JwtAuthFilter`, dont le token, sont retirés
 - [ ] Anonyme : renvoyer `401` plutôt que `403` (`authenticationEntryPoint`, phase C)
 - [ ] Séparer tests unitaires et d'intégration (Surefire / Failsafe) avec la CI (E2)
 - [ ] Invitations de conducteurs dans le tenant de leur entreprise (lot 4, nouvel ADR)

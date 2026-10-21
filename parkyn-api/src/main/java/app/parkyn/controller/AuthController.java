@@ -11,6 +11,7 @@ import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
 import app.parkyn.model.User;
+import app.parkyn.security.PublicEndpoint;
 import app.parkyn.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,11 +23,13 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @PublicEndpoint 
     @PostMapping("/login") 
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request){
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PublicEndpoint 
     @PostMapping("/refresh") 
     public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshRequest request) {
         return ResponseEntity.ok(authService.refresh(request));
@@ -45,6 +48,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.me(user));
     }
 
+    @PublicEndpoint 
     @PostMapping("/register")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         authService.createAccount(request);
