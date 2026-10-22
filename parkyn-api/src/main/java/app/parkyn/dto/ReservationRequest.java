@@ -25,10 +25,8 @@ public record ReservationRequest(
     @NotNull
     OffsetDateTime endDate,
 
-    @NotNull
     Reservation.Condition conditionBefore,
 
-    @NotNull
     @Positive
     Integer mileageStart,
 

@@ -35,4 +35,9 @@ public class ReservationScope {
             return (root, query, cb) -> cb.disjunction();
         }
     }
+
+    public boolean canCreateForAnyDriver(User user) {
+        Set<String> permissions = permissionService.permissionCodesOf(user.getId());
+        return permissions.contains("reservation:create:all");
+    }
 }

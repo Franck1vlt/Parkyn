@@ -47,7 +47,7 @@ public class ReservationController {
         return ResponseEntity.ok().body(reservationService.getReservations(currentUser, status, vehicleId, pageable));
     }
 
-    @PreAuthorize("hasAuthority('reservation:create:all')")
+    @PreAuthorize("hasAnyAuthority('reservation:create:all', 'reservation:create:own')")
     @PostMapping("")
     public ResponseEntity<ReservationResponse> addReservation(
         @AuthenticationPrincipal User currentUser,

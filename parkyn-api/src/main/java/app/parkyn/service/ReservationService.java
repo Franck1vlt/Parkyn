@@ -7,8 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -16,10 +14,10 @@ import org.springframework.web.server.ResponseStatusException;
 import app.parkyn.dto.ReservationRequest;
 import app.parkyn.dto.ReservationResponse;
 import app.parkyn.dto.ReturnVehicleRequest;
+import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
-import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
@@ -62,22 +60,33 @@ public class ReservationService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
 
         validateCreate(request, vehicle);
-        User driver = driverAssignmentService.getOrCreateDriver(request);
 
+        // Qui est le conducteur, qui est l'agent référent : décidé par les permissions,
+        // jamais par le corps de la requête (identité lue dans le token).
+        User driver;
         User agent;
-        if (request.agentId() != null) {
-            agent = userRepository.findById(request.agentId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent introuvable"));
+        if (reservationScope.canCreateForAnyDriver(currentUser)) {
+            // AGENT ou ADMIN : conducteur choisi (existant ou nouveau), il est l'agent référent
+            driver = driverAssignmentService.getOrCreateDriver(request);
+            agent = currentUser;
         } else {
-            agent = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            // DRIVER : il réserve pour lui-même, sans agent référent
+            if (designatesADriver(request)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Un conducteur ne peut pas désigner un autre conducteur");
+            }
+            driver = currentUser;
+            agent = null;
         }
 
         Reservation reservation = new Reservation();
         reservation.setVehicle(vehicle);
         reservation.setDriver(driver);
         reservation.setAgent(agent);
-        reservation.setConditionBefore(request.conditionBefore());
-        reservation.setMileageStart(request.mileageStart());
+        // État et kilométrage au départ : ceux du véhicule, mis à jour à chaque retour.
+        // conditionBefore, mileageStart et agentId de la requête sont ignorés (Expand and Contract de l'API).
+        reservation.setConditionBefore(conditionOf(vehicle));
+        reservation.setMileageStart(vehicle.getMileageKM());
         reservation.setNotesBefore(request.notesBefore());
         reservation.setStartDate(request.startDate());
         reservation.setEndDate(request.endDate());
@@ -117,6 +126,8 @@ public class ReservationService {
         Vehicle vehicle = reservation.getVehicle();
         vehicle.setStatus(Vehicle.VehicleStatus.AVAILABLE);
         vehicle.setMileageKM(request.mileageEnd());
+        // L'état constaté au retour devient l'état du véhicule (réutilisé par la réservation suivante)
+        vehicle.setCondition(Vehicle.VehicleCondition.valueOf(request.conditionAfter().name()));
 
         return ReservationResponse.from(reservationRepository.saveAndFlush(reservation));
     }
@@ -124,6 +135,23 @@ public class ReservationService {
     private Reservation findReservationOrThrow(UUID id) {
         return reservationRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+    }
+
+    // Un champ de conducteur dans la requête : réservé à la création pour un tiers (AGENT, ADMIN)
+    private boolean designatesADriver(ReservationRequest request) {
+        return request.driverId() != null
+            || request.driverFirstName() != null
+            || request.driverLastName() != null
+            || request.driverEmail() != null;
+    }
+
+    // Les deux enums ont les mêmes valeurs (EXCELLENT, GOOD, FAIR, POOR) : conversion par le nom
+    private Reservation.Condition conditionOf(Vehicle vehicle) {
+        if (vehicle.getCondition() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "État du véhicule inconnu : renseignez-le avant de le réserver");
+        }
+        return Reservation.Condition.valueOf(vehicle.getCondition().name());
     }
 
     private void validateCreate(ReservationRequest request, Vehicle vehicle){
@@ -140,11 +168,6 @@ public class ReservationService {
         // La réservation n'est pas dans le passé
         if (request.startDate().isBefore(OffsetDateTime.now())){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be in the past");
-        }
-
-        // Le kilométrage de départ est cohérent avec le véhicule
-        if (request.mileageStart() < vehicle.getMileageKM()){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mileageStart cannot be less than vehicle current mileage");
         }
 
         // Pas de conflit de réservation

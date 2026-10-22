@@ -44,6 +44,7 @@
 
 ## Phase D : frontend
 
+- [ ] Avant D1 : audit complet de la suite de tests (faux verts, assertions faibles, tests qui passent pour une autre raison que leur nom)
 - [ ] D1 Intercepteur
 - [ ] D2 Inscription/vérification
 - [ ] D3 Guards par permission
@@ -85,6 +86,8 @@
 
 ## Points notés en chemin
 
+- [ ] Disponibilité des véhicules : le statut `RESERVED` posé à la création bloque toute autre réservation, même sur une autre période. Décision : un véhicule reste réservable en dehors des périodes réservées (seul `hasConflict` décide). Commit dédié, après A4 et le tenant
+- [ ] API des réservations en Expand and Contract : `conditionBefore`, `mileageStart` et `agentId` deviennent facultatifs et ignorés (remplis par le serveur), puis le frontend cesse de les envoyer (phase D), puis suppression du DTO
 - [ ] Rôle dérivé de `user_roles` : tout `getRole()` hors transaction sur un utilisateur chargé sans ses rôles lève `LazyInitializationException`. `findByEmail` charge les rôles (`@EntityGraph`) ; attention aux traitements planifiés et aux tests qui relisent la base
 - [ ] Lot 4 : remplacer les tests de nom de rôle (inventaire lignes 6 à 12 : `UserAccessPolicy`, `DashboardService`, `NotificationService`) par des permissions et par la règle de délégation (permissions de la cible incluses dans celles de l'acteur, avec « `all` inclut `own` » appliqué dans le code, sans dupliquer les permissions en base)
 - [ ] Cache des permissions : retirer l'entrée **après** le commit de la transaction (`@TransactionalEventListener`) pour éviter qu'une requête concurrente remette en cache l'ancien rôle

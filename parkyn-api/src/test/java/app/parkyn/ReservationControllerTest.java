@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ import app.parkyn.model.RefreshToken;
 import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
+import app.parkyn.model.Vehicle.VehicleCondition;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
@@ -73,6 +75,7 @@ public class ReservationControllerTest {
         vehicle.setPlateNumber("AB-123-CD");
         vehicle.setBrand("Renault");
         vehicle.setModel("Clio");
+        vehicle.setCondition(VehicleCondition.GOOD);
         vehicle.setYear(2015);
         vehicleRepository.saveAndFlush(vehicle);
 
@@ -141,9 +144,11 @@ public class ReservationControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
                 .accept(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.vehicleId").isString())
-            .andExpect(jsonPath("$.driverId").isString())
-            .andExpect(jsonPath("$.agentId").isString())
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.vehicleId").value(testVehicleId.toString()))
+            // Le conducteur est Jean Dupont, créé par la requête ; l'agent est l'utilisateur connecté
+            .andExpect(jsonPath("$.driverId").value(driverIdOf("jean.dupont@parkyn.app")))
+            .andExpect(jsonPath("$.agentId").value(testUserId.toString()))
             .andExpect(jsonPath("$.startDate").isString())
             .andExpect(jsonPath("$.endDate").isString())
             .andExpect(jsonPath("$.conditionBefore").isString())
@@ -153,8 +158,7 @@ public class ReservationControllerTest {
             .andExpect(jsonPath("$.mileageEnd").doesNotExist())
             .andExpect(jsonPath("$.damageReported").doesNotExist())
             .andExpect(jsonPath("$.damageDetails").doesNotExist())
-            .andExpect(jsonPath("$.notesAfter").doesNotExist())
-            .andExpect(status().isCreated());
+            .andExpect(jsonPath("$.notesAfter").doesNotExist());
 
         Reservation createdReservation = reservationRepository.findAll().stream()
             .filter(reservation -> !reservation.getId().equals(testReservationId))
@@ -205,6 +209,7 @@ public class ReservationControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
             .andExpect(jsonPath("$.vehicleId").isString())
             .andExpect(jsonPath("$.driverId").isString())
             .andExpect(jsonPath("$.agentId").isString())
@@ -217,8 +222,7 @@ public class ReservationControllerTest {
             .andExpect(jsonPath("$.mileageEnd").isNumber())
             .andExpect(jsonPath("$.damageReported").isBoolean())
             .andExpect(jsonPath("$.damageDetails").isString())
-            .andExpect(jsonPath("$.notesAfter").isString())
-            .andExpect(status().isOk());
+            .andExpect(jsonPath("$.notesAfter").isString());
 
         Reservation returnedReservation = reservationRepository.findById(testReservationId).orElseThrow();
         assertNotNull(returnedReservation.getCreatedBy());
@@ -230,6 +234,13 @@ public class ReservationControllerTest {
         assertTrue(returnedReservation.getUpdatedAt().isAfter(OffsetDateTime.parse("2020-01-01T00:00:00Z")));
     }
 
+
+    // L'id (texte) du conducteur portant cet email, lu en base après sa création
+    private String driverIdOf(String email) {
+        UUID driverId = userRepository.findByEmail(User.normalizeEmail(email)).orElseThrow().getId();
+        assertNotEquals(testUserId, driverId);
+        return driverId.toString();
+    }
 
     private String getAccessToken() throws Exception {
         LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD);

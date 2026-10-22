@@ -66,6 +66,7 @@ class RoleAssignmentTest {
         vehicle.setPlateNumber("ABC-123");
         vehicle.setBrand("Toyota");
         vehicle.setModel("Corolla");
+        vehicle.setCondition(Vehicle.VehicleCondition.GOOD);
         vehicle.setMileageKM(4000);
         vehicleRepository.saveAndFlush(vehicle);
         vehicleId = vehicle.getId();
@@ -140,8 +141,7 @@ class RoleAssignmentTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(reservationRequest))
                 .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isCreated())
-            .andReturn().getResponse().getErrorMessage();
+            .andExpect(status().isCreated());
         String normalizedEmail = User.normalizeEmail(driverEmail);
         UUID newDriverId = userRepository.findByEmail(normalizedEmail).orElseThrow().getId();
         List<String> roles = roleNamesOf(newDriverId);

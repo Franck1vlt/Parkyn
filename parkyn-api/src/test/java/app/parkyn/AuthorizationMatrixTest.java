@@ -131,7 +131,10 @@ class AuthorizationMatrixTest {
 
             // Endpoints de réservations
             row(HttpMethod.GET, "/api/v1/reservations", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
-            row(HttpMethod.POST, "/api/v1/reservations", TestRequests.validReservationRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            // DRIVER = ALLOWED : il passe la sécurité mais reçoit 404, car le véhicule (RANDOM_UUID) n'existe pas.
+            // Avec un véhicule existant, ce corps partagé (qui contient des champs conducteur)
+            // donnerait 400 "Un conducteur ne peut pas désigner un autre conducteur" : voir ReservationScopeTest.
+            row(HttpMethod.POST, "/api/v1/reservations", TestRequests.validReservationRequest(), ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.GET, "/api/v1/reservations/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", TestRequests.validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
 
