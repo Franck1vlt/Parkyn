@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Column;
@@ -66,9 +65,13 @@ public class User implements UserDetails {
     @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<app.parkyn.model.Role> roles = new HashSet<>();
 
+    /**
+     * Les autorités sont reconstruites par JwtAuthFilter à partir des permissions
+     * mises en cache par PermissionService ; celles de l'entité ne sont donc pas utilisées.
+     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
-        return Set.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        return Set.of();
     }
 
     @Override

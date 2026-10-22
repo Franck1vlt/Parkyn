@@ -2,7 +2,6 @@ package app.parkyn.security;
 
 import app.parkyn.service.PermissionService;
 import java.io.IOException;
-import java.util.stream.Stream;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -53,13 +52,10 @@ public class JwtAuthFilter extends OncePerRequestFilter{
             boolean valid = jwtService.isTokenValid(token, userDetails);
             if (valid) {
                 User user = (User) userDetails;
-                SimpleGrantedAuthority roleAuthority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
                 var permissionAuthorities = permissionService.permissionCodesOf(user.getId()).stream()
                     .map(SimpleGrantedAuthority::new)
                     .toList();
-                var allAuthorities = Stream.concat(Stream.of(roleAuthority), permissionAuthorities.stream())
-                    .toList();
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, allAuthorities);
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, permissionAuthorities);
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }

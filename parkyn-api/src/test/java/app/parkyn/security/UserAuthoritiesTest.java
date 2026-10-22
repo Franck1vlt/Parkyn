@@ -65,7 +65,8 @@ public class UserAuthoritiesTest {
             .map(auth -> auth.getAuthority())
             .collect(Collectors.toSet());
 
-        assertTrue(authorities.contains("ROLE_" + role.name()), "ROLE_" + role.name() + " manquant");
+        assertTrue(authorities.stream().noneMatch(authority -> authority.startsWith("ROLE_")),
+            "Aucune autorité ROLE_ ne doit être présente");
         for (String permission : expectedPermissions) {
             assertTrue(authorities.contains(permission), permission + " attendue pour " + role);
         }
@@ -76,16 +77,16 @@ public class UserAuthoritiesTest {
         SecurityContextHolder.clearContext();
     }
 
-    // Nombre d'autorités = 1 ROLE_ + permissions du rôle (V6 + V11)
+    // Nombre d'autorités = permissions du rôle
     private static Stream<Arguments> rolesAndAuthorities() {
         return Stream.of(
-            Arguments.of(User.Role.ADMIN, 19,
+            Arguments.of(User.Role.ADMIN, 18,
                 new String[] { "vehicle:delete", "user:create", "roles:manage" },
                 new String[] {}),
-            Arguments.of(User.Role.AGENT, 15,
+            Arguments.of(User.Role.AGENT, 14,
                 new String[] { "user:create", "user:update", "user:status:update" },
                 new String[] { "vehicle:delete", "roles:manage", "user:roles:assign", "vehicle:create" }),
-            Arguments.of(User.Role.DRIVER, 8,
+            Arguments.of(User.Role.DRIVER, 7,
                 new String[] { "reservation:read:own", "reservation:create:own", "user:read:own" },
                 new String[] { "reservation:read:all", "user:create", "vehicle:delete", "dashboard:read:all" })
         );
