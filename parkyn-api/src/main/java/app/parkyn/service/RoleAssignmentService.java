@@ -18,7 +18,6 @@ public class RoleAssignmentService {
             .orElseThrow(() -> new IllegalStateException("Role système introuvable : " + role.name()));
         user.getRoles().clear();
         user.getRoles().add(systemRole);
-        user.setRole(role);
 
         if (user.getId() != null) {
             permissionService.evict(user.getId());

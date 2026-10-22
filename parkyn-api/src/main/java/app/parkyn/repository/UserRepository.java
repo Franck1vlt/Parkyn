@@ -14,9 +14,16 @@ import org.springframework.data.repository.query.Param;
 import app.parkyn.model.User;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
+    @EntityGraph(attributePaths = "roles")
     Optional<User> findByEmail(String email);
 
-    List<User> findByRoleIn(List<User.Role> roles);
+    @Query("""
+    SELECT DISTINCT u
+    FROM User u
+    JOIN u.roles r
+    WHERE r.name IN :names AND r.tenantId IS NULL
+    """)
+    List<User> findByNamesAndNoTenant(@Param("names") List<String> names);
 
     @Query("""
     SELECT p.code FROM User u

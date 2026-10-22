@@ -50,10 +50,6 @@ public class User implements UserDetails {
     @Column(name = "hashed_pwd")
     private String hashedPwd;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", length = 20, nullable = false)
-    private Role role; 
-
     @Column(name = "is_active")
     private boolean active = true;
 
@@ -96,5 +92,13 @@ public class User implements UserDetails {
 
     public static String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public Role getRole() {
+        return roles.stream()
+            .filter(r -> r.getTenantId() == null)
+            .map(r -> Role.valueOf(r.getName()))
+            .findFirst()
+            .orElse(null);
     }
 }

@@ -27,9 +27,9 @@ class FlywayMigrationTest {
     // Insère un utilisateur et renvoie son id (seules les colonnes sans valeur par défaut sont fournies)
     private UUID insertUser(String email, String status) {
         return jdbc.queryForObject(
-            "INSERT INTO users (first_name, last_name, email, role, status) VALUES (?, ?, ?, ?, ?) RETURNING id",
+            "INSERT INTO users (first_name, last_name, email, status) VALUES (?, ?, ?, ?) RETURNING id",
             UUID.class,
-            "Test", "User", email, "DRIVER", status);
+            "Test", "User", email, status);
     }
 
     private UUID insertUser(String email) {
@@ -131,6 +131,16 @@ class FlywayMigrationTest {
 
         assertEquals(1, jdbc.queryForObject(
             "SELECT COUNT(*) FROM reservations WHERE driver_id = ?", Integer.class, driverId));
+    }
+
+    @Test
+    void usersTableHasNoLegacyRoleColumn() {
+        Integer count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.columns "
+                + "WHERE table_name = 'users' AND column_name = 'role'",
+            Integer.class);
+
+        assertEquals(0, count, "La colonne users.role doit avoir été supprimée (Contract)");
     }
 }
 

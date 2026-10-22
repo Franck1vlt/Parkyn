@@ -20,7 +20,6 @@ class UserRepositoryTest {
         user.setLastName("Dupont");
         user.setEmail(email);
         user.setHashedPwd("hash");
-        user.setRole(User.Role.DRIVER);
         return userRepository.saveAndFlush(user);
     }
 

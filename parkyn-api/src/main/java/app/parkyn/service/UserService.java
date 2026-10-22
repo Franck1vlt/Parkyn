@@ -35,9 +35,12 @@ public class UserService {
     @Transactional
     public Page<UserResponse> getUsers(User.Role role, Pageable pageable) {
         Specification<User> spec = (root, query, cb) -> {
+            query.distinct(true);
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (role != null) {
-                predicates.add(cb.equal(root.get("role"), role));
+                var roles = root.join("roles");
+                predicates.add(cb.equal(roles.get("name"), role.name()));
+                predicates.add(cb.isNull(roles.get("tenantId")));
             }
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
@@ -101,9 +104,12 @@ public class UserService {
     @Transactional
     public Page<UserResponse> getDrivers(String search, Pageable pageable) {
         Specification<User> spec = (root, query, cb) -> {
+            query.distinct(true);
             var predicates = new java.util.ArrayList<Predicate>();
             predicates.add(cb.isTrue(root.get("active")));
-            predicates.add(cb.equal(root.get("role"), User.Role.DRIVER));
+            var roles = root.join("roles");
+            predicates.add(cb.equal(roles.get("name"), User.Role.DRIVER.name()));
+            predicates.add(cb.isNull(roles.get("tenantId")));
             if (search != null && !search.isBlank()) {
                 String pattern = "%" + search.toLowerCase() + "%";
                 predicates.add(cb.or(

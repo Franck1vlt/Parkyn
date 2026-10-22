@@ -50,7 +50,7 @@ public class UserControllerTest {
     private static final String TEST_PASSWORD = "Password123!";
     private String testRefreshToken;
     private String testRefreshToken2;
-    private UUID testUserId;
+    private UUID testAgentId;
     private UUID testAdminId;
     private UUID testDriverId;
 
@@ -79,7 +79,7 @@ public class UserControllerTest {
         rt2.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt2);
 
-        testUserId = user.getId();
+        testAgentId = user2.getId();
 
         User user3 = testUsers
             .create(TEST_EMAIL3, TEST_PASSWORD, User.Role.DRIVER);
@@ -237,7 +237,7 @@ public class UserControllerTest {
             true
         );
 
-        mockMvc.perform(patch("/api/v1/users/" + testUserId)
+        mockMvc.perform(patch("/api/v1/users/" + testAgentId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
@@ -273,7 +273,7 @@ public class UserControllerTest {
             .andExpect(status().isForbidden()) ;
 
         // F1 : un AGENT ne modifie pas un ADMIN, et rien n'est enregistré
-        User admin = userRepository.findById(testAdminId).orElseThrow();
+        User admin = userRepository.findByEmail(TEST_EMAIL).orElseThrow();
         assertEquals(adminLastNameBefore, admin.getLastName());
         assertEquals(User.Role.ADMIN, admin.getRole());
     }
@@ -297,7 +297,7 @@ public class UserControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isForbidden());
 
-        User driver = userRepository.findById(testDriverId).orElseThrow();
+        User driver = userRepository.findByEmail(TEST_EMAIL3).orElseThrow();
         assertEquals(User.Role.DRIVER, driver.getRole());
     }
 
@@ -305,7 +305,7 @@ public class UserControllerTest {
     public void testDeleteUser() throws Exception {
         String token = getAccessToken(TEST_EMAIL, TEST_PASSWORD);
         
-        mockMvc.perform(delete("/api/v1/users/" + testUserId)
+        mockMvc.perform(delete("/api/v1/users/" + testAgentId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
@@ -316,12 +316,12 @@ public class UserControllerTest {
     public void testReactivateUser() throws Exception {
         String token = getAccessToken(TEST_EMAIL, TEST_PASSWORD);
 
-        mockMvc.perform(delete("/api/v1/users/" + testUserId)
+        mockMvc.perform(delete("/api/v1/users/" + testAgentId)
                 .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNoContent());
 
-        mockMvc.perform(patch("/api/v1/users/" + testUserId + "/reactivate")
+        mockMvc.perform(patch("/api/v1/users/" + testAgentId + "/reactivate")
                 .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())

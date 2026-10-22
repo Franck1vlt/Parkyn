@@ -8,7 +8,7 @@
 - [x] Lot 1a : rôles système seulement (rôles personnalisés au lot 4)
 - [x] `tenant_id` dès maintenant, avec un seul tenant par défaut
 - [x] Mécanisme deny by default : les deux (test en CI sur chaque endpoint + config `permitAll` / `/api/v1/**` authenticated / `denyAll` pour le reste)
-- [ ] Implémenter le test en CI et l'annotation `@PublicEndpoint` (en A3)
+- [x] Implémenter le test en CI et l'annotation `@PublicEndpoint` (en A3) : `DenyByDefaultTest`, `SecurityConfigTest`, `ErrorPageSecurityTest`
 - [x] Matrice rôles × permissions (voir ADR-0002) : 22 permissions, le retour d'un véhicule est réservé aux agents
 
 ## Livrables de conception
@@ -23,7 +23,9 @@
 
 - [x] A1 ADR et diagrammes (séquences login, refresh, inscription)
 - [x] A2 Migrations Flyway V5 à V10 (`tenants`, `roles`, `permissions`, `role_permissions`, `user_roles`, `verification_tokens`, `user_sessions`, colonnes `tenant_id`, `status`, `created_by`, `updated_by`, emails normalisés)
-- [ ] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés). La matrice doit repasser à l'identique ; l'ouverture des endpoints au DRIVER se fait dans une étape séparée
+- [x] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés). La matrice est repassée à l'identique ; les 8 changements de comportement sont documentés dans la matrice
+- [ ] A3+ Tenant : mapper `tenantId` dans les 4 entités, filtre `tenant_id` systématique dans les requêtes, test d'isolation (un utilisateur de l'entreprise A ne lit ni ne modifie jamais une donnée de l'entreprise B). Sous-tâche entre A3 et A4
+- [ ] A3+ Portée `own` / `all` : `ReservationScope` (filtre dans la requête, 404 hors portée) et espace réservations du DRIVER (voir « Tests de portée »)
 - [ ] A4 Hachage Argon2id
 
 ## Phase B : inscription et emails
@@ -65,7 +67,8 @@
 
 - [ ] Mapper `tenantId` dans `User`, `Vehicle`, `Reservation`, `Notification` **avant** de retirer les `DEFAULT`
 - [ ] Retirer les `DEFAULT` temporaires (`users.status`, `tenant_id` des 4 tables)
-- [ ] Supprimer `users.role`, `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token`
+- [x] Supprimer `users.role` (V13, Contract partiel A3 ; le rôle est déduit de `user_roles`)
+- [ ] Supprimer `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token` (Contract final, après C3)
 - [ ] Supprimer l'ancien `UNIQUE` sensible à la casse sur `users.email`
 
 ## A3 : avancement
@@ -77,10 +80,13 @@
 - [x] Cache des permissions (`@Cacheable` + Caffeine, 60 s, clé = id utilisateur) et révocation au changement de rôle (`PermissionCacheTest`)
 - [x] Test « deny by default » et annotation `@PublicEndpoint`
 - [x] Changements de comportement (8 cases de la matrice, V12) : notifications et véhicules ouverts au DRIVER, liste des comptes ouverte à l'AGENT, création et suppression de véhicules réservées à l'ADMIN
-- [ ] Contract partiel : plus de `ROLE_` dans les autorités, suppression de `users.role`, `AuthorityMigrationTest` et `setRole` dans `TestUsers`
+- [x] Contract partiel : plus de `ROLE_` dans les autorités, suppression de `users.role` (V13), `AuthorityMigrationTest` et `setRole` dans `TestUsers`
+- [x] Autorisation : `@PreAuthorize` + `hasAuthority`, permissions chargées côté serveur (cache). `PermissionEvaluator` non retenu : le contrôle sur l'objet est fait par `UserAccessPolicy` dans les services (à réévaluer avec `ReservationScope`)
 
 ## Points notés en chemin
 
+- [ ] Rôle dérivé de `user_roles` : tout `getRole()` hors transaction sur un utilisateur chargé sans ses rôles lève `LazyInitializationException`. `findByEmail` charge les rôles (`@EntityGraph`) ; attention aux traitements planifiés et aux tests qui relisent la base
+- [ ] Lot 4 : remplacer les tests de nom de rôle (inventaire lignes 6 à 12 : `UserAccessPolicy`, `DashboardService`, `NotificationService`) par des permissions et par la règle de délégation (permissions de la cible incluses dans celles de l'acteur, avec « `all` inclut `own` » appliqué dans le code, sans dupliquer les permissions en base)
 - [ ] Cache des permissions : retirer l'entrée **après** le commit de la transaction (`@TransactionalEventListener`) pour éviter qu'une requête concurrente remette en cache l'ancien rôle
 - [ ] Délégation générale « on ne délègue que ce qu'on possède » (permissions de l'acteur ⊇ permissions du rôle attribué) : avec les rôles personnalisés (lot 4)
 - [ ] Méta-annotation `@ApiIntegrationTest` (`@IntegrationTest` + `@AutoConfigureMockMvc`) pour ne plus oublier MockMvc

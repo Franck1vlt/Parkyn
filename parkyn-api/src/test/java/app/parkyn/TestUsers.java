@@ -39,7 +39,6 @@ public class TestUsers {
         user.setFirstName("Test");
         user.setLastName(role.name());
         user.setHashedPwd(hashedPassword);
-        user.setRole(role);
         user.setActive(true);
         userRepository.saveAndFlush(user);
 

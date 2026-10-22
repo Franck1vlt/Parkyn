@@ -28,7 +28,7 @@ public class NotificationService {
 
     @Transactional
     public void createForAllAdminsAndAgents(NotificationType notificationType, Reservation reservation) {
-        var users = userRepository.findByRoleIn(List.of(User.Role.ADMIN, User.Role.AGENT));
+        var users = userRepository.findByNamesAndNoTenant(List.of(User.Role.ADMIN.name(), User.Role.AGENT.name()));
         var notifications = users.stream().map(user -> {
             Notification notification = new Notification();
             notification.setUser(user);

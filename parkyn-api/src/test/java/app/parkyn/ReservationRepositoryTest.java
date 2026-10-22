@@ -35,7 +35,6 @@ class ReservationRepositoryTest {
         user.setLastName("Dupont");
         user.setEmail(email);
         user.setHashedPwd("hash");
-        user.setRole(role);
         return userRepository.saveAndFlush(user);
     }
 
