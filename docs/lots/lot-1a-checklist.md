@@ -105,11 +105,11 @@
 
 ## Tests de portée
 
-- [ ] DRIVER liste ses réservations : seulement les siennes
-- [ ] DRIVER demande la réservation d'un autre : 404
+- [x] DRIVER liste ses réservations : seulement les siennes
+- [x] DRIVER demande la réservation d'un autre : 404
 - [ ] AGENT liste : voit les deux DRIVER, pas l'autre tenant
 - [ ] AGENT modifie la réservation d'un DRIVER : succès, `updated_by` renseigné
-- [ ] Identifiant inexistant et identifiant d'autrui : réponses identiques
+- [x] Identifiant inexistant et identifiant d'autrui : réponses identiques
 - [ ] DRIVER modifie sa réservation avant le début : succès ; après le début : refusé
 
 ## Lot terminé quand

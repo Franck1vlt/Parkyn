@@ -130,9 +130,9 @@ class AuthorizationMatrixTest {
             row(HttpMethod.PATCH, "/api/v1/notifications/read-all", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
 
             // Endpoints de réservations
-            row(HttpMethod.GET, "/api/v1/reservations", null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/reservations", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.POST, "/api/v1/reservations", TestRequests.validReservationRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
-            row(HttpMethod.GET, "/api/v1/reservations/" + RANDOM_ID, null, ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.GET, "/api/v1/reservations/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", TestRequests.validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoints d'utilisateurs

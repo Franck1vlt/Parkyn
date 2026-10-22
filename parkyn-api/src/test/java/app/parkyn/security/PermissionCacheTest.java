@@ -1,7 +1,5 @@
 package app.parkyn.security;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import app.parkyn.IntegrationTest;
@@ -29,7 +28,6 @@ import app.parkyn.model.User;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.service.PermissionService;
 import tools.jackson.databind.ObjectMapper;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 @AutoConfigureMockMvc 
 @IntegrationTest 
@@ -79,8 +77,8 @@ public class PermissionCacheTest {
 
     @Test 
     void testRoleDowngradeInvalidatesCache() throws Exception {
-        // 1. AGENT appelle GET /reservations : 200
-        mockMvc.perform(get("/api/v1/reservations")
+        // 1. AGENT appelle GET /dashboard : 200
+        mockMvc.perform(get("/api/v1/dashboard")
                 .header("Authorization", "Bearer " + login(AGENT_EMAIL, PASSWORD)))
             .andExpect(status().isOk());
 
@@ -91,8 +89,8 @@ public class PermissionCacheTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(userUpdateRequest)))
             .andExpect(status().isOk());
-        // 3. AGENT rappelle GET /reservations : 403
-        mockMvc.perform(get("/api/v1/reservations")
+        // 3. AGENT rappelle GET /dashboard : 403
+        mockMvc.perform(get("/api/v1/dashboard")
                 .header("Authorization", "Bearer " + login(AGENT_EMAIL, PASSWORD)))
             .andExpect(status().isForbidden());
     }

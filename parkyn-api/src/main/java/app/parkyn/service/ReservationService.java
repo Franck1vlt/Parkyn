@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
+import app.parkyn.security.authorization.ReservationScope;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -33,9 +35,10 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final DriverAssignmentService driverAssignmentService;
     private final NotificationService notificationService;
+    private final ReservationScope reservationScope;
 
     @Transactional
-    public Page<ReservationResponse> getReservations(String status, UUID vehicleId, Pageable pageable) {
+    public Page<ReservationResponse> getReservations(User currentUser, String status, UUID vehicleId, Pageable pageable) {
         Specification<Reservation> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if ("ACTIVE".equals(status)) {
@@ -48,6 +51,7 @@ public class ReservationService {
             }
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
+        spec = spec.and(reservationScope.readableBy(currentUser));
         return reservationRepository.findAll(spec, pageable).map(ReservationResponse::from);
     }
 
@@ -86,13 +90,19 @@ public class ReservationService {
     }
 
     @Transactional
-    public ReservationResponse getReservationById(UUID id) {
-        return ReservationResponse.from(findActiveReservation(id));
+    public ReservationResponse getReservationById(User currentUser, UUID id) {
+        return ReservationResponse.from(findOne(currentUser, id));
+    }
+
+    private Reservation findOne(User currentUser, UUID id) {
+        Specification<Reservation> byId = (root, query, cb) -> cb.equal(root.get("id"), id);
+        return reservationRepository.findOne(byId.and(reservationScope.readableBy(currentUser)))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
     }
 
     @Transactional
     public ReservationResponse returnVehicle(User currentUser, UUID id, ReturnVehicleRequest request) {
-        Reservation reservation = findActiveReservation(id);
+        Reservation reservation = findReservationOrThrow(id);
 
         validateReturn(reservation, request);
 
@@ -111,7 +121,7 @@ public class ReservationService {
         return ReservationResponse.from(reservationRepository.saveAndFlush(reservation));
     }
 
-    private Reservation findActiveReservation(UUID id) {
+    private Reservation findReservationOrThrow(UUID id) {
         return reservationRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
     }

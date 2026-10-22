@@ -36,14 +36,15 @@ public class ReservationController {
 
     private final ReservationService reservationService;
 
-    @PreAuthorize("hasAuthority('reservation:read:all')")
+    @PreAuthorize("hasAnyAuthority('reservation:read:all', 'reservation:read:own')")
     @GetMapping("")
     public ResponseEntity<Page<ReservationResponse>> getRerservations(
         @RequestParam(required = false) String status,
         @RequestParam(required = false) UUID vehicleId,
-        @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
+        @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable,
+        @AuthenticationPrincipal User currentUser
     ) {
-        return ResponseEntity.ok().body(reservationService.getReservations(status, vehicleId, pageable));
+        return ResponseEntity.ok().body(reservationService.getReservations(currentUser, status, vehicleId, pageable));
     }
 
     @PreAuthorize("hasAuthority('reservation:create:all')")
@@ -56,10 +57,10 @@ public class ReservationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PreAuthorize("hasAuthority('reservation:read:all')")
+    @PreAuthorize("hasAnyAuthority('reservation:read:all', 'reservation:read:own')")
     @GetMapping("/{id}")
-    public ResponseEntity<ReservationResponse> getReservationById(@PathVariable UUID id) {
-        ReservationResponse response = reservationService.getReservationById(id);
+    public ResponseEntity<ReservationResponse> getReservationById(@AuthenticationPrincipal User currentUser, @PathVariable UUID id) {
+        ReservationResponse response = reservationService.getReservationById(currentUser, id);
         return ResponseEntity.ok().body(response);
     }
 

@@ -30,9 +30,9 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 8                 | PATCH   | `/api/v1/notifications/{id}/read`  | -                      | OK    | OK    | OK     | `403`      | `notification:read:own` |
 | 9                 | PATCH   | `/api/v1/notifications/read-all`   | -                      | OK    | OK    | OK     | `403`      | `notification:read:own` |
 | **Réservations**  |
-| 10                | GET     | `/api/v1/reservations`             | -                      | OK    | OK    | `403`     | `403`      | `reservation:read:all` |
+| 10                | GET     | `/api/v1/reservations`             | -                      | OK    | OK    | OK     | `403`      | `reservation:read:all` ou `reservation:read:own` |
 | 11                | POST    | `/api/v1/reservations`             | `ReservationRequest`   | OK    | OK    | `403`     | `403`      | `reservation:create:all` |
-| 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | `403`     | `403`      | `reservation:read:all` |
+| 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | OK     | `403`      | `reservation:read:all` ou `reservation:read:own` |
 | 13                | POST    | `/api/v1/reservations/{id}/return` | `ReturnVehicleRequest` | OK    | OK    | `403`     | `403`      | `reservation:return:all` |
 | **Utilisateurs**  |
 | 14                | GET     | `/api/v1/users`                    | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
@@ -67,6 +67,7 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | 2026-10-21 | 14 (`GET /users`) | AGENT | `403` | OK | L'agent consulte la liste de tous les comptes (`user:read:all`). Il ne crée, modifie ou désactive que des conducteurs (`UserAccessPolicy`). La réponse ne contient aucune donnée sensible (pas de hash de mot de passe) |
 | 2026-10-21 | 22 (`POST /vehicles`) | AGENT | OK | `403` | Seul l'ADMIN ajoute des véhicules au parc (`vehicle:create` retirée à l'AGENT par la V12) |
 | 2026-10-21 | 25 (`DELETE /vehicles/{id}`) | AGENT | OK | `403` | Seul l'ADMIN retire un véhicule du parc (`vehicle:delete`, réservée à l'ADMIN depuis la V11). L'AGENT garde la modification et le statut |
+| 2026-10-22 | 10, 12 (lecture des réservations) | DRIVER | `403` | OK | Espace réservations du conducteur (`reservation:read:own`). La portée est appliquée dans la requête SQL par `ReservationScope` : le DRIVER ne voit que ses réservations, et la réservation d'un autre répond `404`, comme un id inexistant (`ReservationScopeTest`) |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.
 
