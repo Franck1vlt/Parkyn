@@ -205,6 +205,8 @@ class TenantIsolationTest {
         DELETE | /api/v1/users/{driverA}                    |
         PATCH  | /api/v1/users/{disabledA}/reactivate       |
         PATCH  | /api/v1/notifications/{notificationA}/read |
+        PATCH  | /api/v1/reservations/{reservationA}        | {"notesBefore":"Pirate"}
+        POST   | /api/v1/reservations/{reservationA}/cancel |
         """;
 
     @ParameterizedTest(name = "{0} {1}")
@@ -522,7 +524,7 @@ class TenantIsolationTest {
         return jdbc.queryForList(
                 "SELECT brand, status, deleted_at FROM vehicles WHERE id = ?", vehicleA).toString()
             + jdbc.queryForList(
-                "SELECT returned_at, mileage_end FROM reservations WHERE id = ?", reservationA).toString()
+                "SELECT returned_at, mileage_end, notes_before, cancelled_at FROM reservations WHERE id = ?", reservationA).toString()
             + jdbc.queryForList(
                 "SELECT is_read FROM notifications WHERE id = ?", notificationA).toString()
             + jdbc.queryForList(

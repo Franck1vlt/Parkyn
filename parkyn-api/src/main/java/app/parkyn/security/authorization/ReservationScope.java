@@ -11,29 +11,44 @@ import app.parkyn.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Portée des réservations (ADR-0002) : quelles réservations un utilisateur peut voir.
+ * Portée des réservations (ADR-0002) : sur quelles réservations un utilisateur peut faire une action.
  * Renvoie une condition ajoutée à la requête SQL, jamais un filtre en mémoire.
+ * Permissions reservation:<action>:all (tout le tenant) ou reservation:<action>:own (ses réservations) ;
+ * « all inclut own ».
  */
-@Component 
-@RequiredArgsConstructor 
+@Component
+@RequiredArgsConstructor
 public class ReservationScope {
+
+    public enum Action {
+        READ("read"), UPDATE("update"), CANCEL("cancel");
+
+        private final String code;
+
+        Action(String code) {
+            this.code = code;
+        }
+    }
 
     private final PermissionService permissionService;
 
     public Specification<Reservation> readableBy(User user) {
-        Set<String> permissions = permissionService.permissionCodesOf(user.getId());
+        return allowedFor(user, Action.READ);
+    }
 
-        if (permissions.contains("reservation:read:all")) {
+    public Specification<Reservation> allowedFor(User user, Action action) {
+        if (coversAll(user, action)) {
             return (root, query, cb) -> cb.conjunction();
         }
-
-        else if (permissions.contains("reservation:read:own")) {
+        if (permissionService.permissionCodesOf(user.getId()).contains("reservation:" + action.code + ":own")) {
             return (root, query, cb) -> cb.equal(root.get("driver").get("id"), user.getId());
         }
+        return (root, query, cb) -> cb.disjunction();
+    }
 
-        else {
-            return (root, query, cb) -> cb.disjunction();
-        }
+    // Portée « all » : toutes les réservations du tenant (AGENT, ADMIN), et non seulement les siennes
+    public boolean coversAll(User user, Action action) {
+        return permissionService.permissionCodesOf(user.getId()).contains("reservation:" + action.code + ":all");
     }
 
     public boolean canCreateForAnyDriver(User user) {

@@ -137,6 +137,8 @@ class AuthorizationMatrixTest {
             row(HttpMethod.POST, "/api/v1/reservations", TestRequests.validReservationRequest(), ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.GET, "/api/v1/reservations/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID +"/return", TestRequests.validReturnVehicleRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+            row(HttpMethod.PATCH, "/api/v1/reservations/" + RANDOM_ID, java.util.Map.of("notesBefore", "Note"), ALLOWED, ALLOWED, ALLOWED, DENIED),
+            row(HttpMethod.POST, "/api/v1/reservations/" + RANDOM_ID + "/cancel", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
 
             // Endpoints d'utilisateurs
             row(HttpMethod.GET, "/api/v1/users", null, ALLOWED, ALLOWED, DENIED, DENIED),

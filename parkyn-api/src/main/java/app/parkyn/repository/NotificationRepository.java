@@ -16,4 +16,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     boolean existsByReservationIdAndType(UUID reservationId, NotificationType type);
 
+    void deleteByReservationId(UUID reservationId);
+
 }

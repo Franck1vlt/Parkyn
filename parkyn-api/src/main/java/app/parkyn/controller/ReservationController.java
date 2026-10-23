@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import app.parkyn.dto.ReservationRequest;
 import app.parkyn.dto.ReservationResponse;
+import app.parkyn.dto.ReservationUpdateRequest;
 import app.parkyn.dto.ReturnVehicleRequest;
 import app.parkyn.dto.UserRequest;
 import app.parkyn.model.Reservation;
@@ -62,6 +64,25 @@ public class ReservationController {
     public ResponseEntity<ReservationResponse> getReservationById(@AuthenticationPrincipal User currentUser, @PathVariable UUID id) {
         ReservationResponse response = reservationService.getReservationById(currentUser, id);
         return ResponseEntity.ok().body(response);
+    }
+
+    @PreAuthorize("hasAnyAuthority('reservation:update:all', 'reservation:update:own')")
+    @PatchMapping("/{id}")
+    public ResponseEntity<ReservationResponse> updateReservation(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id,
+        @Valid @RequestBody ReservationUpdateRequest request
+    ) {
+        return ResponseEntity.ok().body(reservationService.updateReservation(currentUser, id, request));
+    }
+
+    @PreAuthorize("hasAnyAuthority('reservation:cancel:all', 'reservation:cancel:own')")
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ReservationResponse> cancelReservation(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok().body(reservationService.cancelReservation(currentUser, id));
     }
 
     @PreAuthorize("hasAuthority('reservation:return:all')")

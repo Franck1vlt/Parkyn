@@ -34,6 +34,8 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 11                | POST    | `/api/v1/reservations`             | `ReservationRequest`   | OK    | OK    | OK     | `403`      | `reservation:create:all` ou `reservation:create:own` |
 | 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | OK     | `403`      | `reservation:read:all` ou `reservation:read:own` |
 | 13                | POST    | `/api/v1/reservations/{id}/return` | `ReturnVehicleRequest` | OK    | OK    | `403`     | `403`      | `reservation:return:all` |
+| 27                | PATCH   | `/api/v1/reservations/{id}`        | `ReservationUpdateRequest` | OK | OK  | OK     | `403`      | `reservation:update:all` ou `reservation:update:own` |
+| 28                | POST    | `/api/v1/reservations/{id}/cancel` | -                      | OK    | OK    | OK     | `403`      | `reservation:cancel:all` ou `reservation:cancel:own` |
 | **Utilisateurs**  |
 | 14                | GET     | `/api/v1/users`                    | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
 | 15                | POST    | `/api/v1/users`                    | `UserRequest`          | OK    | OK    | `403`     | `403`      | `user:create` |
@@ -69,6 +71,7 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | 2026-10-21 | 25 (`DELETE /vehicles/{id}`) | AGENT | OK | `403` | Seul l'ADMIN retire un véhicule du parc (`vehicle:delete`, réservée à l'ADMIN depuis la V11). L'AGENT garde la modification et le statut |
 | 2026-10-22 | 10, 12 (lecture des réservations) | DRIVER | `403` | OK | Espace réservations du conducteur (`reservation:read:own`). La portée est appliquée dans la requête SQL par `ReservationScope` : le DRIVER ne voit que ses réservations, et la réservation d'un autre répond `404`, comme un id inexistant (`ReservationScopeTest`) |
 | 2026-10-22 | 11 (`POST /reservations`) | DRIVER | `403` | OK | Le conducteur réserve pour lui-même (`reservation:create:own`) : conducteur = utilisateur du token, pas d'agent référent, `400` s'il désigne un conducteur. Pour tous : état et kilométrage au départ repris du véhicule, `agentId` ignoré (AGENT/ADMIN = agent référent) |
+| 2026-10-23 | 27, 28 (nouveaux endpoints) | tous | - | OK (anonyme `403`) | Modification et annulation d'une réservation. Portée dans la requête SQL (`ReservationScope`, action `update` / `cancel`) : le DRIVER sur ses réservations, avant leur début ; l'AGENT et l'ADMIN sur tout le tenant (annulation avant le début, modification tant qu'elle n'est pas retournée). Hors portée : `404` (`ReservationChangeTest`) |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.
 

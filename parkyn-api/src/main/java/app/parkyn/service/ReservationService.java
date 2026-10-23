@@ -2,6 +2,7 @@ package app.parkyn.service;
 
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import app.parkyn.dto.ReservationRequest;
 import app.parkyn.dto.ReservationResponse;
+import app.parkyn.dto.ReservationUpdateRequest;
 import app.parkyn.dto.ReturnVehicleRequest;
 import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.model.Reservation;
@@ -37,17 +39,33 @@ public class ReservationService {
     private final NotificationService notificationService;
     private final ReservationScope reservationScope;
 
+    private static final Set<String> STATUS_FILTERS =
+        Set.of("ACTIVE", "UPCOMING", "IN_PROGRESS", "RETURNED", "CANCELLED");
+
     private static final String SLOT_TAKEN =
         "Véhicule déjà réservé sur ce créneau : choisissez un autre véhicule ou une autre plage horaire";
 
     @Transactional
     public Page<ReservationResponse> getReservations(User currentUser, String status, UUID vehicleId, Pageable pageable) {
+        if (status != null && !STATUS_FILTERS.contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut inconnu : " + status);
+        }
+        String filter = status;
+        OffsetDateTime now = OffsetDateTime.now();
         Specification<Reservation> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
-            if ("ACTIVE".equals(status)) {
-                predicates.add(cb.isNull(root.get("returnedAt")));
-            } else if ("RETURNED".equals(status)) {
-                predicates.add(cb.isNotNull(root.get("returnedAt")));
+            // Statuts calculés (Reservation.statusAt) ; ACTIVE = ni retournée ni annulée (frontend actuel)
+            var returnedAt = root.<OffsetDateTime>get("returnedAt");
+            var cancelledAt = root.<OffsetDateTime>get("cancelledAt");
+            var startDate = root.<OffsetDateTime>get("startDate");
+            switch (filter) {
+                case null -> { }
+                case "ACTIVE" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt)));
+                case "UPCOMING" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt), cb.greaterThan(startDate, now)));
+                case "IN_PROGRESS" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt), cb.lessThanOrEqualTo(startDate, now)));
+                case "RETURNED" -> predicates.add(cb.and(cb.isNotNull(returnedAt), cb.isNull(cancelledAt)));
+                case "CANCELLED" -> predicates.add(cb.isNotNull(cancelledAt));
+                default -> throw new IllegalStateException(filter);
             }
             if (vehicleId != null) {
                 predicates.add(cb.equal(root.get("vehicle").get("id"), vehicleId));
@@ -55,7 +73,8 @@ public class ReservationService {
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
         spec = spec.and(reservationScope.readableBy(currentUser));
-        return reservationRepository.findAll(spec, pageable).map(ReservationResponse::from);
+        // Même instant pour le filtre et le statut affiché
+        return reservationRepository.findAll(spec, pageable).map(reservation -> ReservationResponse.from(reservation, now));
     }
 
     @Transactional
@@ -110,9 +129,107 @@ public class ReservationService {
     }
 
     private Reservation findOne(User currentUser, UUID id) {
-        Specification<Reservation> byId = (root, query, cb) -> cb.equal(root.get("id"), id);
-        return reservationRepository.findOne(byId.and(reservationScope.readableBy(currentUser)))
+        return findInScope(currentUser, id, ReservationScope.Action.READ);
+    }
+
+    // Écriture : la réservation est verrouillée AVANT d'être lue, pour décider sur son état à jour
+    // (sinon une modification lue avant une annulation l'écraserait). Puis contrôle de la portée.
+    private Reservation lockInScope(User currentUser, UUID id, ReservationScope.Action action) {
+        reservationRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+        return findInScope(currentUser, id, action);
+    }
+
+    // Hors portée : même 404 qu'un id inexistant
+    private Reservation findInScope(User currentUser, UUID id, ReservationScope.Action action) {
+        Specification<Reservation> byId = (root, query, cb) -> cb.equal(root.get("id"), id);
+        return reservationRepository.findOne(byId.and(reservationScope.allowedFor(currentUser, action)))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+    }
+
+    // Décision R3 : le DRIVER (portée own) modifie sa réservation avant son début seulement ;
+    // l'AGENT et l'ADMIN (portée all) tant qu'elle n'est pas retournée, sans déplacer un début passé.
+    @Transactional
+    public ReservationResponse updateReservation(User currentUser, UUID id, ReservationUpdateRequest request) {
+        Reservation reservation = lockInScope(currentUser, id, ReservationScope.Action.UPDATE);
+        requireOpen(reservation);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        boolean started = reservation.hasStartedAt(now);
+        if (started && !reservationScope.coversAll(currentUser, ReservationScope.Action.UPDATE)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Réservation commencée : seul un agent peut encore la modifier");
+        }
+        if (started && request.startDate() != null && !request.startDate().isEqual(reservation.getStartDate())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Réservation commencée : sa date de début ne peut plus changer");
+        }
+
+        OffsetDateTime start = request.startDate() != null ? request.startDate() : reservation.getStartDate();
+        OffsetDateTime end = request.endDate() != null ? request.endDate() : reservation.getEndDate();
+        if (!start.isEqual(reservation.getStartDate()) || !end.isEqual(reservation.getEndDate())) {
+            validateNewPeriod(reservation, start, end, now);
+            reservation.setStartDate(start);
+            reservation.setEndDate(end);
+        }
+        if (request.notesBefore() != null) {
+            reservation.setNotesBefore(request.notesBefore());
+        }
+        reservation.setUpdatedBy(currentUser);
+        return ReservationResponse.from(saveOrConflict(reservation));
+    }
+
+    // Annulation possible avant le début seulement ; après, c'est un retour (décision R3)
+    @Transactional
+    public ReservationResponse cancelReservation(User currentUser, UUID id) {
+        Reservation reservation = lockInScope(currentUser, id, ReservationScope.Action.CANCEL);
+        requireOpen(reservation);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if (reservation.hasStartedAt(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Réservation commencée : elle ne peut plus être annulée, enregistrez son retour");
+        }
+        reservation.setCancelledAt(now);
+        reservation.setCancelledBy(currentUser);
+        reservation.setUpdatedBy(currentUser);
+        Reservation saved = reservationRepository.saveAndFlush(reservation);
+        notificationService.replaceWithCancellationNotice(saved);
+        return ReservationResponse.from(saved);
+    }
+
+    // Une réservation annulée ou retournée est figée
+    private void requireOpen(Reservation reservation) {
+        if (reservation.getCancelledAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Réservation annulée");
+        }
+        if (reservation.getReturnedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Réservation déjà retournée");
+        }
+    }
+
+    // Mêmes règles qu'à la création, sans que la réservation se gêne elle-même
+    private void validateNewPeriod(Reservation reservation, OffsetDateTime start, OffsetDateTime end, OffsetDateTime now) {
+        if (!start.isBefore(end)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate must be before endDate");
+        }
+        if (!reservation.hasStartedAt(now) && start.isBefore(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be in the past");
+        }
+        if (!end.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate cannot be in the past");
+        }
+        // Verrou sur le véhicule, comme à la création : les demandes simultanées passent l'une après l'autre
+        Vehicle vehicle = vehicleRepository.findByIdForUpdate(reservation.getVehicle().getId())
+            .filter(v -> v.getDeletedAt() == null)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
+        // Une location en cours peut être prolongée même si le véhicule est passé en maintenance entre-temps
+        if (!reservation.hasStartedAt(now) && vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule non disponible");
+        }
+        if (reservationRepository.hasConflict(vehicle.getId(), start, end, reservation.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, SLOT_TAKEN);
+        }
     }
 
     @Transactional
@@ -139,7 +256,7 @@ public class ReservationService {
     }
 
     private Reservation findReservationOrThrow(UUID id) {
-        return reservationRepository.findById(id)
+        return reservationRepository.findByIdForUpdate(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
     }
 
@@ -197,6 +314,10 @@ public class ReservationService {
     }
 
     private void validateReturn(Reservation reservation, ReturnVehicleRequest request){
+        if (reservation.getCancelledAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Réservation annulée");
+        }
+
         // La réservation n'est pas déjà retournée
         if (reservation.getReturnedAt() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "vehicle already returned");

@@ -96,6 +96,11 @@
 - [ ] Mises à jour concurrentes d'un véhicule (retour et changement de statut en même temps) : la dernière écrase les autres champs (pas de `@Version`). Prendre le même verrou (`findByIdForUpdate`) dans `returnVehicle`, `updateVehicleStatus` et `updateVehicleById`
 - [ ] Filtre par période : la liste des véhicules occupés part en `NOT IN (...)`, sans limite de taille. Remplacer par une sous-requête si le parc dépasse quelques milliers de véhicules
 - [ ] Un véhicule peut passer en `MAINTENANCE` pendant une location ou avec des réservations futures, sans avertissement : à signaler à l'agent (phase D)
+- [x] Modification et annulation des réservations (V15, `ReservationChangeTest`) : `PATCH /reservations/{id}` (début, fin, notes) et `POST /reservations/{id}/cancel`. DRIVER : sa réservation, avant le début ; AGENT, ADMIN : tout le tenant, annulation avant le début, modification tant que non retournée, début figé une fois commencée. Annulation douce (`cancelled_at`, `cancelled_by`) : statut `CANCELLED` dans l'historique, créneau libéré, notifications de la réservation remplacées par une notification `RESERVATION_CANCELLED` aux agents et administrateurs. Statut calculé dans la réponse (`UPCOMING`, `IN_PROGRESS`, `RETURNED`, `CANCELLED`) et filtre `?status=` (statut inconnu : `400`)
+- [ ] Frontend (phase D) : afficher le `status` des réservations. Aujourd'hui, une réservation annulée apparaît « en cours » (action de retour proposée tant que `returnedAt` est vide), l'API répond alors `409`
+- [ ] Horloge injectée (`Clock`) : les règles « avant le début » utilisent `OffsetDateTime.now()`, la limite exacte (annulation à l'instant du début) n'est pas testable
+- [ ] `notesBefore` ne peut pas être effacé par `PATCH` (`null` = inchangé) ; tableau de bord : les réservations annulées restent dans « dernières réservations » et « derniers conducteurs » (historique)
+- [ ] Retard (commit 3) : statut `ON_HOLD` quand la réservation précédente du véhicule n'est pas retournée, notification `RESERVATION_ON_HOLD` aux agents et administrateurs (vérification toutes les 15 minutes, sans doublon)
 - [ ] Contract de `RESERVED` : retirer la valeur de l'enum et de la contrainte `CHECK` de `vehicles.status` quand le frontend ne l'enverra plus comme statut stocké (phase D)
 - [ ] Déploiement : la V14 crée l'extension `btree_gist` (extension « trusted » depuis PostgreSQL 13 : il faut le droit `CREATE` sur la base). Elle échoue si des réservations se chevauchent déjà en base, avec leur liste : les corriger avant de relancer
 - [ ] API des réservations en Expand and Contract : `conditionBefore`, `mileageStart` et `agentId` deviennent facultatifs et ignorés (remplis par le serveur), puis le frontend cesse de les envoyer (phase D), puis suppression du DTO
@@ -107,7 +112,7 @@
 - [ ] `TestRequests` : corps partagés réservés aux tests où le contenu n'importe pas ; écrire dans le test les corps dont le contenu est le sujet
 - [ ] Profil utilisateur : `PATCH /users/me` (prénom, nom) et `POST /users/me/password` (mot de passe actuel exigé), permission `user:update:own`. Décision : un AGENT modifie son nom et son mot de passe, seul l'ADMIN change son rôle. À faire après A3
 - [ ] Changement de mot de passe : révoquer les autres sessions (`user_sessions`, phase C)
-- [ ] `hasConflict` : exclure la réservation en cours de modification (`excludeId`) quand la modification de réservation existera
+- [x] `hasConflict` : exclure la réservation en cours de modification (`excludeId`)
 - [x] Mapper `createdBy`, `updatedBy`, `updatedAt` (`@UpdateTimestamp`) dans `Reservation` (audit renseigné à la création et au retour)
 - [ ] `updateUserById` : vérifier qu'un nouvel email n'est pas déjà pris, avec `existsByEmailInAnyTenant` (409 au lieu de 500)
 - [ ] Ajouter un test du tableau de bord (`DashboardService`), absent de la suite
@@ -128,9 +133,9 @@
 - [x] DRIVER liste ses réservations : seulement les siennes
 - [x] DRIVER demande la réservation d'un autre : 404
 - [ ] AGENT liste : voit les deux DRIVER, pas l'autre tenant
-- [ ] AGENT modifie la réservation d'un DRIVER : succès, `updated_by` renseigné
+- [x] AGENT modifie la réservation d'un DRIVER : succès, `updated_by` renseigné
 - [x] Identifiant inexistant et identifiant d'autrui : réponses identiques
-- [ ] DRIVER modifie sa réservation avant le début : succès ; après le début : refusé
+- [x] DRIVER modifie sa réservation avant le début : succès ; après le début : refusé
 
 ## Lot terminé quand
 

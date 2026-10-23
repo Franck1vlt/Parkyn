@@ -44,6 +44,13 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
+    // Annulation : les notifications de la réservation disparaissent, une seule notification d'annulation les remplace
+    @Transactional
+    public void replaceWithCancellationNotice(Reservation reservation) {
+        notificationRepository.deleteByReservationId(reservation.getId());
+        createForAllAdminsAndAgents(NotificationType.RESERVATION_CANCELLED, reservation);
+    }
+
     @Transactional
     public List<Notification> getUserNotifications(UUID userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
@@ -78,7 +85,7 @@ public class NotificationService {
     private void checkEndingSoon(java.time.OffsetDateTime now) {
         var in24h = now.plusHours(24);
         var in7days = now.plusDays(7);
-        var reservations = reservationRepository.findByReturnedAtIsNullAndEndDateBetween(now, in7days);
+        var reservations = reservationRepository.findByReturnedAtIsNullAndCancelledAtIsNullAndEndDateBetween(now, in7days);
 
         reservations.forEach(reservation -> {
             var duration = java.time.Duration.between(reservation.getStartDate(), reservation.getEndDate()).toDays();

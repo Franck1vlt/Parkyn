@@ -172,6 +172,28 @@ class FlywayMigrationTest {
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM reservations", Integer.class));
     }
 
+    // Une réservation annulée ne bloque plus son créneau
+    @Test
+    void cancelledReservationDoesNotBlockItsPeriod() {
+        UUID driverId = insertUser("bob@parkyn.app");
+        UUID vehicleId = insertVehicle("AB-123-CD");
+        UUID cancelled = insertReservation(vehicleId, driverId, "1 day", "3 days");
+        jdbc.update("UPDATE reservations SET cancelled_at = NOW() WHERE id = ?", cancelled);
+
+        insertReservation(vehicleId, driverId, "2 days", "4 days");
+
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM reservations", Integer.class));
+    }
+
+    @Test
+    void cancellationNoticeIsAValidNotificationType() {
+        UUID userId = insertUser("bob@parkyn.app");
+
+        jdbc.update("INSERT INTO notifications (user_id, type) VALUES (?, 'RESERVATION_CANCELLED')", userId);
+
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM notifications", Integer.class));
+    }
+
     private UUID insertVehicle(String plate) {
         return jdbc.queryForObject(
             "INSERT INTO vehicles (plate_number, brand, model) VALUES (?, 'Renault', 'Clio') RETURNING id",

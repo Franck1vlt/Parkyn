@@ -100,6 +100,29 @@ public class Reservation {
     @JoinColumn(name = "updated_by", referencedColumnName = "id", nullable = true)
     private User updatedBy;
 
+    // Annulation douce : la réservation reste dans l'historique, elle ne bloque plus son créneau
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cancelled_by", referencedColumnName = "id", nullable = true)
+    private User cancelledBy;
+
+    // Statut calculé, jamais stocké
+    public Status statusAt(OffsetDateTime now) {
+        if (cancelledAt != null) return Status.CANCELLED;
+        if (returnedAt != null) return Status.RETURNED;
+        return startDate.isAfter(now) ? Status.UPCOMING : Status.IN_PROGRESS;
+    }
+
+    public boolean hasStartedAt(OffsetDateTime now) {
+        return !startDate.isAfter(now);
+    }
+
+    public enum Status {
+        UPCOMING, IN_PROGRESS, RETURNED, CANCELLED
+    }
+
     public enum Condition {
         EXCELLENT, GOOD, FAIR, POOR
     }

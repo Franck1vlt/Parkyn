@@ -46,7 +46,7 @@ public class VehicleService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from doit être avant to");
         }
         Set<UUID> inUse = reservationRepository.findVehicleIdsInUseAt(null, OffsetDateTime.now());
-        Set<UUID> booked = from == null ? Set.of() : reservationRepository.findVehicleIdsBookedBetween(null, from, to);
+        Set<UUID> booked = from == null ? Set.of() : reservationRepository.findVehicleIdsBookedBetween(null, null, from, to);
 
         Specification<Vehicle> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<Predicate>();

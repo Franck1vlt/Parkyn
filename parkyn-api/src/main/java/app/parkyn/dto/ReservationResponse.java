@@ -24,9 +24,16 @@ public record ReservationResponse(
     Integer mileageEnd,
     Boolean damageReported,
     String damageDetails,
-    String notesAfter
+    String notesAfter,
+    Reservation.Status status,
+    OffsetDateTime cancelledAt
 ) {
     public static ReservationResponse from(Reservation reservation) {
+        return from(reservation, OffsetDateTime.now());
+    }
+
+    // now : instant du statut calculé (le même que celui d'un filtre, pour une liste)
+    public static ReservationResponse from(Reservation reservation, OffsetDateTime now) {
         return new ReservationResponse(
             reservation.getId(),
             reservation.getVehicle() != null ? reservation.getVehicle().getId() : null,
@@ -46,7 +53,9 @@ public record ReservationResponse(
             reservation.getMileageEnd(),
             reservation.getDamageReported(),
             reservation.getDamageDetails(),
-            reservation.getNotesAfter()
+            reservation.getNotesAfter(),
+            reservation.statusAt(now),
+            reservation.getCancelledAt()
         );
     }
 }

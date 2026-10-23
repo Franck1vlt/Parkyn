@@ -59,13 +59,13 @@ public class DashboardService {
 
     @Transactional
     private MyStats getMyStats(User user){
-        long total = reservationRepository.countByAgentId(user.getId());
-        long actives = reservationRepository.countByAgentIdAndReturnedAtIsNull(user.getId());
+        long total = reservationRepository.countByAgentIdAndCancelledAtIsNull(user.getId());
+        long actives = reservationRepository.countByAgentIdAndReturnedAtIsNullAndCancelledAtIsNull(user.getId());
         OffsetDateTime startOfThisMonth = OffsetDateTime.now().withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS);
         OffsetDateTime startOfLastMonth = startOfThisMonth.minusMonths(1);
         OffsetDateTime endOfLastMonth = startOfThisMonth;
-        long thisMonth = reservationRepository.countByAgentIdAndStartDateBetween(user.getId(), startOfThisMonth, OffsetDateTime.now());
-        long lastMonth = reservationRepository.countByAgentIdAndStartDateBetween(user.getId(), startOfLastMonth, endOfLastMonth);
+        long thisMonth = reservationRepository.countByAgentIdAndCancelledAtIsNullAndStartDateBetween(user.getId(), startOfThisMonth, OffsetDateTime.now());
+        long lastMonth = reservationRepository.countByAgentIdAndCancelledAtIsNullAndStartDateBetween(user.getId(), startOfLastMonth, endOfLastMonth);
         return new MyStats(total, actives, thisMonth, lastMonth);
     }
 
