@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import app.parkyn.dto.ReservationRequest;
+import app.parkyn.dto.HandoverRequest;
 import app.parkyn.dto.ReservationResponse;
 import app.parkyn.dto.ReservationUpdateRequest;
 import app.parkyn.dto.ReturnVehicleRequest;
@@ -83,6 +84,16 @@ public class ReservationController {
         @PathVariable UUID id
     ) {
         return ResponseEntity.ok().body(reservationService.cancelReservation(currentUser, id));
+    }
+
+    @PreAuthorize("hasAuthority('reservation:handover:all')")
+    @PostMapping("/{id}/handover")
+    public ResponseEntity<ReservationResponse> handOver(
+        @AuthenticationPrincipal User currentUser,
+        @PathVariable UUID id,
+        @Valid @RequestBody HandoverRequest request
+    ) {
+        return ResponseEntity.ok().body(reservationService.handOver(currentUser, id, request));
     }
 
     @PreAuthorize("hasAuthority('reservation:return:all')")

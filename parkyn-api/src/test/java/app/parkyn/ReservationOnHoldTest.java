@@ -78,6 +78,7 @@ class ReservationOnHoldTest {
         car = insertVehicle("AA-111-AA");
 
         late = insertReservation(driverA, car, NOW.minusHours(3), NOW.minusHours(1));
+        handOver(late);
         waiting = insertReservation(driverB, car, NOW.minusMinutes(30), NOW.plusHours(2));
     }
 
@@ -97,7 +98,7 @@ class ReservationOnHoldTest {
                 .content(objectMapper.writeValueAsString(TestRequests.validReturnVehicleRequest())))
             .andExpect(status().isOk());
 
-        statusOf(waiting).andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+        statusOf(waiting).andExpect(jsonPath("$.status").value("AWAITING_HANDOVER"));
     }
 
     // Pas encore commencée : rien n'attend encore
@@ -113,10 +114,10 @@ class ReservationOnHoldTest {
     void onlyAnUnreturnedEarlierReservationOfTheSameVehicleHolds() throws Exception {
         UUID otherCar = insertVehicle("BB-222-BB");
         UUID elsewhere = insertReservation(driverB, otherCar, NOW.minusMinutes(30), NOW.plusHours(2));
-        statusOf(elsewhere).andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+        statusOf(elsewhere).andExpect(jsonPath("$.status").value("AWAITING_HANDOVER"));
 
         jdbc.update("UPDATE reservations SET cancelled_at = ? WHERE id = ?", NOW.minusDays(1), late);
-        statusOf(waiting).andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+        statusOf(waiting).andExpect(jsonPath("$.status").value("AWAITING_HANDOVER"));
     }
 
     @Test
@@ -296,6 +297,11 @@ class ReservationOnHoldTest {
             "INSERT INTO vehicles (tenant_id, plate_number, brand, model, mileage_km, condition, status) "
                 + "VALUES (?, ?, 'Toyota', 'Yaris', ?, 'GOOD', 'AVAILABLE') RETURNING id",
             UUID.class, Tenants.DEFAULT_ID, plate, MILEAGE);
+    }
+
+    // Remise des clés enregistrée : le véhicule est dehors
+    private void handOver(UUID reservationId) {
+        jdbc.update("UPDATE reservations SET handed_over_at = start_date WHERE id = ?", reservationId);
     }
 
     private UUID insertReservation(User driver, UUID vehicleId, OffsetDateTime start, OffsetDateTime end) {

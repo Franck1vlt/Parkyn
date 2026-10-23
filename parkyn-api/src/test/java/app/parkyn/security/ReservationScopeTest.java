@@ -209,7 +209,8 @@ public class ReservationScopeTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.driverId").value(driverAId.toString()))
                 .andExpect(jsonPath("$.agentId").doesNotExist())
-                .andExpect(jsonPath("$.mileageStart").value(r2.getVehicle().getMileageKM()))
+                // Kilométrage saisi à la remise des clés seulement
+                .andExpect(jsonPath("$.mileageStart").doesNotExist())
                 .andExpect(jsonPath("$.conditionBefore").value(r2.getVehicle().getCondition().toString()));
     }
 
@@ -281,7 +282,7 @@ public class ReservationScopeTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.driverId").value(r2.getDriver().getId().toString()))
                 .andExpect(jsonPath("$.agentId").value(agentId))
-                .andExpect(jsonPath("$.mileageStart").value(135000))
+                .andExpect(jsonPath("$.mileageStart").doesNotExist())
                 .andExpect(jsonPath("$.conditionBefore").value(VehicleCondition.GOOD.toString()));
     }
 
@@ -355,7 +356,8 @@ public class ReservationScopeTest {
                 "notesAfter": "Le véhicule a été rendu avec un peu de retard"
             }
         """;
-        // Le retour est toujours fait par un agent (reservation:return:all)
+        // Le véhicule a été remis (remise des clés), puis retourné par un agent (reservation:return:all)
+        jdbcTemplate.update("UPDATE reservations SET handed_over_at = start_date WHERE id = ?", r2.getId());
         mockMvc.perform(post("/api/v1/reservations/{id}/return", r2.getId())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(TEST_AGENT, PASSWORD))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -380,7 +382,7 @@ public class ReservationScopeTest {
                 .content(newReservationBody))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.conditionBefore").value(VehicleCondition.POOR.toString()))
-                .andExpect(jsonPath("$.mileageStart").value(140000));
+                .andExpect(jsonPath("$.mileageStart").doesNotExist());
     }
 
     // --- Aides ---

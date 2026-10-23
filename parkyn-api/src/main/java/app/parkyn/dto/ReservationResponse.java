@@ -26,7 +26,8 @@ public record ReservationResponse(
     String damageDetails,
     String notesAfter,
     Reservation.Status status,
-    OffsetDateTime cancelledAt
+    OffsetDateTime cancelledAt,
+    OffsetDateTime handedOverAt
 ) {
     // now : instant du statut calculé (le même que celui d'un filtre, pour une liste)
     // onHold : réservation en attente du véhicule (voir Reservation.statusAt)
@@ -52,7 +53,8 @@ public record ReservationResponse(
             reservation.getDamageDetails(),
             reservation.getNotesAfter(),
             reservation.statusAt(now, onHold),
-            reservation.getCancelledAt()
+            reservation.getCancelledAt(),
+            reservation.getHandedOverAt()
         );
     }
 }

@@ -62,7 +62,8 @@ public class Reservation {
     @Column(name = "condition_before", length = 20, nullable = false)
     private Condition conditionBefore;
 
-    @Column(name = "mileage_start", nullable = false)
+    // Saisi à la remise des clés (vide avant)
+    @Column(name = "mileage_start")
     private Integer mileageStart;
 
     @Column(name = "notes_before")
@@ -100,6 +101,14 @@ public class Reservation {
     @JoinColumn(name = "updated_by", referencedColumnName = "id", nullable = true)
     private User updatedBy;
 
+    // Remise du véhicule (état des lieux de départ et remise des clés) : la réservation est alors en cours
+    @Column(name = "handed_over_at")
+    private OffsetDateTime handedOverAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "handed_over_by", referencedColumnName = "id", nullable = true)
+    private User handedOverBy;
+
     // Annulation douce : la réservation reste dans l'historique, elle ne bloque plus son créneau
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
@@ -108,13 +117,19 @@ public class Reservation {
     @JoinColumn(name = "cancelled_by", referencedColumnName = "id", nullable = true)
     private User cancelledBy;
 
-    // Statut calculé, jamais stocké. onHold : commencée, mais le véhicule n'est pas revenu de la réservation
-    // précédente (ReservationRepository.findOnHoldIds) ; elle n'a donc pas vraiment commencé
+    // Statut calculé, jamais stocké. En cours = véhicule remis. Avant la remise, une réservation dont
+    // le rendez-vous est passé est « à remettre », ou en attente si le véhicule est encore dehors avec
+    // une autre réservation (onHold, voir ReservationRepository.findOnHoldIds)
     public Status statusAt(OffsetDateTime now, boolean onHold) {
         if (cancelledAt != null) return Status.CANCELLED;
         if (returnedAt != null) return Status.RETURNED;
+        if (handedOverAt != null) return Status.IN_PROGRESS;
         if (startDate.isAfter(now)) return Status.UPCOMING;
-        return onHold ? Status.ON_HOLD : Status.IN_PROGRESS;
+        return onHold ? Status.ON_HOLD : Status.AWAITING_HANDOVER;
+    }
+
+    public boolean isHandedOver() {
+        return handedOverAt != null;
     }
 
     public boolean hasStartedAt(OffsetDateTime now) {
@@ -122,7 +137,7 @@ public class Reservation {
     }
 
     public enum Status {
-        UPCOMING, IN_PROGRESS, ON_HOLD, RETURNED, CANCELLED
+        UPCOMING, AWAITING_HANDOVER, ON_HOLD, IN_PROGRESS, RETURNED, CANCELLED
     }
 
     public enum Condition {

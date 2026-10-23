@@ -193,25 +193,28 @@ class TenantIsolationTest {
     // --- Accès direct par id : une donnée d'un autre tenant répond 404, et rien ne change en base ---
 
     // Requêtes de B sur les données de A ; le contrôle positif envoie les mêmes requêtes en tant que A
+    // Dernière colonne : réponse attendue chez A (contrôle positif). reservationA est à venir :
+    // ni remise (rendez-vous pas encore atteint) ni retour (pas remise) ne sont possibles, d'où 409
     private static final String CROSS_TENANT_REQUESTS = """
-        GET    | /api/v1/vehicles/{vehicleA}                |
-        PATCH  | /api/v1/vehicles/{vehicleA}                | {"brand":"Pirate"}
-        PATCH  | /api/v1/vehicles/{vehicleA}/status         | {"status":"MAINTENANCE"}
-        DELETE | /api/v1/vehicles/{vehicleA}                |
-        GET    | /api/v1/reservations/{reservationA}        |
-        POST   | /api/v1/reservations/{reservationA}/return | RETURN
-        GET    | /api/v1/users/{driverA}                    |
-        PATCH  | /api/v1/users/{driverA}                    | {"firstname":"Pirate"}
-        DELETE | /api/v1/users/{driverA}                    |
-        PATCH  | /api/v1/users/{disabledA}/reactivate       |
-        PATCH  | /api/v1/notifications/{notificationA}/read |
-        PATCH  | /api/v1/reservations/{reservationA}        | {"notesBefore":"Pirate"}
-        POST   | /api/v1/reservations/{reservationA}/cancel |
+        GET    | /api/v1/vehicles/{vehicleA}                  |                          | 200
+        PATCH  | /api/v1/vehicles/{vehicleA}                  | {"brand":"Pirate"}       | 200
+        PATCH  | /api/v1/vehicles/{vehicleA}/status           | {"status":"MAINTENANCE"} | 200
+        DELETE | /api/v1/vehicles/{vehicleA}                  |                          | 204
+        GET    | /api/v1/reservations/{reservationA}          |                          | 200
+        POST   | /api/v1/reservations/{reservationA}/return   | RETURN                   | 409
+        GET    | /api/v1/users/{driverA}                      |                          | 200
+        PATCH  | /api/v1/users/{driverA}                      | {"firstname":"Pirate"}   | 200
+        DELETE | /api/v1/users/{driverA}                      |                          | 204
+        PATCH  | /api/v1/users/{disabledA}/reactivate         |                          | 200
+        PATCH  | /api/v1/notifications/{notificationA}/read   |                          | 204
+        PATCH  | /api/v1/reservations/{reservationA}          | {"notesBefore":"Pirate"} | 200
+        POST   | /api/v1/reservations/{reservationA}/cancel   |                          | 200
+        POST   | /api/v1/reservations/{reservationA}/handover | {"mileageStart":60000}   | 409
         """;
 
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource(delimiter = '|', textBlock = CROSS_TENANT_REQUESTS)
-    void otherTenantResourceIsNotFound(String method, String path, String body) throws Exception {
+    void otherTenantResourceIsNotFound(String method, String path, String body, int expectedInOwnTenant) throws Exception {
         String before = snapshotOfTenantA();
 
         mockMvc.perform(requestAs(adminB, method, path, body)).andExpect(status().isNotFound());
@@ -219,11 +222,13 @@ class TenantIsolationTest {
         assertEquals(before, snapshotOfTenantA(), "Les données de l'entreprise A ne doivent pas changer");
     }
 
-    // Contrôle positif : chez A, les mêmes requêtes réussissent. Le 404 ci-dessus vient donc bien du tenant
+    // Contrôle positif : chez A, la même requête trouve la ressource et répond le statut attendu.
+    // Le 404 ci-dessus vient donc bien du tenant
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource(delimiter = '|', textBlock = CROSS_TENANT_REQUESTS)
-    void sameRequestSucceedsInOwnTenant(String method, String path, String body) throws Exception {
-        mockMvc.perform(requestAs(adminA, method, path, body)).andExpect(status().is2xxSuccessful());
+    void sameRequestFindsTheResourceInOwnTenant(String method, String path, String body, int expectedInOwnTenant)
+            throws Exception {
+        mockMvc.perform(requestAs(adminA, method, path, body)).andExpect(status().is(expectedInOwnTenant));
     }
 
     // Même réponse qu'un id inexistant : B ne peut pas savoir que l'id existe chez A
@@ -382,6 +387,7 @@ class TenantIsolationTest {
     void endingSoonNotificationsStayInReservationTenant() {
         UUID endingA = insertReservation(TENANT_A, vehicleA, driverA, agentA, T0.minusDays(1), T0.plusHours(24));
         UUID endingB = insertReservation(TENANT_B, vehicleB, driverB, agentB, T0.minusDays(1), T0.plusHours(24));
+        jdbc.update("UPDATE reservations SET handed_over_at = start_date WHERE id IN (?, ?)", endingA, endingB);
 
         notificationService.checkEndingSoon();
 
@@ -522,9 +528,9 @@ class TenantIsolationTest {
     // État des lignes de A qu'une requête de B pourrait modifier
     private String snapshotOfTenantA() {
         return jdbc.queryForList(
-                "SELECT brand, status, deleted_at FROM vehicles WHERE id = ?", vehicleA).toString()
+                "SELECT brand, status, deleted_at, mileage_km FROM vehicles WHERE id = ?", vehicleA).toString()
             + jdbc.queryForList(
-                "SELECT returned_at, mileage_end, notes_before, cancelled_at FROM reservations WHERE id = ?", reservationA).toString()
+                "SELECT returned_at, mileage_end, notes_before, cancelled_at, handed_over_at, mileage_start FROM reservations WHERE id = ?", reservationA).toString()
             + jdbc.queryForList(
                 "SELECT is_read FROM notifications WHERE id = ?", notificationA).toString()
             + jdbc.queryForList(

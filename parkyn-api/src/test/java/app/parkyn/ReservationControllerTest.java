@@ -92,6 +92,7 @@ public class ReservationControllerTest {
         reservation.setEndDate(OffsetDateTime.now().plusDays(3));
         reservation.setConditionBefore(Reservation.Condition.GOOD);
         reservation.setMileageStart(45650);
+        reservation.setHandedOverAt(OffsetDateTime.now());
         reservation.setCreatedBy(user);
         reservationRepository.saveAndFlush(reservation);
         jdbcTemplate.update(
@@ -157,7 +158,7 @@ public class ReservationControllerTest {
             .andExpect(jsonPath("$.startDate").isString())
             .andExpect(jsonPath("$.endDate").isString())
             .andExpect(jsonPath("$.conditionBefore").isString())
-            .andExpect(jsonPath("$.mileageStart").isNumber())
+            .andExpect(jsonPath("$.mileageStart").doesNotExist())
             .andExpect(jsonPath("$.returnedAt").doesNotExist())
             .andExpect(jsonPath("$.conditionAfter").doesNotExist())
             .andExpect(jsonPath("$.mileageEnd").doesNotExist())

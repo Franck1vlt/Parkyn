@@ -60,29 +60,33 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
         return !findVehicleIdsBookedBetween(vehicleId, excludeId, startDate, endDate).isEmpty();
     }
 
-    // Véhicules dehors à cet instant : réservation commencée et pas encore retournée (même après sa fin, en retard).
+    // Véhicules dehors à cet instant : véhicule remis et pas encore retourné (même après la fin, en retard).
     // vehicleId facultatif : null = tous les véhicules du tenant.
     @Query("""
         SELECT DISTINCT r.vehicle.id FROM Reservation r
         WHERE (:vehicleId IS NULL OR r.vehicle.id = :vehicleId)
         AND r.returnedAt IS NULL
         AND r.cancelledAt IS NULL
-        AND r.startDate <= :now
+        AND r.handedOverAt <= :now
         """)
     Set<UUID> findVehicleIdsInUseAt(@Param("vehicleId") UUID vehicleId, @Param("now") OffsetDateTime now);
 
-    // Réservations en attente : commencées, mais une réservation antérieure du même véhicule n'est
-    // ni retournée ni annulée (retour en retard). reservationId facultatif : null = tout le tenant.
+    // Réservations en attente : rendez-vous de remise passé, clés pas encore remises, et le véhicule est
+    // encore dehors avec une réservation ANTÉRIEURE (remise, pas retournée : retard du conducteur précédent).
+    // Un véhicule parti avec une réservation suivante (conducteur absent) n'est pas une attente.
+    // reservationId facultatif : null = tout le tenant.
     @Query("""
         SELECT r.id FROM Reservation r
         WHERE (:reservationId IS NULL OR r.id = :reservationId)
         AND r.returnedAt IS NULL
         AND r.cancelledAt IS NULL
+        AND r.handedOverAt IS NULL
         AND r.startDate <= :now
         AND EXISTS (
             SELECT p.id FROM Reservation p
             WHERE p.vehicle = r.vehicle
             AND p.id <> r.id
+            AND p.handedOverAt IS NOT NULL
             AND p.returnedAt IS NULL
             AND p.cancelledAt IS NULL
             AND p.startDate < r.startDate
@@ -94,7 +98,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
         return !findOnHoldIds(reservationId, now).isEmpty();
     }
 
-    List<Reservation> findByReturnedAtIsNullAndCancelledAtIsNullAndEndDateBetween(OffsetDateTime start, OffsetDateTime end);
+    // Rappel « fin proche » : seulement pour un véhicule remis (dehors)
+    List<Reservation> findByReturnedAtIsNullAndCancelledAtIsNullAndHandedOverAtIsNotNullAndEndDateBetween(
+        OffsetDateTime start, OffsetDateTime end);
 
     // Appelée hors connexion (traitement planifié) : sans filtre, elle liste les tenants de toutes les entreprises
     @Query("SELECT DISTINCT r.tenantId FROM Reservation r WHERE r.returnedAt IS NULL AND r.cancelledAt IS NULL")

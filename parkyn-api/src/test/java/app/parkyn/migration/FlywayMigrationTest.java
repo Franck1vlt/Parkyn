@@ -46,7 +46,7 @@ class FlywayMigrationTest {
 
     @Test
     void referenceDataIsSeeded() {
-        assertEquals(23, jdbc.queryForObject("SELECT COUNT(*) FROM permissions", Integer.class));
+        assertEquals(24, jdbc.queryForObject("SELECT COUNT(*) FROM permissions", Integer.class));
         assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM roles WHERE tenant_id IS NULL", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM tenants", Integer.class));
     }
@@ -62,8 +62,8 @@ class FlywayMigrationTest {
         jdbc.queryForList(sql).forEach(row -> permissionCounts.put(
             (String) row.get("name"), ((Number) row.get("permission_count")).intValue()));
 
-        assertEquals(18, permissionCounts.get("ADMIN"));
-        assertEquals(14, permissionCounts.get("AGENT"));
+        assertEquals(19, permissionCounts.get("ADMIN"));
+        assertEquals(15, permissionCounts.get("AGENT"));
         assertEquals(7, permissionCounts.get("DRIVER"));
     }
 

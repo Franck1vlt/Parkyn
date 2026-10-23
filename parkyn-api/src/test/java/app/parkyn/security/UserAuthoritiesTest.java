@@ -80,15 +80,15 @@ public class UserAuthoritiesTest {
     // Nombre d'autorités = permissions du rôle
     private static Stream<Arguments> rolesAndAuthorities() {
         return Stream.of(
-            Arguments.of(User.Role.ADMIN, 18,
-                new String[] { "vehicle:delete", "user:create", "roles:manage" },
+            Arguments.of(User.Role.ADMIN, 19,
+                new String[] { "vehicle:delete", "user:create", "roles:manage", "reservation:handover:all" },
                 new String[] {}),
-            Arguments.of(User.Role.AGENT, 14,
-                new String[] { "user:create", "user:update", "user:status:update" },
+            Arguments.of(User.Role.AGENT, 15,
+                new String[] { "user:create", "user:update", "user:status:update", "reservation:handover:all" },
                 new String[] { "vehicle:delete", "roles:manage", "user:roles:assign", "vehicle:create" }),
             Arguments.of(User.Role.DRIVER, 7,
                 new String[] { "reservation:read:own", "reservation:create:own", "user:read:own" },
-                new String[] { "reservation:read:all", "user:create", "vehicle:delete", "dashboard:read:all" })
+                new String[] { "reservation:read:all", "user:create", "vehicle:delete", "dashboard:read:all", "reservation:handover:all" })
         );
     }
 

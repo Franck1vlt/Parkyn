@@ -397,11 +397,13 @@ class VehicleAvailabilityTest {
             UUID.class, Tenants.DEFAULT_ID, plate, MILEAGE, status);
     }
 
+    // Réservation déjà commencée : le véhicule a été remis (il est dehors)
     private UUID insertReservation(UUID vehicleId, OffsetDateTime start, OffsetDateTime end) {
         return jdbc.queryForObject(
             "INSERT INTO reservations (tenant_id, vehicle_id, driver_id, agent_id, start_date, end_date, "
-                + "condition_before, mileage_start) VALUES (?, ?, ?, ?, ?, ?, 'GOOD', ?) RETURNING id",
-            UUID.class, Tenants.DEFAULT_ID, vehicleId, driver.getId(), agent.getId(), start, end, MILEAGE);
+                + "condition_before, mileage_start, handed_over_at) VALUES (?, ?, ?, ?, ?, ?, 'GOOD', ?, ?) RETURNING id",
+            UUID.class, Tenants.DEFAULT_ID, vehicleId, driver.getId(), agent.getId(), start, end, MILEAGE,
+            start.isAfter(NOW) ? null : start);
     }
 
     private String storedStatusOf(UUID vehicleId) {

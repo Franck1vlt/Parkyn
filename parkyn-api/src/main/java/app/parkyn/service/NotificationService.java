@@ -100,7 +100,7 @@ public class NotificationService {
     private void checkEndingSoon(java.time.OffsetDateTime now) {
         var in24h = now.plusHours(24);
         var in7days = now.plusDays(7);
-        var reservations = reservationRepository.findByReturnedAtIsNullAndCancelledAtIsNullAndEndDateBetween(now, in7days);
+        var reservations = reservationRepository.findByReturnedAtIsNullAndCancelledAtIsNullAndHandedOverAtIsNotNullAndEndDateBetween(now, in7days);
 
         reservations.forEach(reservation -> {
             var duration = java.time.Duration.between(reservation.getStartDate(), reservation.getEndDate()).toDays();

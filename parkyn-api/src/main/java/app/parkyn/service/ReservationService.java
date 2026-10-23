@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import app.parkyn.dto.HandoverRequest;
 import app.parkyn.dto.ReservationRequest;
 import app.parkyn.dto.ReservationResponse;
 import app.parkyn.dto.ReservationUpdateRequest;
@@ -43,7 +44,7 @@ public class ReservationService {
     private final ReservationScope reservationScope;
 
     private static final Set<String> STATUS_FILTERS =
-        Set.of("ACTIVE", "UPCOMING", "IN_PROGRESS", "ON_HOLD", "RETURNED", "CANCELLED");
+        Set.of("ACTIVE", "UPCOMING", "AWAITING_HANDOVER", "ON_HOLD", "IN_PROGRESS", "RETURNED", "CANCELLED");
 
     private static final String SLOT_TAKEN =
         "Véhicule déjà réservé sur ce créneau : choisissez un autre véhicule ou une autre plage horaire";
@@ -62,12 +63,16 @@ public class ReservationService {
             var returnedAt = root.<OffsetDateTime>get("returnedAt");
             var cancelledAt = root.<OffsetDateTime>get("cancelledAt");
             var startDate = root.<OffsetDateTime>get("startDate");
+            var handedOverAt = root.<OffsetDateTime>get("handedOverAt");
             switch (filter) {
                 case null -> { }
                 case "ACTIVE" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt)));
-                case "UPCOMING" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt), cb.greaterThan(startDate, now)));
+                case "UPCOMING" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt),
+                    cb.isNull(handedOverAt), cb.greaterThan(startDate, now)));
+                case "AWAITING_HANDOVER" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt),
+                    cb.isNull(handedOverAt), cb.lessThanOrEqualTo(startDate, now), notIn(cb, root.get("id"), onHold)));
                 case "IN_PROGRESS" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt),
-                    cb.lessThanOrEqualTo(startDate, now), notIn(cb, root.get("id"), onHold)));
+                    cb.isNotNull(handedOverAt)));
                 case "ON_HOLD" -> predicates.add(in(cb, root.get("id"), onHold));
                 case "RETURNED" -> predicates.add(cb.and(cb.isNotNull(returnedAt), cb.isNull(cancelledAt)));
                 case "CANCELLED" -> predicates.add(cb.isNotNull(cancelledAt));
@@ -116,10 +121,9 @@ public class ReservationService {
         reservation.setVehicle(vehicle);
         reservation.setDriver(driver);
         reservation.setAgent(agent);
-        // État et kilométrage au départ : ceux du véhicule, mis à jour à chaque retour.
+        // État au départ : celui du véhicule, repris à la remise des clés ; le kilométrage est saisi à la remise.
         // conditionBefore, mileageStart et agentId de la requête sont ignorés (Expand and Contract de l'API).
         reservation.setConditionBefore(conditionOf(vehicle));
-        reservation.setMileageStart(vehicle.getMileageKM());
         reservation.setNotesBefore(request.notesBefore());
         reservation.setStartDate(request.startDate());
         reservation.setEndDate(request.endDate());
@@ -167,8 +171,8 @@ public class ReservationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Réservation commencée : seul un agent peut encore la modifier");
         }
-        // En attente, le véhicule n'a pas été remis : l'agent peut encore la reporter
-        boolean inProgress = reservation.hasStartedAt(now) && !reservationRepository.isOnHold(id, now);
+        // Tant que le véhicule n'est pas remis (à remettre, en attente), l'agent peut encore la reporter
+        boolean inProgress = reservation.isHandedOver();
         if (inProgress && request.startDate() != null && !request.startDate().isEqual(reservation.getStartDate())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Réservation commencée : sa date de début ne peut plus changer");
@@ -195,12 +199,15 @@ public class ReservationService {
         requireOpen(reservation);
 
         OffsetDateTime now = OffsetDateTime.now();
-        // En attente, le véhicule n'a pas été remis : l'agent peut encore l'annuler (le DRIVER non, R3)
-        boolean agentCancelsOnHold = reservationScope.coversAll(currentUser, ReservationScope.Action.CANCEL)
-            && reservationRepository.isOnHold(id, now);
-        if (reservation.hasStartedAt(now) && !agentCancelsOnHold) {
+        if (reservation.isHandedOver()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Réservation commencée : elle ne peut plus être annulée, enregistrez son retour");
+                "Véhicule remis : la réservation ne peut plus être annulée, enregistrez son retour");
+        }
+        // Pas encore remis : l'agent annule même après le rendez-vous (conducteur absent) ; le DRIVER
+        // seulement avant le début (R3)
+        if (reservation.hasStartedAt(now) && !reservationScope.coversAll(currentUser, ReservationScope.Action.CANCEL)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Réservation commencée : seul un agent peut encore l'annuler");
         }
         reservation.setCancelledAt(now);
         reservation.setCancelledBy(currentUser);
@@ -222,6 +229,52 @@ public class ReservationService {
 
     private static Predicate notIn(CriteriaBuilder cb, Path<UUID> id, Set<UUID> ids) {
         return ids.isEmpty() ? cb.conjunction() : cb.not(id.in(ids));
+    }
+
+    // État des lieux de départ et remise des clés (décisions H1 à H3), à partir du rendez-vous de début
+    // et jusqu'au rendez-vous de fin. Verrous : la réservation, puis le véhicule (même ordre partout)
+    @Transactional
+    public ReservationResponse handOver(User currentUser, UUID id, HandoverRequest request) {
+        Reservation reservation = reservationRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+        requireOpen(reservation);
+        if (reservation.isHandedOver()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule déjà remis");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if (!reservation.hasStartedAt(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Remise des clés possible à partir de l'heure du rendez-vous");
+        }
+        if (!reservation.getEndDate().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Rendez-vous de retour dépassé : reportez ou annulez la réservation");
+        }
+        // Verrou du véhicule AVANT de vérifier qu'il est libre : deux remises simultanées du même véhicule
+        // passent l'une après l'autre, et la seconde voit la remise de la première
+        Vehicle vehicle = vehicleRepository.findByIdForUpdate(reservation.getVehicle().getId())
+            .filter(v -> v.getDeletedAt() == null)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
+        if (reservationRepository.isOnHold(id, now)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Véhicule pas encore retourné par le conducteur précédent");
+        }
+        if (vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule non disponible");
+        }
+        if (request.mileageStart() < vehicle.getMileageKM()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Le kilométrage ne peut pas être inférieur à celui du véhicule (" + vehicle.getMileageKM() + " km)");
+        }
+
+        reservation.setConditionBefore(conditionOf(vehicle));
+        reservation.setMileageStart(request.mileageStart());
+        reservation.setHandedOverAt(now);
+        reservation.setHandedOverBy(currentUser);
+        reservation.setUpdatedBy(currentUser);
+        vehicle.setMileageKM(request.mileageStart());
+        return toResponse(reservationRepository.saveAndFlush(reservation));
     }
 
     // Une réservation annulée ou retournée est figée
@@ -345,10 +398,11 @@ public class ReservationService {
         if (reservation.getCancelledAt() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Réservation annulée");
         }
-        // Le véhicule n'a jamais été remis : un retour écraserait le kilométrage du véhicule encore dehors
-        if (reservationRepository.isOnHold(reservation.getId(), OffsetDateTime.now())) {
+        // Pas de retour sans remise : le kilométrage de départ n'est pas connu, et un véhicule en attente
+        // est encore dehors avec le conducteur précédent
+        if (!reservation.isHandedOver()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Réservation en attente : le véhicule n'a pas été remis, annulez-la ou reportez-la");
+                "Véhicule pas encore remis : enregistrez d'abord la remise des clés, ou annulez la réservation");
         }
 
         // La réservation n'est pas déjà retournée
