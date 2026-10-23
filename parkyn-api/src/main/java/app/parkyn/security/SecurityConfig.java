@@ -10,7 +10,9 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -18,6 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
+import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,8 +36,22 @@ public class SecurityConfig {
     private String corsAllowedOrigins;
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder(
+        @Value("${parkyn.security.argon2.memory-kib}") int memoryKib,
+        @Value("${parkyn.security.argon2.iterations}") int iterations,
+        @Value("${parkyn.security.argon2.parallelism}") int parallelism
+    ) {
+        // Sel de 16 octets, hash de 32 octets
+        Argon2PasswordEncoder argon2 = new Argon2PasswordEncoder(16, 32, parallelism, memoryKib, iterations);
+        BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
+
+        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder("argon2", Map.of(
+            "argon2", argon2,
+            "bcrypt", bcrypt
+        ));
+        // Hash sans préfixe = ancien hash BCrypt
+        encoder.setDefaultPasswordEncoderForMatches(bcrypt);
+        return encoder;
     }
 
     @Bean

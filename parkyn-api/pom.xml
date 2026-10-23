@@ -143,6 +143,14 @@
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>
 		</dependency>
+
+		<!-- Argon2id : Argon2PasswordEncoder de Spring Security s'appuie sur Bouncy Castle.
+		     Version non gérée par Spring Boot : à mettre à jour manuellement. -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>1.86</version>
+		</dependency>
 	</dependencies>
 
 	<build>

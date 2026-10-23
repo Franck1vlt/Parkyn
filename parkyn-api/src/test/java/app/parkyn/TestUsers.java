@@ -33,6 +33,11 @@ public class TestUsers {
         return save(email, "not-used", role);
     }
 
+    // Utilisateur dont le hash est fourni tel quel (ex. ancien hash BCrypt sans préfixe, avant Argon2id)
+    public User createWithHash(String email, String hashedPassword, User.Role role) {
+        return save(email, hashedPassword, role);
+    }
+
     private User save(String email, String hashedPassword, User.Role role) {
         User user = new User();
         user.setEmail(email);

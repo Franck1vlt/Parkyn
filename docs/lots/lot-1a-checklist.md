@@ -26,14 +26,14 @@
 - [x] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés). La matrice est repassée à l'identique ; les 8 changements de comportement sont documentés dans la matrice
 - [ ] A3+ Tenant : mapper `tenantId` dans les 4 entités, filtre `tenant_id` systématique dans les requêtes, test d'isolation (un utilisateur de l'entreprise A ne lit ni ne modifie jamais une donnée de l'entreprise B). Sous-tâche entre A3 et A4
 - [ ] A3+ Portée `own` / `all` : `ReservationScope` (filtre dans la requête, 404 hors portée) et espace réservations du DRIVER (voir « Tests de portée »)
-- [ ] A4 Hachage Argon2id
+- [x] A4 Hachage Argon2id : `DelegatingPasswordEncoder` (Argon2id par défaut, hash sans préfixe = BCrypt), conversion à la connexion via `UserDetailsPasswordService`, paramètres OWASP configurables (`parkyn.security.argon2.*`), `PasswordHashingTest`
 
 ## Phase B : inscription et emails
 
 - [ ] B1 Service d'envoi d'emails
 - [ ] B2 Inscription
 - [ ] B3 Vérification
-- [ ] B4 Limitation de débit de base
+- [ ] B4 Limitation de débit de base. Prioritaire sur `/auth/login` : chaque tentative calcule un Argon2id (~19 Mio), une rafale de tentatives peut saturer la mémoire du serveur
 
 ## Phase C : cookies, CSRF et sessions
 
@@ -86,6 +86,10 @@
 
 ## Points notés en chemin
 
+- [ ] Connexion d'un compte désactivé : `DisabledException` n'est pas traitée par `GlobalExceptionHandler`, la réponse diffère du 401 standard et révèle qu'un compte désactivé existe. Répondre le même 401 « Email ou mot de passe incorrect »
+- [ ] Timing de connexion : tant que des comptes gardent un hash BCrypt, leur vérification est plus rapide qu'un Argon2id, ce qui peut révéler les comptes non convertis (risque faible, décroît avec les conversions)
+- [ ] Déploiement : mesurer le temps d'un hash Argon2id sur le serveur de production (cible 200 à 500 ms) et ajuster `ARGON2_MEMORY_KIB` / `ARGON2_ITERATIONS` ; dimensionner la RAM selon les connexions simultanées
+- [ ] Piste : implémentation native d'Argon2 (liaison vers la bibliothèque C) pour réduire l'écart de performance avec un attaquant ; non nécessaire aujourd'hui (Bouncy Castle, Java pur)
 - [ ] Disponibilité des véhicules : le statut `RESERVED` posé à la création bloque toute autre réservation, même sur une autre période. Décision : un véhicule reste réservable en dehors des périodes réservées (seul `hasConflict` décide). Commit dédié, après A4 et le tenant
 - [ ] API des réservations en Expand and Contract : `conditionBefore`, `mileageStart` et `agentId` deviennent facultatifs et ignorés (remplis par le serveur), puis le frontend cesse de les envoyer (phase D), puis suppression du DTO
 - [ ] Rôle dérivé de `user_roles` : tout `getRole()` hors transaction sur un utilisateur chargé sans ses rôles lève `LazyInitializationException`. `findByEmail` charge les rôles (`@EntityGraph`) ; attention aux traitements planifiés et aux tests qui relisent la base
