@@ -108,11 +108,13 @@ public class Reservation {
     @JoinColumn(name = "cancelled_by", referencedColumnName = "id", nullable = true)
     private User cancelledBy;
 
-    // Statut calculé, jamais stocké
-    public Status statusAt(OffsetDateTime now) {
+    // Statut calculé, jamais stocké. onHold : commencée, mais le véhicule n'est pas revenu de la réservation
+    // précédente (ReservationRepository.findOnHoldIds) ; elle n'a donc pas vraiment commencé
+    public Status statusAt(OffsetDateTime now, boolean onHold) {
         if (cancelledAt != null) return Status.CANCELLED;
         if (returnedAt != null) return Status.RETURNED;
-        return startDate.isAfter(now) ? Status.UPCOMING : Status.IN_PROGRESS;
+        if (startDate.isAfter(now)) return Status.UPCOMING;
+        return onHold ? Status.ON_HOLD : Status.IN_PROGRESS;
     }
 
     public boolean hasStartedAt(OffsetDateTime now) {
@@ -120,7 +122,7 @@ public class Reservation {
     }
 
     public enum Status {
-        UPCOMING, IN_PROGRESS, RETURNED, CANCELLED
+        UPCOMING, IN_PROGRESS, ON_HOLD, RETURNED, CANCELLED
     }
 
     public enum Condition {

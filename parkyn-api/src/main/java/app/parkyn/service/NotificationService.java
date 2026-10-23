@@ -71,15 +71,30 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
-    // Aucun utilisateur connecté : chaque tenant est traité sous son propre tenant, dans une nouvelle transaction
-    // (la session Hibernate lit son tenant à l'ouverture). Requêtes filtrées et notifications rattachées automatiquement.
     @Scheduled(cron = "0 0 8 * * *")
     public void checkEndingSoon() {
+        forEachTenant(this::checkEndingSoon);
+    }
+
+    // Retour en retard : agents et administrateurs sont prévenus, une seule fois, qu'une réservation est en attente
+    @Scheduled(cron = "0 */15 * * * *")
+    public void checkOnHold() {
+        forEachTenant(now -> reservationRepository.findAllById(reservationRepository.findOnHoldIds(null, now))
+            .forEach(reservation -> {
+                if (!notificationRepository.existsByReservationIdAndType(reservation.getId(), NotificationType.RESERVATION_ON_HOLD)) {
+                    createForAllAdminsAndAgents(NotificationType.RESERVATION_ON_HOLD, reservation);
+                }
+            }));
+    }
+
+    // Aucun utilisateur connecté : chaque tenant est traité sous son propre tenant, dans une nouvelle transaction
+    // (la session Hibernate lit son tenant à l'ouverture). Requêtes filtrées et notifications rattachées automatiquement.
+    private void forEachTenant(java.util.function.Consumer<java.time.OffsetDateTime> task) {
         var now = java.time.OffsetDateTime.now();
         var transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         reservationRepository.findTenantIdsWithActiveReservations().forEach(tenantId ->
-            TenantContext.runAs(tenantId, () -> transaction.executeWithoutResult(status -> checkEndingSoon(now))));
+            TenantContext.runAs(tenantId, () -> transaction.executeWithoutResult(status -> task.accept(now))));
     }
 
     private void checkEndingSoon(java.time.OffsetDateTime now) {

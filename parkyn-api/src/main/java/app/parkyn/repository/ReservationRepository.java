@@ -71,6 +71,29 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
         """)
     Set<UUID> findVehicleIdsInUseAt(@Param("vehicleId") UUID vehicleId, @Param("now") OffsetDateTime now);
 
+    // Réservations en attente : commencées, mais une réservation antérieure du même véhicule n'est
+    // ni retournée ni annulée (retour en retard). reservationId facultatif : null = tout le tenant.
+    @Query("""
+        SELECT r.id FROM Reservation r
+        WHERE (:reservationId IS NULL OR r.id = :reservationId)
+        AND r.returnedAt IS NULL
+        AND r.cancelledAt IS NULL
+        AND r.startDate <= :now
+        AND EXISTS (
+            SELECT p.id FROM Reservation p
+            WHERE p.vehicle = r.vehicle
+            AND p.id <> r.id
+            AND p.returnedAt IS NULL
+            AND p.cancelledAt IS NULL
+            AND p.startDate < r.startDate
+        )
+        """)
+    Set<UUID> findOnHoldIds(@Param("reservationId") UUID reservationId, @Param("now") OffsetDateTime now);
+
+    default boolean isOnHold(UUID reservationId, OffsetDateTime now) {
+        return !findOnHoldIds(reservationId, now).isEmpty();
+    }
+
     List<Reservation> findByReturnedAtIsNullAndCancelledAtIsNullAndEndDateBetween(OffsetDateTime start, OffsetDateTime end);
 
     // Appelée hors connexion (traitement planifié) : sans filtre, elle liste les tenants de toutes les entreprises

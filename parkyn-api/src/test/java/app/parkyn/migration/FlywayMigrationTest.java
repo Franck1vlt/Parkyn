@@ -190,8 +190,9 @@ class FlywayMigrationTest {
         UUID userId = insertUser("bob@parkyn.app");
 
         jdbc.update("INSERT INTO notifications (user_id, type) VALUES (?, 'RESERVATION_CANCELLED')", userId);
+        jdbc.update("INSERT INTO notifications (user_id, type) VALUES (?, 'RESERVATION_ON_HOLD')", userId);
 
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM notifications", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM notifications", Integer.class));
     }
 
     private UUID insertVehicle(String plate) {

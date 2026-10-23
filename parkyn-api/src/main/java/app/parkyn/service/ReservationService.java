@@ -26,6 +26,9 @@ import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
 import app.parkyn.security.authorization.ReservationScope;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -40,7 +43,7 @@ public class ReservationService {
     private final ReservationScope reservationScope;
 
     private static final Set<String> STATUS_FILTERS =
-        Set.of("ACTIVE", "UPCOMING", "IN_PROGRESS", "RETURNED", "CANCELLED");
+        Set.of("ACTIVE", "UPCOMING", "IN_PROGRESS", "ON_HOLD", "RETURNED", "CANCELLED");
 
     private static final String SLOT_TAKEN =
         "Véhicule déjà réservé sur ce créneau : choisissez un autre véhicule ou une autre plage horaire";
@@ -52,6 +55,7 @@ public class ReservationService {
         }
         String filter = status;
         OffsetDateTime now = OffsetDateTime.now();
+        Set<UUID> onHold = reservationRepository.findOnHoldIds(null, now);
         Specification<Reservation> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             // Statuts calculés (Reservation.statusAt) ; ACTIVE = ni retournée ni annulée (frontend actuel)
@@ -62,7 +66,9 @@ public class ReservationService {
                 case null -> { }
                 case "ACTIVE" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt)));
                 case "UPCOMING" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt), cb.greaterThan(startDate, now)));
-                case "IN_PROGRESS" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt), cb.lessThanOrEqualTo(startDate, now)));
+                case "IN_PROGRESS" -> predicates.add(cb.and(cb.isNull(returnedAt), cb.isNull(cancelledAt),
+                    cb.lessThanOrEqualTo(startDate, now), notIn(cb, root.get("id"), onHold)));
+                case "ON_HOLD" -> predicates.add(in(cb, root.get("id"), onHold));
                 case "RETURNED" -> predicates.add(cb.and(cb.isNotNull(returnedAt), cb.isNull(cancelledAt)));
                 case "CANCELLED" -> predicates.add(cb.isNotNull(cancelledAt));
                 default -> throw new IllegalStateException(filter);
@@ -74,7 +80,8 @@ public class ReservationService {
         };
         spec = spec.and(reservationScope.readableBy(currentUser));
         // Même instant pour le filtre et le statut affiché
-        return reservationRepository.findAll(spec, pageable).map(reservation -> ReservationResponse.from(reservation, now));
+        return reservationRepository.findAll(spec, pageable)
+            .map(reservation -> ReservationResponse.from(reservation, now, onHold.contains(reservation.getId())));
     }
 
     @Transactional
@@ -120,12 +127,12 @@ public class ReservationService {
         reservation.setUpdatedBy(currentUser);
         Reservation saved = saveOrConflict(reservation);
         notificationService.createForAllAdminsAndAgents(NotificationType.NEW_RESERVATION, saved);
-        return ReservationResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional
     public ReservationResponse getReservationById(User currentUser, UUID id) {
-        return ReservationResponse.from(findOne(currentUser, id));
+        return toResponse(findOne(currentUser, id));
     }
 
     private Reservation findOne(User currentUser, UUID id) {
@@ -155,12 +162,14 @@ public class ReservationService {
         requireOpen(reservation);
 
         OffsetDateTime now = OffsetDateTime.now();
-        boolean started = reservation.hasStartedAt(now);
-        if (started && !reservationScope.coversAll(currentUser, ReservationScope.Action.UPDATE)) {
+        // Le DRIVER est bloqué dès la date de début (R3), même si la réservation est en attente
+        if (reservation.hasStartedAt(now) && !reservationScope.coversAll(currentUser, ReservationScope.Action.UPDATE)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Réservation commencée : seul un agent peut encore la modifier");
         }
-        if (started && request.startDate() != null && !request.startDate().isEqual(reservation.getStartDate())) {
+        // En attente, le véhicule n'a pas été remis : l'agent peut encore la reporter
+        boolean inProgress = reservation.hasStartedAt(now) && !reservationRepository.isOnHold(id, now);
+        if (inProgress && request.startDate() != null && !request.startDate().isEqual(reservation.getStartDate())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Réservation commencée : sa date de début ne peut plus changer");
         }
@@ -168,7 +177,7 @@ public class ReservationService {
         OffsetDateTime start = request.startDate() != null ? request.startDate() : reservation.getStartDate();
         OffsetDateTime end = request.endDate() != null ? request.endDate() : reservation.getEndDate();
         if (!start.isEqual(reservation.getStartDate()) || !end.isEqual(reservation.getEndDate())) {
-            validateNewPeriod(reservation, start, end, now);
+            validateNewPeriod(reservation, start, end, now, inProgress);
             reservation.setStartDate(start);
             reservation.setEndDate(end);
         }
@@ -176,7 +185,7 @@ public class ReservationService {
             reservation.setNotesBefore(request.notesBefore());
         }
         reservation.setUpdatedBy(currentUser);
-        return ReservationResponse.from(saveOrConflict(reservation));
+        return toResponse(saveOrConflict(reservation));
     }
 
     // Annulation possible avant le début seulement ; après, c'est un retour (décision R3)
@@ -186,7 +195,10 @@ public class ReservationService {
         requireOpen(reservation);
 
         OffsetDateTime now = OffsetDateTime.now();
-        if (reservation.hasStartedAt(now)) {
+        // En attente, le véhicule n'a pas été remis : l'agent peut encore l'annuler (le DRIVER non, R3)
+        boolean agentCancelsOnHold = reservationScope.coversAll(currentUser, ReservationScope.Action.CANCEL)
+            && reservationRepository.isOnHold(id, now);
+        if (reservation.hasStartedAt(now) && !agentCancelsOnHold) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Réservation commencée : elle ne peut plus être annulée, enregistrez son retour");
         }
@@ -195,7 +207,21 @@ public class ReservationService {
         reservation.setUpdatedBy(currentUser);
         Reservation saved = reservationRepository.saveAndFlush(reservation);
         notificationService.replaceWithCancellationNotice(saved);
-        return ReservationResponse.from(saved);
+        return toResponse(saved);
+    }
+
+    private ReservationResponse toResponse(Reservation reservation) {
+        OffsetDateTime now = OffsetDateTime.now();
+        return ReservationResponse.from(reservation, now, reservationRepository.isOnHold(reservation.getId(), now));
+    }
+
+    // IN sur un ensemble vide : aucune ligne (et NOT IN : toutes), sans dépendre du SQL généré pour une liste vide
+    private static Predicate in(CriteriaBuilder cb, Path<UUID> id, Set<UUID> ids) {
+        return ids.isEmpty() ? cb.disjunction() : id.in(ids);
+    }
+
+    private static Predicate notIn(CriteriaBuilder cb, Path<UUID> id, Set<UUID> ids) {
+        return ids.isEmpty() ? cb.conjunction() : cb.not(id.in(ids));
     }
 
     // Une réservation annulée ou retournée est figée
@@ -209,11 +235,13 @@ public class ReservationService {
     }
 
     // Mêmes règles qu'à la création, sans que la réservation se gêne elle-même
-    private void validateNewPeriod(Reservation reservation, OffsetDateTime start, OffsetDateTime end, OffsetDateTime now) {
+    private void validateNewPeriod(Reservation reservation, OffsetDateTime start, OffsetDateTime end,
+                                   OffsetDateTime now, boolean inProgress) {
         if (!start.isBefore(end)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate must be before endDate");
         }
-        if (!reservation.hasStartedAt(now) && start.isBefore(now)) {
+        // Un nouveau début ne peut pas être dans le passé (un début déjà passé et inchangé reste valable)
+        if (!start.isEqual(reservation.getStartDate()) && start.isBefore(now)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be in the past");
         }
         if (!end.isAfter(now)) {
@@ -224,7 +252,7 @@ public class ReservationService {
             .filter(v -> v.getDeletedAt() == null)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
         // Une location en cours peut être prolongée même si le véhicule est passé en maintenance entre-temps
-        if (!reservation.hasStartedAt(now) && vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
+        if (!inProgress && vehicle.getStatus() != Vehicle.VehicleStatus.AVAILABLE) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Véhicule non disponible");
         }
         if (reservationRepository.hasConflict(vehicle.getId(), start, end, reservation.getId())) {
@@ -252,7 +280,7 @@ public class ReservationService {
         // L'état constaté au retour devient l'état du véhicule (réutilisé par la réservation suivante)
         vehicle.setCondition(Vehicle.VehicleCondition.valueOf(request.conditionAfter().name()));
 
-        return ReservationResponse.from(reservationRepository.saveAndFlush(reservation));
+        return toResponse(reservationRepository.saveAndFlush(reservation));
     }
 
     private Reservation findReservationOrThrow(UUID id) {
@@ -316,6 +344,11 @@ public class ReservationService {
     private void validateReturn(Reservation reservation, ReturnVehicleRequest request){
         if (reservation.getCancelledAt() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Réservation annulée");
+        }
+        // Le véhicule n'a jamais été remis : un retour écraserait le kilométrage du véhicule encore dehors
+        if (reservationRepository.isOnHold(reservation.getId(), OffsetDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Réservation en attente : le véhicule n'a pas été remis, annulez-la ou reportez-la");
         }
 
         // La réservation n'est pas déjà retournée

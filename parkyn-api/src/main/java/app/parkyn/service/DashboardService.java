@@ -32,7 +32,11 @@ public class DashboardService {
     private List<ReservationResponse> getLatestReservations(User user){
         boolean isAdmin = user.getRole() == Role.ADMIN;
         var latestReservations = isAdmin ? reservationRepository.findTop5ByOrderByCreatedAtDesc(): reservationRepository.findTop5ByAgentIdOrderByCreatedAtDesc(user.getId());
-        return latestReservations.stream().map(ReservationResponse::from).toList();
+        OffsetDateTime now = OffsetDateTime.now();
+        var onHold = reservationRepository.findOnHoldIds(null, now);
+        return latestReservations.stream()
+            .map(reservation -> ReservationResponse.from(reservation, now, onHold.contains(reservation.getId())))
+            .toList();
     }
 
     @Transactional

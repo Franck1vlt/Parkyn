@@ -28,12 +28,9 @@ public record ReservationResponse(
     Reservation.Status status,
     OffsetDateTime cancelledAt
 ) {
-    public static ReservationResponse from(Reservation reservation) {
-        return from(reservation, OffsetDateTime.now());
-    }
-
     // now : instant du statut calculé (le même que celui d'un filtre, pour une liste)
-    public static ReservationResponse from(Reservation reservation, OffsetDateTime now) {
+    // onHold : réservation en attente du véhicule (voir Reservation.statusAt)
+    public static ReservationResponse from(Reservation reservation, OffsetDateTime now, boolean onHold) {
         return new ReservationResponse(
             reservation.getId(),
             reservation.getVehicle() != null ? reservation.getVehicle().getId() : null,
@@ -54,7 +51,7 @@ public record ReservationResponse(
             reservation.getDamageReported(),
             reservation.getDamageDetails(),
             reservation.getNotesAfter(),
-            reservation.statusAt(now),
+            reservation.statusAt(now, onHold),
             reservation.getCancelledAt()
         );
     }
