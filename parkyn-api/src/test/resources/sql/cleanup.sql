@@ -23,3 +23,7 @@ TRUNCATE TABLE
     refresh_tokens,
     user_roles,
     users;
+
+-- Tenants créés par les tests (ex. l'entreprise B de TenantIsolationTest) : seul le tenant par défaut (V6) reste.
+-- Après le TRUNCATE de users, plus aucune ligne ne les référence (les rôles d'un tenant partent en CASCADE).
+DELETE FROM tenants WHERE id <> '00000000-0000-0000-0000-000000000001';

@@ -1,26 +1,39 @@
 package app.parkyn;
 
+import java.util.UUID;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import app.parkyn.model.User;
 import app.parkyn.repository.UserRepository;
+import app.parkyn.tenant.Tenants;
 
 /**
- * Crée des utilisateurs de test valables pour les deux systèmes d'autorisation
- * pendant la cohabitation (A3) : l'ancien rôle (users.role) et le nouveau (user_roles).
- * Au Contract, retirer setRole(...).
+ * Crée des utilisateurs de test : le compte, son rôle système (ligne user_roles) et son tenant.
+ * Par défaut, les comptes sont créés dans le tenant par défaut ; inTenant(...) en change.
  */
 public class TestUsers {
 
     private final UserRepository userRepository;
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwordEncoder;
+    private final UUID tenantId;
 
     public TestUsers(UserRepository userRepository, JdbcTemplate jdbc, PasswordEncoder passwordEncoder) {
+        this(userRepository, jdbc, passwordEncoder, Tenants.DEFAULT_ID);
+    }
+
+    private TestUsers(UserRepository userRepository, JdbcTemplate jdbc, PasswordEncoder passwordEncoder, UUID tenantId) {
         this.userRepository = userRepository;
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
+        this.tenantId = tenantId;
+    }
+
+    // Mêmes méthodes, pour les comptes d'un autre tenant (le tenant doit exister dans la table tenants)
+    public TestUsers inTenant(UUID otherTenantId) {
+        return new TestUsers(userRepository, jdbc, passwordEncoder, otherTenantId);
     }
 
     // Utilisateur capable de se connecter via /auth/login (vrai hash du mot de passe)
@@ -45,6 +58,8 @@ public class TestUsers {
         user.setLastName(role.name());
         user.setHashedPwd(hashedPassword);
         user.setActive(true);
+        // Créé hors connexion (contexte racine) : le tenant doit être fixé, comme à l'inscription
+        user.setTenantId(tenantId);
         userRepository.saveAndFlush(user);
 
         jdbc.update(

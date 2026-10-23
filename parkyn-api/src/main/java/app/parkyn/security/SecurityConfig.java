@@ -30,6 +30,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    // Connexion, rafraîchissement, inscription : publics. JwtAuthFilter ignore un token envoyé avec eux
+    static final String[] PUBLIC_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register"};
+
+
     private final JwtAuthFilter jwtAuthFilter;
 
     @Value("${CORS_ALLOWED_ORIGINS:http://localhost:4200}")
@@ -67,7 +71,7 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v1/**").authenticated()
                 .requestMatchers("/error").permitAll()

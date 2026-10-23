@@ -36,6 +36,7 @@ import app.parkyn.model.Vehicle.VehicleStatus;
 import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
+import app.parkyn.tenant.Tenants;
 import tools.jackson.databind.ObjectMapper;
 
 @AutoConfigureMockMvc
@@ -81,6 +82,7 @@ public class ReservationScopeTest {
 
         // Véhicule
         Vehicle car = new Vehicle();
+        car.setTenantId(Tenants.DEFAULT_ID);
         car.setPlateNumber("AA-123-BB");
         car.setBrand("Toyota");
         car.setModel("Yaris");
@@ -95,6 +97,7 @@ public class ReservationScopeTest {
 
         // Réservation
         Reservation r1 = new Reservation();
+        r1.setTenantId(Tenants.DEFAULT_ID);
         r1.setVehicle(car);
         r1.setDriver(driverA);
         r1.setAgent(agent);
@@ -107,6 +110,7 @@ public class ReservationScopeTest {
 
         // État de départ FAIR, différent de l'état du véhicule (GOOD) et du retour (POOR)
         r2 = new Reservation();
+        r2.setTenantId(Tenants.DEFAULT_ID);
         r2.setVehicle(car);
         r2.setDriver(driverB);
         r2.setAgent(agent);
@@ -119,6 +123,7 @@ public class ReservationScopeTest {
 
         // Réservation sans agent référent (créée par un conducteur) : l'agent n'en est pas l'agent
         Reservation r3 = new Reservation();
+        r3.setTenantId(Tenants.DEFAULT_ID);
         r3.setVehicle(car);
         r3.setDriver(driverB);
         r3.setAgent(null);
@@ -305,6 +310,7 @@ public class ReservationScopeTest {
     @Test
     void agentCannotReserveVehicleWithUnknownCondition() throws Exception {
         Vehicle noConditionCar = new Vehicle();
+        noConditionCar.setTenantId(Tenants.DEFAULT_ID);
         noConditionCar.setPlateNumber("CC-456-DD");
         noConditionCar.setBrand("Peugeot");
         noConditionCar.setModel("208");

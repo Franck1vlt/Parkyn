@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.TenantId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,6 +27,12 @@ public class Vehicle {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    // Entreprise propriétaire. @TenantId : Hibernate filtre toutes les requêtes sur le tenant de la session
+    // et le renseigne à l'insertion (voir CurrentTenantResolver). Jamais modifié après la création.
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
 
     @Column(name = "plate_number", length = 20, nullable = false, unique = true)
     private String plateNumber;

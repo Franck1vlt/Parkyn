@@ -6,7 +6,10 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import app.parkyn.model.Notification;
@@ -16,6 +19,7 @@ import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.repository.NotificationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.ReservationRepository;
+import app.parkyn.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -25,6 +29,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final ReservationRepository reservationRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public void createForAllAdminsAndAgents(NotificationType notificationType, Reservation reservation) {
@@ -59,10 +64,18 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
+    // Aucun utilisateur connecté : chaque tenant est traité sous son propre tenant, dans une nouvelle transaction
+    // (la session Hibernate lit son tenant à l'ouverture). Requêtes filtrées et notifications rattachées automatiquement.
     @Scheduled(cron = "0 0 8 * * *")
-    @Transactional
     public void checkEndingSoon() {
         var now = java.time.OffsetDateTime.now();
+        var transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        reservationRepository.findTenantIdsWithActiveReservations().forEach(tenantId ->
+            TenantContext.runAs(tenantId, () -> transaction.executeWithoutResult(status -> checkEndingSoon(now))));
+    }
+
+    private void checkEndingSoon(java.time.OffsetDateTime now) {
         var in24h = now.plusHours(24);
         var in7days = now.plusDays(7);
         var reservations = reservationRepository.findByReturnedAtIsNullAndEndDateBetween(now, in7days);

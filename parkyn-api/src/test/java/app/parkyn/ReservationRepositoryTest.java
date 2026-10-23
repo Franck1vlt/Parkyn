@@ -18,6 +18,7 @@ import app.parkyn.model.Vehicle.VehicleStatus;
 import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
+import app.parkyn.tenant.Tenants;
 
 @RepositoryTest
 class ReservationRepositoryTest {
@@ -31,6 +32,7 @@ class ReservationRepositoryTest {
 
     private User saveUser(String email, User.Role role) {
         User user = new User();
+        user.setTenantId(Tenants.DEFAULT_ID);
         user.setFirstName("Jean");
         user.setLastName("Dupont");
         user.setEmail(email);
@@ -40,6 +42,7 @@ class ReservationRepositoryTest {
 
     private Vehicle saveVehicle(String plate) {
         Vehicle vehicle = new Vehicle();
+        vehicle.setTenantId(Tenants.DEFAULT_ID);
         vehicle.setPlateNumber(plate);
         vehicle.setBrand("Toyota");
         vehicle.setModel("Yaris");
@@ -56,6 +59,7 @@ class ReservationRepositoryTest {
     private Reservation saveReservation(Vehicle vehicle, User driver, User agent,
                                         OffsetDateTime start, OffsetDateTime end) {
         Reservation reservation = new Reservation();
+        reservation.setTenantId(Tenants.DEFAULT_ID);
         reservation.setVehicle(vehicle);
         reservation.setDriver(driver);
         reservation.setAgent(agent);

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import app.parkyn.model.User;
 import app.parkyn.repository.UserRepository;
+import app.parkyn.tenant.Tenants;
 
 @RepositoryTest
 class UserRepositoryTest {
@@ -16,6 +17,7 @@ class UserRepositoryTest {
 
     private User saveUser(String email) {
         User user = new User();
+        user.setTenantId(Tenants.DEFAULT_ID);
         user.setFirstName("Jean");
         user.setLastName("Dupont");
         user.setEmail(email);

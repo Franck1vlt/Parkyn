@@ -52,7 +52,7 @@ public class UserService {
     public UserResponse addUser(User currentUser, UserRequest request) {
         enforce(userAccessPolicy.decideRoleAssignment(currentUser, request.role()));
 
-        if (userRepository.findByEmail(User.normalizeEmail(request.email())).isPresent()) {
+        if (userRepository.existsByEmailInAnyTenant(User.normalizeEmail(request.email()))) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(409), "Email already in use");
         }
 

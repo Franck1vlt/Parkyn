@@ -32,6 +32,7 @@ import app.parkyn.model.Vehicle;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
+import app.parkyn.tenant.Tenants;
 
 @AutoConfigureMockMvc
 @IntegrationTest
@@ -63,6 +64,8 @@ public class VehicleControllerTest {
         refreshTokenRepository.saveAndFlush(rt);
 
         Vehicle vehicle = new Vehicle();
+
+        vehicle.setTenantId(Tenants.DEFAULT_ID);
         vehicle.setPlateNumber("AB-123-CD");
         vehicle.setBrand("Renault");
         vehicle.setModel("Clio");

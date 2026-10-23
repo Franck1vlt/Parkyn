@@ -5,10 +5,9 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,13 +17,13 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
-import app.parkyn.dto.UserRequest;
 import app.parkyn.dto.UserResponse;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.security.JwtService;
+import app.parkyn.tenant.Tenants;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -96,7 +95,7 @@ public class AuthService {
 
     @Transactional
     public UserResponse createAccount(RegisterRequest request) {
-        if (userRepository.findByEmail(User.normalizeEmail(request.email())).isPresent()) {
+        if (userRepository.existsByEmailInAnyTenant(User.normalizeEmail(request.email()))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
         }
 
@@ -105,6 +104,8 @@ public class AuthService {
         user.setLastName(request.lastname());
         user.setEmail(request.email());
         user.setHashedPwd(passwordEncoder.encode(request.password()));
+        // Inscription hors connexion : aucun tenant courant, il est fixé ici (invitations par entreprise au lot 4)
+        user.setTenantId(Tenants.DEFAULT_ID);
         roleAssignmentService.assign(user, User.Role.DRIVER);
         user.setActive(true);
         return UserResponse.from(userRepository.saveAndFlush(user));

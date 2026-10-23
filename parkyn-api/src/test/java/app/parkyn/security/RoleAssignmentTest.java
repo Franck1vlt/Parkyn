@@ -34,6 +34,7 @@ import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
+import app.parkyn.tenant.Tenants;
 
 @AutoConfigureMockMvc
 @IntegrationTest
@@ -63,6 +64,8 @@ class RoleAssignmentTest {
         driverId = driver.getId();
 
         Vehicle vehicle = new Vehicle();
+
+        vehicle.setTenantId(Tenants.DEFAULT_ID);
         vehicle.setPlateNumber("ABC-123");
         vehicle.setBrand("Toyota");
         vehicle.setModel("Corolla");

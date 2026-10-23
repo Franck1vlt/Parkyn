@@ -36,6 +36,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
 
     List<Reservation> findByReturnedAtIsNullAndEndDateBetween(OffsetDateTime start, OffsetDateTime end);
 
+    // Appelée hors connexion (traitement planifié) : sans filtre, elle liste les tenants de toutes les entreprises
+    @Query("SELECT DISTINCT r.tenantId FROM Reservation r WHERE r.returnedAt IS NULL")
+    List<UUID> findTenantIdsWithActiveReservations();
+
     List<Reservation> findTop5ByOrderByCreatedAtDesc();
 
     List<Reservation> findTop5ByAgentIdOrderByCreatedAtDesc(UUID agentId);

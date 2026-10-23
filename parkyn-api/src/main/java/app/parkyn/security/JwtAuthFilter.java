@@ -2,6 +2,7 @@ package app.parkyn.security;
 
 import app.parkyn.service.PermissionService;
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,6 +28,14 @@ public class JwtAuthFilter extends OncePerRequestFilter{
     private final PermissionService permissionService;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+
+    // Endpoints publics d'authentification : un token joint à la requête est ignoré. Sinon la session prendrait
+    // le tenant de ce token : connexion refusée pour un compte d'une autre entreprise, inscription en erreur.
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return Arrays.asList(SecurityConfig.PUBLIC_AUTH_PATHS).contains(path);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
