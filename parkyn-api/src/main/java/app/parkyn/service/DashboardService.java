@@ -37,7 +37,9 @@ public class DashboardService {
 
     @Transactional
     private List<VehicleResponse> getVehiclesInMaintenance(){
-        return vehicleRepository.findByStatusAndDeletedAtIsNull(VehicleStatus.MAINTENANCE).stream().map(VehicleResponse::from).toList();
+        // En maintenance : le statut stocké l'emporte sur le calcul, qu'il soit dehors ou non
+        return vehicleRepository.findByStatusAndDeletedAtIsNull(VehicleStatus.MAINTENANCE).stream()
+            .map(vehicle -> VehicleResponse.from(vehicle, false)).toList();
     }
 
     @Transactional

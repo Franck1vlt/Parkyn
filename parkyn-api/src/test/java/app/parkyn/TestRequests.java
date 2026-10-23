@@ -101,8 +101,9 @@ public final class TestRequests {
         );
     }
 
+    // RESERVED n'est plus une transition manuelle (statut calculé à partir des réservations)
     public static VehicleStatusRequest validVehicleStatusRequest() {
-        return new VehicleStatusRequest(Vehicle.VehicleStatus.RESERVED);
+        return new VehicleStatusRequest(Vehicle.VehicleStatus.MAINTENANCE);
     }
 
     public static RegisterRequest validRegisterRequest() {

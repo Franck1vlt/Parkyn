@@ -3,6 +3,7 @@ package app.parkyn.migration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -131,6 +132,58 @@ class FlywayMigrationTest {
 
         assertEquals(1, jdbc.queryForObject(
             "SELECT COUNT(*) FROM reservations WHERE driver_id = ?", Integer.class, driverId));
+    }
+
+    // Filet de sécurité des demandes simultanées : la base refuse deux réservations qui se chevauchent
+    @Test
+    void overlappingReservationsOnSameVehicleAreRejected() {
+        UUID driverId = insertUser("bob@parkyn.app");
+        UUID vehicleId = insertVehicle("AB-123-CD");
+        insertReservation(vehicleId, driverId, "1 day", "3 days");
+
+        var error = assertThrows(DataIntegrityViolationException.class, () ->
+            insertReservation(vehicleId, driverId, "2 days", "4 days"));
+        assertTrue(error.getMostSpecificCause().getMessage().contains("reservations_no_overlap"));
+    }
+
+    @Test
+    void adjacentReservationsAndOtherVehiclesAreAccepted() {
+        UUID driverId = insertUser("bob@parkyn.app");
+        UUID vehicleId = insertVehicle("AB-123-CD");
+        UUID otherVehicleId = insertVehicle("EF-456-GH");
+        insertReservation(vehicleId, driverId, "1 day", "2 days");
+
+        insertReservation(vehicleId, driverId, "2 days", "3 days");
+        insertReservation(otherVehicleId, driverId, "1 day", "2 days");
+
+        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM reservations", Integer.class));
+    }
+
+    // N2 : retournée en avance, une réservation ne bloque plus le reste de sa période
+    @Test
+    void earlyReturnedReservationFreesTheRestOfItsPeriod() {
+        UUID driverId = insertUser("bob@parkyn.app");
+        UUID vehicleId = insertVehicle("AB-123-CD");
+        UUID first = insertReservation(vehicleId, driverId, "1 day", "3 days");
+        jdbc.update("UPDATE reservations SET returned_at = NOW() + INTERVAL '2 days' WHERE id = ?", first);
+
+        insertReservation(vehicleId, driverId, "2 days", "4 days");
+
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM reservations", Integer.class));
+    }
+
+    private UUID insertVehicle(String plate) {
+        return jdbc.queryForObject(
+            "INSERT INTO vehicles (plate_number, brand, model) VALUES (?, 'Renault', 'Clio') RETURNING id",
+            UUID.class, plate);
+    }
+
+    // Période relative à maintenant : NOW() + start, NOW() + end (ex. "1 day")
+    private UUID insertReservation(UUID vehicleId, UUID driverId, String start, String end) {
+        return jdbc.queryForObject(
+            "INSERT INTO reservations (vehicle_id, driver_id, start_date, end_date, condition_before, mileage_start) "
+                + "VALUES (?, ?, NOW() + CAST(? AS INTERVAL), NOW() + CAST(? AS INTERVAL), 'GOOD', 50000) RETURNING id",
+            UUID.class, vehicleId, driverId, start, end);
     }
 
     @Test

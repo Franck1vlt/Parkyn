@@ -67,6 +67,12 @@ public class Vehicle {
     @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt;
 
+    // Statut affiché. En base, seuls AVAILABLE, MAINTENANCE et RETIRED sont stockés ;
+    // RESERVED est calculé : un véhicule disponible mais dehors (réservation en cours ou en retard)
+    public VehicleStatus displayedStatus(boolean inUse) {
+        return status == VehicleStatus.AVAILABLE && inUse ? VehicleStatus.RESERVED : status;
+    }
+
     public enum VehicleStatus {
         AVAILABLE, RESERVED, MAINTENANCE, RETIRED
     }

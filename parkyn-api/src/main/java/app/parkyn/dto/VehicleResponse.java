@@ -18,7 +18,8 @@ public record VehicleResponse(
     LocalDate commissionedAt,
     LocalDate createdAt
 ) {
-    public static VehicleResponse from(Vehicle vehicle) {
+    // inUse : le véhicule est dehors à cet instant (voir Vehicle.displayedStatus)
+    public static VehicleResponse from(Vehicle vehicle, boolean inUse) {
         return new VehicleResponse(
             vehicle.getId(),
             vehicle.getPlateNumber(),
@@ -27,7 +28,7 @@ public record VehicleResponse(
             vehicle.getYear(),
             vehicle.getMileageKM(),
             vehicle.getCondition(),
-            vehicle.getStatus(),
+            vehicle.displayedStatus(inUse),
             vehicle.getCommissionedAt(),
             vehicle.getCreatedAt().toLocalDate()
         );

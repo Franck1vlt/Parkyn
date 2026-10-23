@@ -12,6 +12,7 @@ import app.parkyn.service.VehicleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
 @RequestMapping("/api/v1/vehicles")
@@ -41,9 +43,11 @@ public class VehicleController {
     public ResponseEntity<Page<VehicleResponse>> getVehicles(
         @RequestParam(required = false) Vehicle.VehicleStatus status,
         @RequestParam(required = false) String search,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
         @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        return ResponseEntity.ok().body(vehicleService.getVehicles(status, search, pageable));
+        return ResponseEntity.ok().body(vehicleService.getVehicles(status, search, from, to, pageable));
     }
 
     @PreAuthorize("hasAuthority('vehicle:create')")

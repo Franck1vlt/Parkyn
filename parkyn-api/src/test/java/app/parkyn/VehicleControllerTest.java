@@ -175,7 +175,7 @@ public class VehicleControllerTest {
     @Test
     public void testUpdateVehicleStatus() throws Exception {
         String token = getAccessToken();
-        VehicleStatusRequest request = new VehicleStatusRequest(Vehicle.VehicleStatus.RESERVED);
+        VehicleStatusRequest request = new VehicleStatusRequest(Vehicle.VehicleStatus.MAINTENANCE);
         
         mockMvc.perform(patch("/api/v1/vehicles/" + testVehicleId + "/status")
                 .header("Authorization", "Bearer " + token)

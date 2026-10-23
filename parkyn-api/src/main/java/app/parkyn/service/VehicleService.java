@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +20,10 @@ import app.parkyn.dto.VehicleStatusRequest;
 import app.parkyn.dto.VehicleUpdateRequest;
 import app.parkyn.model.Notification.NotificationType;
 import app.parkyn.model.Vehicle;
+import app.parkyn.repository.ReservationRepository;
 import app.parkyn.repository.VehicleRepository;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 
@@ -28,15 +32,41 @@ import lombok.RequiredArgsConstructor;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final ReservationRepository reservationRepository;
     private final NotificationService notificationService;
 
+    // from / to : uniquement les véhicules libres sur cette plage horaire (même règle que la réservation)
     @Transactional
-    public Page<VehicleResponse> getVehicles(Vehicle.VehicleStatus status, String search, Pageable pageable) {
+    public Page<VehicleResponse> getVehicles(Vehicle.VehicleStatus status, String search,
+                                             OffsetDateTime from, OffsetDateTime to, Pageable pageable) {
+        if ((from == null) != (to == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from et to doivent être fournis ensemble");
+        }
+        if (from != null && !from.isBefore(to)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from doit être avant to");
+        }
+        Set<UUID> inUse = reservationRepository.findVehicleIdsInUseAt(null, OffsetDateTime.now());
+        Set<UUID> booked = from == null ? Set.of() : reservationRepository.findVehicleIdsBookedBetween(null, from, to);
+
         Specification<Vehicle> spec = (root, query, cb) -> {
             var predicates = new java.util.ArrayList<Predicate>();
             predicates.add(cb.isNull(root.get("deletedAt")));
-            if (status != null) {
+            // AVAILABLE et RESERVED sont calculés : véhicule disponible, dehors ou non à cet instant.
+            // Avec une plage horaire, AVAILABLE veut dire « libre sur la plage » : l'usage actuel ne compte pas
+            if (status == Vehicle.VehicleStatus.AVAILABLE && from != null) {
+                predicates.add(cb.equal(root.get("status"), Vehicle.VehicleStatus.AVAILABLE));
+            } else if (status == Vehicle.VehicleStatus.AVAILABLE) {
+                predicates.add(cb.equal(root.get("status"), Vehicle.VehicleStatus.AVAILABLE));
+                predicates.add(notIn(cb, root.get("id"), inUse));
+            } else if (status == Vehicle.VehicleStatus.RESERVED) {
+                predicates.add(cb.equal(root.get("status"), Vehicle.VehicleStatus.AVAILABLE));
+                predicates.add(in(cb, root.get("id"), inUse));
+            } else if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (from != null) {
+                predicates.add(cb.equal(root.get("status"), Vehicle.VehicleStatus.AVAILABLE));
+                predicates.add(notIn(cb, root.get("id"), booked));
             }
             if (search != null && !search.isBlank()) {
                 String pattern = "%" + search.toLowerCase() + "%";
@@ -48,7 +78,8 @@ public class VehicleService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return vehicleRepository.findAll(spec, pageable).map(VehicleResponse::from);
+        return vehicleRepository.findAll(spec, pageable)
+            .map(vehicle -> VehicleResponse.from(vehicle, inUse.contains(vehicle.getId())));
     }
 
 
@@ -62,12 +93,12 @@ public class VehicleService {
         vehicle.setMileageKM(request.mileageKM());
         vehicle.setCondition(request.condition());
         vehicle.setCommissionedAt(request.commissionedAt());
-        return VehicleResponse.from(vehicleRepository.saveAndFlush(vehicle));
+        return toResponse(vehicleRepository.saveAndFlush(vehicle));
     }
 
     @Transactional
     public VehicleResponse getVehicleById(UUID id) {
-        return VehicleResponse.from(findActiveVehicle(id));
+        return toResponse(findActiveVehicle(id));
     }
 
     @Transactional
@@ -80,7 +111,7 @@ public class VehicleService {
         if (request.mileageKM() != null)      vehicle.setMileageKM(request.mileageKM());
         if (request.condition() != null)      vehicle.setCondition(request.condition());
         if (request.commissionedAt() != null) vehicle.setCommissionedAt(request.commissionedAt());
-        return VehicleResponse.from(vehicleRepository.saveAndFlush(vehicle));
+        return toResponse(vehicleRepository.saveAndFlush(vehicle));
     }
 
     @Transactional
@@ -96,6 +127,10 @@ public class VehicleService {
         Vehicle.VehicleStatus current = vehicle.getStatus();
         Vehicle.VehicleStatus next = request.status();
 
+        if (next == Vehicle.VehicleStatus.RESERVED) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(422),
+                "Le statut RESERVED est calculé à partir des réservations, il ne se modifie pas à la main");
+        }
         if (!ALLOWED_TRANSITIONS.getOrDefault(current, Set.of()).contains(next)) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(422),
                 "Transition " + current + " → " + next + " interdite");
@@ -107,15 +142,28 @@ public class VehicleService {
                     notificationService.createForAllAdminsAndAgents(
             NotificationType.VEHICLE_MAINTENANCE, null);
         }
-        return VehicleResponse.from(vehicleRepository.save(vehicle));
+        return toResponse(vehicleRepository.save(vehicle));
     }
 
     private static final Map<Vehicle.VehicleStatus, Set<Vehicle.VehicleStatus>> ALLOWED_TRANSITIONS = Map.of(
-        Vehicle.VehicleStatus.AVAILABLE,    Set.of(Vehicle.VehicleStatus.MAINTENANCE, Vehicle.VehicleStatus.RESERVED),
-        Vehicle.VehicleStatus.RESERVED,     Set.of(Vehicle.VehicleStatus.AVAILABLE),
+        Vehicle.VehicleStatus.AVAILABLE,    Set.of(Vehicle.VehicleStatus.MAINTENANCE),
         Vehicle.VehicleStatus.MAINTENANCE,  Set.of(Vehicle.VehicleStatus.AVAILABLE, Vehicle.VehicleStatus.RETIRED),
         Vehicle.VehicleStatus.RETIRED,      Set.of()
     );
+
+    private VehicleResponse toResponse(Vehicle vehicle) {
+        boolean inUse = !reservationRepository.findVehicleIdsInUseAt(vehicle.getId(), OffsetDateTime.now()).isEmpty();
+        return VehicleResponse.from(vehicle, inUse);
+    }
+
+    // IN sur un ensemble vide : aucune ligne (et NOT IN : toutes), sans dépendre du SQL généré pour une liste vide
+    private static Predicate in(CriteriaBuilder cb, Path<UUID> id, Set<UUID> ids) {
+        return ids.isEmpty() ? cb.disjunction() : id.in(ids);
+    }
+
+    private static Predicate notIn(CriteriaBuilder cb, Path<UUID> id, Set<UUID> ids) {
+        return ids.isEmpty() ? cb.conjunction() : cb.not(id.in(ids));
+    }
 
     private Vehicle findActiveVehicle(UUID id){
         return vehicleRepository.findById(id).filter(v -> v.getDeletedAt() == null).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Vehicle not found"));

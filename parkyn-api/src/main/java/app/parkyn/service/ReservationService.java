@@ -1,8 +1,10 @@
 package app.parkyn.service;
 
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -35,6 +37,9 @@ public class ReservationService {
     private final NotificationService notificationService;
     private final ReservationScope reservationScope;
 
+    private static final String SLOT_TAKEN =
+        "Véhicule déjà réservé sur ce créneau : choisissez un autre véhicule ou une autre plage horaire";
+
     @Transactional
     public Page<ReservationResponse> getReservations(User currentUser, String status, UUID vehicleId, Pageable pageable) {
         Specification<Reservation> spec = (root, query, cb) -> {
@@ -55,7 +60,9 @@ public class ReservationService {
 
     @Transactional
     public ReservationResponse addReservation(User currentUser, ReservationRequest request) {
-        Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
+        // Verrou sur le véhicule : deux demandes simultanées sont traitées l'une après l'autre,
+        // la seconde voit la réservation de la première et reçoit le conflit
+        Vehicle vehicle = vehicleRepository.findByIdForUpdate(request.vehicleId())
             .filter(v -> v.getDeletedAt() == null)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Véhicule introuvable"));
 
@@ -92,8 +99,7 @@ public class ReservationService {
         reservation.setEndDate(request.endDate());
         reservation.setCreatedBy(currentUser);
         reservation.setUpdatedBy(currentUser);
-        vehicle.setStatus(Vehicle.VehicleStatus.RESERVED);
-        Reservation saved = reservationRepository.saveAndFlush(reservation);
+        Reservation saved = saveOrConflict(reservation);
         notificationService.createForAllAdminsAndAgents(NotificationType.NEW_RESERVATION, saved);
         return ReservationResponse.from(saved);
     }
@@ -123,8 +129,8 @@ public class ReservationService {
         reservation.setNotesAfter(request.notesAfter());
         reservation.setUpdatedBy(currentUser);
 
+        // Le statut stocké ne change pas (RESERVED est calculé) : un véhicule passé en maintenance y reste
         Vehicle vehicle = reservation.getVehicle();
-        vehicle.setStatus(Vehicle.VehicleStatus.AVAILABLE);
         vehicle.setMileageKM(request.mileageEnd());
         // L'état constaté au retour devient l'état du véhicule (réutilisé par la réservation suivante)
         vehicle.setCondition(Vehicle.VehicleCondition.valueOf(request.conditionAfter().name()));
@@ -135,6 +141,20 @@ public class ReservationService {
     private Reservation findReservationOrThrow(UUID id) {
         return reservationRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+    }
+
+    // Filet de sécurité : si une écriture contourne le verrou, la contrainte reservations_no_overlap (V14)
+    // refuse le chevauchement ; la réponse est le même conflit.
+    // 23P01 = violation d'une contrainte EXCLUDE (seule contrainte de ce type du schéma)
+    private Reservation saveOrConflict(Reservation reservation) {
+        try {
+            return reservationRepository.saveAndFlush(reservation);
+        } catch (DataIntegrityViolationException e) {
+            if (e.getMostSpecificCause() instanceof SQLException sql && "23P01".equals(sql.getSQLState())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, SLOT_TAKEN);
+            }
+            throw e;
+        }
     }
 
     // Un champ de conducteur dans la requête : réservé à la création pour un tiers (AGENT, ADMIN)
@@ -172,7 +192,7 @@ public class ReservationService {
 
         // Pas de conflit de réservation
         if (reservationRepository.hasConflict(vehicle.getId(), request.startDate(), request.endDate())){
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Vehicle already reserved for this period");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, SLOT_TAKEN);
         }
     }
 
