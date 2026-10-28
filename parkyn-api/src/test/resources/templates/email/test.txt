@@ -1,0 +1,9 @@
+Bonjour [(${name})],
+
+Votre demande a bien été prise en compte.
+
+Pour poursuivre votre action, ouvrez ce lien :
+[(${link})]
+
+Cordialement,
+Parkyn

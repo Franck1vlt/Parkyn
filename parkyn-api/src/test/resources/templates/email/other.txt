@@ -1,0 +1,1 @@
+Autre template texte pour [(${name})]

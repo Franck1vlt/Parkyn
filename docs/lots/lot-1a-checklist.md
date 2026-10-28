@@ -31,7 +31,7 @@
 ## Phase B : inscription et emails
 
 - [x] B0 Statut du compte : `users.status` mappé (`User.Status`), source de vérité de `isEnabled()` ; `setStatus` est le seul point d'écriture et synchronise `is_active` (`setActive` lui délègue) ; compte non actif refusé au login (même 401), dans `JwtAuthFilter` et au refresh ; réactivation limitée aux comptes `DISABLED` ; ports `api` et `db` plus publiés sur l'hôte (tout passe par nginx), `AccountStatusTest`
-- [ ] B1 Service d'envoi d'emails
+- [ ] B1 Service d'envoi d'emails. Fait : Mailpit (compose, interface sur `127.0.0.1:8025`), propriétés `spring.mail.*` avec timeouts, `parkyn.mail.from`, `parkyn.frontend-url` ; `EmailService.send(to, subject, template, variables)` multipart HTML + texte (Thymeleaf, resolver TEXT `EmailTemplateConfig`), `EmailServiceTest` (GreenMail). Reste : `@Async` (étape 3), envoi après commit (étape 4)
 - [ ] B2 Inscription
 - [ ] B3 Vérification
 - [ ] B4 Limitation de débit de base. Prioritaire sur `/auth/login` : chaque tentative calcule un Argon2id (~19 Mio), une rafale de tentatives peut saturer la mémoire du serveur
@@ -89,6 +89,10 @@
 
 - [x] Connexion d'un compte désactivé : `DisabledException` n'est pas traitée par `GlobalExceptionHandler`, la réponse diffère du 401 standard et révèle qu'un compte désactivé existe. Répondre le même 401 « Email ou mot de passe incorrect » (B0 : handler `AccountStatusException`)
 - [ ] Timing d'un compte non actif : `DaoAuthenticationProvider` lève `DisabledException` au pré-contrôle, avant le calcul Argon2id. Un compte désactivé ou en attente répond donc plus vite qu'un mauvais mot de passe, ce qui révèle son existence malgré un corps identique. Correction : vérifier le statut après le mot de passe (déplacer le contrôle dans les post-checks)
+- [ ] B2 : valider prénom et nom à l'inscription (longueur, pas de retour à la ligne ni d'URL). Ils sont insérés dans les emails : échappés en HTML (`th:text`), mais un texte du type « Votre compte est suspendu, allez sur http://… » reste de l'usurpation de contenu
+- [ ] Emails : les sujets restent des constantes du code. Si un sujet contient un jour une saisie, retirer `\r` et `\n` (injection d'en-têtes). Les liens sont toujours construits côté serveur depuis `parkyn.frontend-url`, jamais repris d'une saisie (`th:href` n'empêche pas `javascript:`)
+- [ ] Emails : l'encodage UTF-8 explicite d'`EmailService` n'est pas protégé par un test (Java 18+ est déjà en UTF-8 par défaut, la mutation passe)
+- [ ] Emails : le resolver texte (`EmailTemplateConfig`) garde son cache même quand `spring.thymeleaf.cache=false` ; modifier un `.txt` en dev demande un redémarrage. Avertissement « Cannot find template location » au démarrage tant que `src/main/resources/templates/` est vide (disparaît avec les templates de B3)
 - [ ] Désactivation d'un compte : ses refresh tokens ne sont pas révoqués. Sans danger aujourd'hui (refusés au refresh et par le filtre), à traiter avec C3/C4 (sessions actives)
 - [ ] Lancer l'API depuis l'IDE (hors Docker) : `db` n'est plus publié, `localhost:5432` est injoignable. Publier au besoin sur `127.0.0.1:5432:5432` uniquement
 - [ ] Timing de connexion : tant que des comptes gardent un hash BCrypt, leur vérification est plus rapide qu'un Argon2id, ce qui peut révéler les comptes non convertis (risque faible, décroît avec les conversions)

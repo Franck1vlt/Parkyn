@@ -1,28 +1,54 @@
 package app.parkyn.email;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 
-@Service 
+@Service
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine;
     private final String fromAddress;
 
-    public EmailService(JavaMailSender mailSender, @Value("${parkyn.mail.from}") String fromAddress) {
+    public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine,
+                        @Value("${parkyn.mail.from}") String fromAddress) {
         this.mailSender = mailSender;
+        this.templateEngine = templateEngine;
         this.fromAddress = fromAddress;
     }
 
-    public void send(String to, String subject, String body) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(body);
+    /**
+     * Envoie un email en deux versions, HTML et texte, rendues depuis
+     * templates/email/{template}.html et templates/email/{template}.txt
+     */
+    public void send(String to, String subject, String template, Map<String, Object> variables) {
+        Context context = new Context();
+        context.setVariables(variables);
+        String html = templateEngine.process("email/" + template, context);
+        String text = templateEngine.process("email/" + template + ".txt", context);
+
+        MimeMessage message = mailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+            helper.setFrom(fromAddress);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(text, html);
+        } catch (MessagingException e) {
+            throw new MailPreparationException("Préparation de l'email impossible", e);
+        }
         mailSender.send(message);
     }
 
