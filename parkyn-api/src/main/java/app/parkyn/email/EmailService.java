@@ -19,12 +19,14 @@ import jakarta.mail.internet.MimeMessage;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final MailDispatcher mailDispatcher;
     private final TemplateEngine templateEngine;
     private final String fromAddress;
 
-    public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine,
+    public EmailService(JavaMailSender mailSender, MailDispatcher mailDispatcher, TemplateEngine templateEngine,
                         @Value("${parkyn.mail.from}") String fromAddress) {
         this.mailSender = mailSender;
+        this.mailDispatcher = mailDispatcher;
         this.templateEngine = templateEngine;
         this.fromAddress = fromAddress;
     }
@@ -49,7 +51,7 @@ public class EmailService {
         } catch (MessagingException e) {
             throw new MailPreparationException("Préparation de l'email impossible", e);
         }
-        mailSender.send(message);
+        mailDispatcher.dispatch(message);
     }
 
 }

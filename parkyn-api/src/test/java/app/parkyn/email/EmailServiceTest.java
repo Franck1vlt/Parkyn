@@ -144,7 +144,8 @@ public class EmailServiceTest {
     // --- Aides ---
 
     // Vérifie qu'un seul email est parti et le renvoie
-    private MimeMessage singleMessage() {
+    private MimeMessage singleMessage() throws Exception {
+        assertTrue(greenMail.waitForIncomingEmail(5000, 1), "email non reçu dans le délai imparti");
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertEquals(1, messages.length, "nombre d'emails reçus");
         return messages[0];
