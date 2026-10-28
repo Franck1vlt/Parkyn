@@ -34,8 +34,11 @@ public class EmailService {
     /**
      * Envoie un email en deux versions, HTML et texte, rendues depuis
      * templates/email/{template}.html et templates/email/{template}.txt
+     * <p>
+     * Visibilité package : les services métier publient un {@link EmailRequest}, pour que l'email
+     * ne parte qu'après le commit (EmailEventListener) et jamais pour une transaction annulée.
      */
-    public void send(String to, String subject, String template, Map<String, Object> variables) {
+    void send(String to, String subject, String template, Map<String, Object> variables) {
         Context context = new Context();
         context.setVariables(variables);
         String html = templateEngine.process("email/" + template, context);

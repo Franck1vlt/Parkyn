@@ -1,9 +1,12 @@
 package app.parkyn.email;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.awaitility.Awaitility.await;
 
 import java.util.Map;
@@ -51,20 +54,22 @@ public class EmailAsyncTest {
         assertTrue(threadName.get().startsWith("email-"), threadName.get());
     }
 
-    @Test 
+    // Le faux SMTP reste bloqué tant que le test ne le libère pas : sans dépendre de l'horloge,
+    // un appel synchrone n'aurait rendu la main qu'après la fin de l'envoi
+    @Test
     public void callerDoesNotWaitForSmtp() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
         CountDownLatch sent = new CountDownLatch(1);
         doAnswer(invocation -> {
-            Thread.sleep(2000);
+            release.await(5, TimeUnit.SECONDS);
             sent.countDown();
             return null;
         }).when(mailSender).send(any(MimeMessage.class));
 
-        long start = System.nanoTime();
         emailService.send(RECIPIENT, "Sujet", "test", EMAIL_CONTEXT);
-        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
-        assertTrue(elapsedMillis < 500, "send a bloqué pendant " + elapsedMillis + " ms");
+        assertEquals(1L, sent.getCount(), "send a attendu la fin de l'envoi SMTP");
+        release.countDown();
         assertTrue(sent.await(5, TimeUnit.SECONDS), "send non appelé");
     }
 
@@ -79,6 +84,18 @@ public class EmailAsyncTest {
         assertDoesNotThrow(() -> emailService.send(RECIPIENT, "Sujet", "test", EMAIL_CONTEXT));
         assertTrue(latch.await(5, TimeUnit.SECONDS), "exception SMTP non levée");
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> assertTrue(output.getOut().contains("Échec de l'envoi de l'email")));
+    }
+
+    // Le serveur SMTP cite souvent l'adresse refusée : elle ne doit pas finir dans les logs (RGPD)
+    @Test
+    public void smtpFailureLogDoesNotLeakRecipient(CapturedOutput output) throws Exception {
+        doThrow(new MailSendException("550 5.1.1 <" + RECIPIENT + ">: Recipient address rejected"))
+                .when(mailSender).send(any(MimeMessage.class));
+
+        emailService.send(RECIPIENT, "Sujet", "test", EMAIL_CONTEXT);
+
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> assertTrue(output.getOut().contains("Échec de l'envoi de l'email")));
+        assertFalse(output.getOut().contains(RECIPIENT), output.getOut());
     }
 
 }

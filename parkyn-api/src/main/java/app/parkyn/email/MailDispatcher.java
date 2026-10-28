@@ -27,7 +27,11 @@ public class MailDispatcher {
         try {
             mailSender.send(message);
         } catch (MailException exception) {
-            LOGGER.error("Échec de l'envoi de l'email au domaine {}", recipientDomains(message), exception);
+            // Le message de l'exception peut citer l'adresse (réponse SMTP) : seul son type est journalisé.
+            // La trace complète reste disponible en DEBUG, à n'activer que ponctuellement
+            LOGGER.error("Échec de l'envoi de l'email au domaine {} ({})",
+                    recipientDomains(message), exception.getClass().getSimpleName());
+            LOGGER.debug("Détail de l'échec d'envoi", exception);
         }
     }
 

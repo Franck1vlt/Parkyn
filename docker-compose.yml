@@ -25,6 +25,8 @@ services:
     build: ./parkyn-api
     container_name: parkyn-api
     restart: unless-stopped
+    # Laisse le temps à l'arrêt gracieux et à la file d'emails (30 s) avant le SIGKILL (10 s par défaut)
+    stop_grace_period: 45s
     env_file:
       - .env
     environment:

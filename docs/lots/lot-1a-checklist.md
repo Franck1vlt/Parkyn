@@ -31,7 +31,7 @@
 ## Phase B : inscription et emails
 
 - [x] B0 Statut du compte : `users.status` mappé (`User.Status`), source de vérité de `isEnabled()` ; `setStatus` est le seul point d'écriture et synchronise `is_active` (`setActive` lui délègue) ; compte non actif refusé au login (même 401), dans `JwtAuthFilter` et au refresh ; réactivation limitée aux comptes `DISABLED` ; ports `api` et `db` plus publiés sur l'hôte (tout passe par nginx), `AccountStatusTest`
-- [ ] B1 Service d'envoi d'emails. Fait : Mailpit (compose, interface sur `127.0.0.1:8025`), propriétés `spring.mail.*` avec timeouts, `parkyn.mail.from`, `parkyn.frontend-url` ; `EmailService.send(to, subject, template, variables)` multipart HTML + texte (Thymeleaf, resolver TEXT `EmailTemplateConfig`), `EmailServiceTest` (GreenMail). Reste : `@Async` (étape 3), envoi après commit (étape 4)
+- [x] B1 Service d'envoi d'emails. Fait : Mailpit (compose, interface sur `127.0.0.1:8025`), propriétés `spring.mail.*` avec timeouts, `parkyn.mail.from`, `parkyn.frontend-url` ; `EmailService.send(to, subject, template, variables)` multipart HTML + texte (Thymeleaf, resolver TEXT `EmailTemplateConfig`), `EmailServiceTest` (GreenMail). Étape 3 : `MailDispatcher.dispatch` `@Async("emailExecutor")` (pool `email-`, `parkyn.mail.async.*`), échec SMTP journalisé avec le domaine seulement, `mail.from` / `mail.smtp.localhost` pour éviter la résolution DNS lente (`EmailAsyncTest`). Étape 4 : événement `EmailRequest` + `EmailEventListener` `@TransactionalEventListener(AFTER_COMMIT, fallbackExecution = true)`, échec journalisé sans 500 (`EmailEventTest`, garde-fou vérifié par mutation). Relecture de fin de B1 faite et corrigée
 - [ ] B2 Inscription
 - [ ] B3 Vérification
 - [ ] B4 Limitation de débit de base. Prioritaire sur `/auth/login` : chaque tentative calcule un Argon2id (~19 Mio), une rafale de tentatives peut saturer la mémoire du serveur
@@ -143,6 +143,12 @@
 - [ ] Emails uniques dans toute l'application : un `409` à la création révèle qu'un email existe dans une autre entreprise (comme l'inscription). À consigner dans l'ADR des invitations (lot 4)
 - [x] Endpoints publics d'authentification appelés avec un token : `JwtAuthFilter` les ignore (`shouldNotFilter`, chemins partagés avec `SecurityConfig`), sinon la session prenait le tenant du token
 - [ ] Nouveau traitement sans utilisateur connecté (tâche planifiée, file de messages) : l'exécuter dans `TenantContext.runAs(tenant, ...)` avec une nouvelle transaction, jamais en contexte racine
+- [x] Relecture de fin de B1 : adresse complète dans les logs via le message des exceptions (seul le type est journalisé en `ERROR`, trace en `DEBUG`), `toString` d'`EmailRequest` masqué, `spring.task.execution.mode=force` (garde `applicationTaskExecutor`), `EmailService.send` package-private, `stop_grace_period: 45s`, test « l'appelant n'attend pas » sans horloge, mutation du `try/catch` de l'écouteur vérifiée
+- [ ] Le log d'échec d'envoi garde le domaine : un domaine personnel (`jean-dupont.fr`) identifie la personne. À revoir si besoin (ne rien journaliser, ou un identifiant d'utilisateur)
+- [ ] B2 et suivants : un test d'intégration qui déclenche un email sans l'attendre peut le faire arriver dans le GreenMail d'un autre test (`singleMessage` en verrait 2). Attendre l'email ou vider la boîte dans ces tests
+- [ ] `EmailServiceTest.missingTemplateSendsNothing` : le compte de 0 message est immédiat, il ne prouve rien pour un envoi asynchrone. Le vrai garde-fou est l'`assertThrows` (rendu synchrone)
+- [ ] `mail.smtp.localhost` n'est fixé qu'en test : hors Docker sous Windows, le `EHLO` peut rester lent. Variable optionnelle `MAIL_SMTP_LOCALHOST` si besoin (ne pas forcer `localhost` en production)
+- [ ] Trois contextes Spring pour les tests email (défaut, `@MockitoSpyBean`, `@MockitoBean`) : les regrouper si la mémoire manque
 
 ## Tests de portée
 
