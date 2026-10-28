@@ -30,6 +30,7 @@
 
 ## Phase B : inscription et emails
 
+- [x] B0 Statut du compte : `users.status` mappé (`User.Status`), source de vérité de `isEnabled()` ; `setStatus` est le seul point d'écriture et synchronise `is_active` (`setActive` lui délègue) ; compte non actif refusé au login (même 401), dans `JwtAuthFilter` et au refresh ; réactivation limitée aux comptes `DISABLED` ; ports `api` et `db` plus publiés sur l'hôte (tout passe par nginx), `AccountStatusTest`
 - [ ] B1 Service d'envoi d'emails
 - [ ] B2 Inscription
 - [ ] B3 Vérification
@@ -69,7 +70,7 @@
 - [x] Mapper `tenantId` dans `User`, `Vehicle`, `Reservation`, `Notification` **avant** de retirer les `DEFAULT` (`@TenantId`, A3+ Tenant)
 - [ ] Retirer les `DEFAULT` temporaires (`users.status`, `tenant_id` des 4 tables). Plus aucun code applicatif n'en dépend (`@TenantId`) ; à adapter : les insertions SQL des tests (`FlywayMigrationTest`)
 - [x] Supprimer `users.role` (V13, Contract partiel A3 ; le rôle est déduit de `user_roles`)
-- [ ] Supprimer `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token` (Contract final, après C3)
+- [ ] Supprimer `users.is_active`, la table `refresh_tokens` et son index doublon `idx_refresh_tokens_token` (Contract final, après C3). Côté code : retirer le champ `active` et `setActive` de `User`, faire lire `status` à `UserResponse` (aujourd'hui `isActive()`)
 - [ ] Supprimer l'ancien `UNIQUE` sensible à la casse sur `users.email`
 
 ## A3 : avancement
@@ -86,7 +87,10 @@
 
 ## Points notés en chemin
 
-- [ ] Connexion d'un compte désactivé : `DisabledException` n'est pas traitée par `GlobalExceptionHandler`, la réponse diffère du 401 standard et révèle qu'un compte désactivé existe. Répondre le même 401 « Email ou mot de passe incorrect »
+- [x] Connexion d'un compte désactivé : `DisabledException` n'est pas traitée par `GlobalExceptionHandler`, la réponse diffère du 401 standard et révèle qu'un compte désactivé existe. Répondre le même 401 « Email ou mot de passe incorrect » (B0 : handler `AccountStatusException`)
+- [ ] Timing d'un compte non actif : `DaoAuthenticationProvider` lève `DisabledException` au pré-contrôle, avant le calcul Argon2id. Un compte désactivé ou en attente répond donc plus vite qu'un mauvais mot de passe, ce qui révèle son existence malgré un corps identique. Correction : vérifier le statut après le mot de passe (déplacer le contrôle dans les post-checks)
+- [ ] Désactivation d'un compte : ses refresh tokens ne sont pas révoqués. Sans danger aujourd'hui (refusés au refresh et par le filtre), à traiter avec C3/C4 (sessions actives)
+- [ ] Lancer l'API depuis l'IDE (hors Docker) : `db` n'est plus publié, `localhost:5432` est injoignable. Publier au besoin sur `127.0.0.1:5432:5432` uniquement
 - [ ] Timing de connexion : tant que des comptes gardent un hash BCrypt, leur vérification est plus rapide qu'un Argon2id, ce qui peut révéler les comptes non convertis (risque faible, décroît avec les conversions)
 - [ ] Déploiement : mesurer le temps d'un hash Argon2id sur le serveur de production (cible 200 à 500 ms) et ajuster `ARGON2_MEMORY_KIB` / `ARGON2_ITERATIONS` ; dimensionner la RAM selon les connexions simultanées
 - [ ] Piste : implémentation native d'Argon2 (liaison vers la bibliothèque C) pour réduire l'écart de performance avec un attaquant ; non nécessaire aujourd'hui (Bouncy Castle, Java pur)
