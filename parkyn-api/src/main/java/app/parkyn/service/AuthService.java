@@ -72,6 +72,11 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired or revoked");
         }
 
+        // Un compte désactivé ou en attente de vérification n'obtient plus de nouvel access token
+        if (!stored.getUser().isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+
         stored.setRevokedAt(OffsetDateTime.now());
 
         String newAccess = jwtService.generateToken(stored.getUser());

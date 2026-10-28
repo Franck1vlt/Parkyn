@@ -14,6 +14,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -53,6 +55,10 @@ public class User implements UserDetails {
     @Column(name = "hashed_pwd")
     private String hashedPwd;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private Status status = Status.ACTIVE;
+
     @Column(name = "is_active")
     private boolean active = true;
 
@@ -84,10 +90,20 @@ public class User implements UserDetails {
     }
 
     @Override
-    public boolean isEnabled() { return active; }
+    public boolean isEnabled() { return status == Status.ACTIVE; }
 
+    public void setStatus(Status s) {
+        this.status = s;
+        this.active = (s == Status.ACTIVE);
+    }
+
+    public void setActive(boolean b) {
+        setStatus(b ? Status.ACTIVE : Status.DISABLED);
+    }
 
     public enum Role { ADMIN, AGENT, DRIVER }
+
+    public enum Status { PENDING_EMAIL_VERIFICATION, ACTIVE, DISABLED }
 
     public void setEmail(String email) {
         this.email = normalizeEmail(email);

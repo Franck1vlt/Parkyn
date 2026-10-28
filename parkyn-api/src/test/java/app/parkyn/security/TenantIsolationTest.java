@@ -98,7 +98,7 @@ class TenantIsolationTest {
         agentA = testUsersA.createWithoutPassword("agent@a.test", User.Role.AGENT);
         driverA = testUsersA.createWithoutPassword("driver@a.test", User.Role.DRIVER);
         disabledA = testUsersA.createWithoutPassword("disabled@a.test", User.Role.DRIVER);
-        jdbc.update("UPDATE users SET is_active = FALSE WHERE id = ?", disabledA.getId());
+        jdbc.update("UPDATE users SET status = 'DISABLED', is_active = FALSE WHERE id = ?", disabledA.getId());
         vehicleA = insertVehicle(TENANT_A, "AA-111-AA");
         reservationA = insertReservation(TENANT_A, vehicleA, driverA, agentA, T0.plusDays(10), T0.plusDays(11));
         notificationA = jdbc.queryForObject(

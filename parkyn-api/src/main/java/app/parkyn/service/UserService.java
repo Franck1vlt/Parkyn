@@ -106,7 +106,7 @@ public class UserService {
         Specification<User> spec = (root, query, cb) -> {
             query.distinct(true);
             var predicates = new java.util.ArrayList<Predicate>();
-            predicates.add(cb.isTrue(root.get("active")));
+            predicates.add(cb.equal(root.get("status"), User.Status.ACTIVE));
             var roles = root.join("roles");
             predicates.add(cb.equal(roles.get("name"), User.Role.DRIVER.name()));
             predicates.add(cb.isNull(roles.get("tenantId")));
@@ -126,7 +126,7 @@ public class UserService {
     @Transactional
     public UserResponse reactivateUserById(User currentUser, UUID id) {
         User user = userRepository.findById(id)
-            .filter(v -> !v.isActive())
+            .filter(v -> v.getStatus() == User.Status.DISABLED)
             .orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Inactive user not found"));
         enforce(userAccessPolicy.decide(currentUser, UserAction.REACTIVATE, user));
         user.setActive(true);
@@ -134,7 +134,7 @@ public class UserService {
     }
 
     private User findActiveUser(UUID id){
-        return userRepository.findById(id).filter(v -> v.isActive()).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
+        return userRepository.findById(id).filter(v -> v.getStatus() == User.Status.ACTIVE).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
     }
 
     private void enforce(AccessDecision decision) {

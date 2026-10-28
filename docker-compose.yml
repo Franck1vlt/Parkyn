@@ -10,7 +10,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     networks:
       - parkyn_network
     volumes:
@@ -27,8 +27,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "8080:8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
