@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.RefreshRequest;
+import app.parkyn.dto.ResendVerificationRequest;
 import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
@@ -160,7 +161,8 @@ class AuthorizationMatrixTest {
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
 
             // Endpoint de vérification d'email
-            row(HttpMethod.POST, "/api/v1/auth/verify-email", new VerifyEmailRequest(VERIFICATION_TOKEN), ALLOWED, ALLOWED, ALLOWED, ALLOWED)
+            row(HttpMethod.POST, "/api/v1/auth/verify-email", new VerifyEmailRequest(VERIFICATION_TOKEN), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
+            row(HttpMethod.POST, "/api/v1/auth/resend-verification", new ResendVerificationRequest("user@example.com"), ALLOWED, ALLOWED, ALLOWED, ALLOWED)
         ).flatMap(s -> s);
     }
 

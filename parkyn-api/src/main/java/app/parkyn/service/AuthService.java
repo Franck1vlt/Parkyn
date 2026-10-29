@@ -112,6 +112,11 @@ public class AuthService {
 
         if (userRepository.existsByEmailInAnyTenant(normalizedEmail)) {
             User existing = userRepository.findByEmail(normalizedEmail).orElseThrow();
+            if (existing.getStatus() == User.Status.PENDING_EMAIL_VERIFICATION) {
+                sendVerificationEmail(existing);
+                return;
+            }
+
             eventPublisher.publishEvent(new EmailRequest(
                 existing.getEmail(), "Votre compte Parkyn", "account-exists",
                 Map.of("name", existing.getFirstName(), "link", frontendUrl + "/login")));
@@ -129,6 +134,22 @@ public class AuthService {
         user.setStatus(User.Status.PENDING_EMAIL_VERIFICATION);
         userRepository.saveAndFlush(user);
 
+        sendVerificationEmail(user);
+    }
+
+    @Transactional 
+    public void resendVerification(String email) {
+        String normalizedEmail = User.normalizeEmail(email);
+        if (!userRepository.existsByEmailInAnyTenant(normalizedEmail)) {
+            return;
+        }
+
+        userRepository.findByEmail(normalizedEmail)
+            .filter(user -> user.getStatus() == User.Status.PENDING_EMAIL_VERIFICATION)
+            .ifPresent(this::sendVerificationEmail);
+    }
+
+    private void sendVerificationEmail(User user) {
         String token = verificationTokenService.issue(user);
         eventPublisher.publishEvent(new EmailRequest(
             user.getEmail(), "Vérifiez votre adresse email", "verify-email",

@@ -14,6 +14,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -346,17 +347,242 @@ public class EmailVerificationTest {
         assertEquals(400, unknown.getStatus());
         assertEquals(unknown.getStatus(), consumed.getStatus());
         assertEquals(unknown.getContentAsString(), consumed.getContentAsString());
-    }     
+    } 
+
+    @Test 
+    public void resendIssuesNewTokenForPendingAccount() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        String firstToken = tokenFrom(verificationLink(EMAIL));
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL))))
+            .andExpect(status().isAccepted());
+
+        var verificationEmails = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .toList();
+        assertEquals(2, verificationEmails.size());
+
+        String secondToken = tokenFrom(verificationLinks(EMAIL).getLast());
+        assertNotEquals(firstToken, secondToken);
+    }
+
+    @Test 
+    public void resendInvalidatesPreviousToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        String firstToken = tokenFrom(verificationLink(EMAIL));
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL))))
+            .andExpect(status().isAccepted());
+
+        String secondToken = tokenFrom(verificationLinks(EMAIL).getLast());
+        verify(firstToken).andExpect(status().isBadRequest());
+        verify(secondToken).andExpect(status().isOk());
+    }
+
+    @Test 
+    public void resendAfterExpirationWorks() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        String firstToken = tokenFrom(verificationLink(EMAIL));
+
+        // Expire le token en modifiant la date d'expiration dans la base
+        jdbcTemplate.update(
+            """
+            UPDATE verification_tokens SET expires_at = now() - interval '1 minute', created_at = now() - interval '2 days'
+            WHERE user_id = (SELECT id FROM users WHERE email = ?)
+            """,
+            EMAIL);
+
+        // Le parcours réel après une réponse 410 : le client demande ensuite un renvoi.
+        verify(firstToken).andExpect(status().isGone());
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL))))
+            .andExpect(status().isAccepted());
+
+        var verificationEmails = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .toList();
+        assertEquals(2, verificationEmails.size());
+
+        String secondToken = tokenFrom(verificationLinks(EMAIL).getLast());
+        verify(secondToken).andExpect(status().isOk());
+    }
+
+    @Test
+    public void resendRejectsInvalidEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", "not-an-email"))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void resendRejectsBlankEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", " "))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void resendRejectsEmailLongerThan254Characters() throws Exception {
+        String email = "a".repeat(245) + "@example.com";
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", email))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test 
+    public void resendForActiveAccountDoesNothing() throws Exception {
+        User user = new TestUsers(userRepository, jdbcTemplate, passwordEncoder).create(EMAIL, PASSWORD, User.Role.DRIVER);
+        assertTrue(user.isEnabled(), "Le compte doit être actif avant le test");
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL))))
+            .andExpect(status().isAccepted());
+
+        Integer tokenCount = jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM verification_tokens vt
+            JOIN users u ON u.id = vt.user_id
+            WHERE u.email = ?
+            """,
+            Integer.class,
+            EMAIL);
+        assertEquals(0, tokenCount);
+
+        long verificationEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .count();
+        assertEquals(0L, verificationEmailCount);
+    }
+
+    @Test 
+    public void resendForUnknownEmailDoesNothing() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", "unknown@example.com"))))
+            .andExpect(status().isAccepted());
+
+        long verificationEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && "unknown@example.com".equals(request.to()))
+            .count();
+        assertEquals(0, verificationEmailCount);
+    }
+
+    @Test 
+    public void resendForDisabledAccountDoesNothing() throws Exception {
+        new TestUsers(userRepository, jdbcTemplate, passwordEncoder).create(EMAIL, PASSWORD, User.Role.DRIVER);
+        jdbcTemplate.update(
+            "UPDATE users SET status = 'DISABLED', is_active = false WHERE email = ?",
+            EMAIL);
+        
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL))))
+            .andExpect(status().isAccepted());
+
+        long verificationEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .count();
+        assertEquals(0, verificationEmailCount);
+    }
+
+    @Test 
+    public void resendIsNormalized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("email", EMAIL.toUpperCase()))))
+            .andExpect(status().isAccepted());
+
+        var verificationEmails = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .toList();
+        // 1 email à l'inscription + 1 au renvoi
+        assertEquals(2, verificationEmails.size());
+    }
+
+    @Test 
+    public void reRegistrationOfPendingAccountResendsVerification() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+        
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+        
+        long verificationEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "verify-email".equals(request.template()) && EMAIL.equals(request.to()))
+            .count();
+        assertEquals(2, verificationEmailCount);
+
+        long accountExistsEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "account-exists".equals(request.template()) && EMAIL.equals(request.to()))
+            .count();
+        assertEquals(0, accountExistsEmailCount);
+    }
+
+    @Test 
+    public void reRegistrationOfActiveAccountStillWarns() throws Exception {
+        User user = new TestUsers(userRepository, jdbcTemplate, passwordEncoder).create(EMAIL, PASSWORD, User.Role.DRIVER);
+        assertTrue(user.isEnabled(), "Le compte doit être actif avant le test");
+        
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        long accountExistsEmailCount = applicationEvents.stream(EmailRequest.class)
+            .filter(request -> "account-exists".equals(request.template()) && EMAIL.equals(request.to()))
+            .count();
+        assertEquals(1, accountExistsEmailCount);
+    }
 
     // --- Helpers ---
 
-    // Lien de l'email de vérification envoyé à cette adresse
-    private String verificationLink(String email) {
+    // Liens des emails de vérification envoyés à cette adresse, dans l'ordre d'envoi
+    private List<String> verificationLinks(String email) {
         return applicationEvents.stream(EmailRequest.class)
             .filter(request -> "verify-email".equals(request.template()) && email.equals(request.to()))
             .map(request -> (String) request.variables().get("link"))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Aucun email de vérification pour " + email));
+            .toList();
+    }
+
+    private String verificationLink(String email) {
+        List<String> links = verificationLinks(email);
+        if (links.isEmpty()) {
+            throw new AssertionError("Aucun email de vérification pour " + email);
+        }
+        return links.getFirst();
     }
 
     private static String tokenFrom(String link) {

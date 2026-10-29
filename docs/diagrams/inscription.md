@@ -12,7 +12,11 @@ participant Email
     Angular->>API: POST /api/v1/auth/register
     API->>BDD: Vérifie si email déjà utilisé
 
-    alt Email déjà utilisé
+    alt Email d'un compte encore en attente
+        API->>BDD: DELETE anciens verification_tokens non consommés
+        API->>BDD: INSERT nouveau verification_token
+        API->>Email: Renvoie l'email de vérification
+    else Email d'un compte actif ou désactivé
         API->>Email: Envoie "vous avez déjà un compte"
         Note right of API: Même réponse que le cas normal<br/>→ pas d'énumération des comptes
     else Email disponible
@@ -54,4 +58,20 @@ participant Email
         API-->>Angular: 200 OK
         Angular-->>Navigateur: Email vérifié → compte activé
     end
+
+    Note over Navigateur,Email: Lien expiré ou email perdu
+    Navigateur->>Angular: Demande un nouveau lien (email)
+    Angular->>API: POST /api/v1/auth/resend-verification + email
+    API->>BDD: Recherche le compte (email normalisé)
+
+    alt Compte en attente
+        API->>BDD: DELETE anciens verification_tokens non consommés
+        API->>BDD: INSERT nouveau verification_token
+        API->>Email: Envoie l'email de vérification
+    else Compte actif, désactivé ou inexistant
+        Note right of API: Rien n'est fait
+    end
+
+    API-->>Angular: 202 Accepted (dans tous les cas)
+    Angular-->>Navigateur: "Si un compte en attente existe, un email a été envoyé"
 ```

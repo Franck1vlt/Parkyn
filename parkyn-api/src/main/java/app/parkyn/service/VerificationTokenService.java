@@ -39,7 +39,9 @@ public class VerificationTokenService {
     }
 
     // Crée le jeton du compte et renvoie sa valeur en clair, à n'utiliser que pour le lien de l'email
+    @Transactional 
     public String issue(User user) {
+        repository.deleteByUserAndConsumedAtIsNull(user);
         byte[] randomBytes = new byte[TOKEN_BYTES];
         random.nextBytes(randomBytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);

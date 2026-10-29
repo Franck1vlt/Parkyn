@@ -11,7 +11,7 @@
 | `OK`   | La sécurité laisse passer : statut ni 400, ni 401, ni 403 (un 404 sur un id inexistant compte comme OK) |
 | `403`  | Refusé par la sécurité, que l'appelant soit authentifié ou anonyme (voir « Écarts mesurés ») |
 
-Résultat de la première exécution : 104 cas, tous conformes à cette matrice. Les lignes 27 à 30 ont été ajoutées ensuite (nouveaux endpoints).
+Résultat de la première exécution : 104 cas, tous conformes à cette matrice. Les lignes 27 à 31 ont été ajoutées ensuite (nouveaux endpoints).
 
 ## Matrice
 
@@ -24,6 +24,7 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 4                 | POST    | `/api/v1/auth/logout`              | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
 | 5                 | GET     | `/api/v1/auth/me`                  | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
 | 30                | POST    | `/api/v1/auth/verify-email`        | `VerifyEmailRequest`   | OK    | OK    | OK     | OK      | aucune (public) |
+| 31                | POST    | `/api/v1/auth/resend-verification` | `ResendVerificationRequest` | OK | OK  | OK     | OK      | aucune (public) |
 | **Dashboard**     |
 | 6                 | GET     | `/api/v1/dashboard`                | -                      | OK    | OK    | `403`     | `403`      | `dashboard:read:all` |
 | **Notifications** |
@@ -75,6 +76,7 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | 2026-10-22 | 11 (`POST /reservations`) | DRIVER | `403` | OK | Le conducteur réserve pour lui-même (`reservation:create:own`) : conducteur = utilisateur du token, pas d'agent référent, `400` s'il désigne un conducteur. Pour tous : état et kilométrage au départ repris du véhicule, `agentId` ignoré (AGENT/ADMIN = agent référent) |
 | 2026-10-23 | 27, 28 (nouveaux endpoints) | tous | - | OK (anonyme `403`) | Modification et annulation d'une réservation. Portée dans la requête SQL (`ReservationScope`, action `update` / `cancel`) : le DRIVER sur ses réservations, avant leur début ; l'AGENT et l'ADMIN sur tout le tenant (annulation avant le début, modification tant qu'elle n'est pas retournée). Hors portée : `404` (`ReservationChangeTest`) |
 | 2026-10-29 | 30 (nouvel endpoint) | tous | - | OK | Vérification de l'adresse email (B3) : public, comme l'inscription, et ignoré par `JwtAuthFilter` (`PUBLIC_AUTH_PATHS`). Le jeton est envoyé dans le corps JSON, jamais dans l'URL. Jeton valide : `200` et compte `ACTIVE` ; inconnu, déjà utilisé ou compte qui n'est plus en attente (`DISABLED` compris) : même `400` ; expiré : `410` (`EmailVerificationTest`). Dans la matrice, un jeton expiré créé dans `setUp()` donne `410`, car un jeton inconnu répondrait `400`, compté comme un refus |
+| 2026-10-29 | 31 (nouvel endpoint) | tous | - | OK | Renvoi du lien de vérification (B3) : public, ignoré par `JwtAuthFilter` (`PUBLIC_AUTH_PATHS`). Toujours `202` sans corps, que le compte existe ou non (pas d'énumération) ; seul un compte en attente reçoit un nouveau lien, les anciens jetons non consommés sont supprimés (`EmailVerificationTest`) |
 | 2026-10-23 | 29 (nouvel endpoint) | ADMIN, AGENT | - | OK | Remise du véhicule (état des lieux de départ et remise des clés) : kilométrage saisi, état repris du véhicule, à partir du rendez-vous de début et jusqu'au rendez-vous de fin. Permission `reservation:handover:all` (V17), refusée au DRIVER (`ReservationHandoverTest`) |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.

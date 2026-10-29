@@ -189,13 +189,11 @@ public class RegistrationTest {
         verify(passwordEncoder, times(1)).encode(PASSWORD);
     }
 
-    // Test d'une inscription avec un email déjà utilisé, un email est envoyé au propriétaire du compte existant
-    @Test 
+    // Test d'une inscription avec l'email d'un compte actif, un email est envoyé au propriétaire du compte existant
+    // (un compte encore en attente reçoit un nouveau lien de vérification : voir EmailVerificationTest)
+    @Test
     public void duplicateEmailWarnsOwner() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/register")
-                .contentType("application/json")
-                .content(registerBody(ACCEPTED_EMAIL)))
-            .andExpect(status().isAccepted());
+        new TestUsers(userRepository, jdbcTemplate, passwordEncoder).create(ACCEPTED_EMAIL, PASSWORD, User.Role.DRIVER);
 
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType("application/json")

@@ -10,6 +10,7 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
+import app.parkyn.dto.ResendVerificationRequest;
 import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.User;
 import app.parkyn.security.PublicEndpoint;
@@ -17,6 +18,9 @@ import app.parkyn.service.AuthService;
 import app.parkyn.service.VerificationTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -64,4 +68,12 @@ public class AuthController {
         verificationTokenService.verify(request.token());
         return ResponseEntity.ok().build();
     }
+
+    @PublicEndpoint 
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerification(request.email());
+        return ResponseEntity.accepted().build();
+    }
+    
 }
