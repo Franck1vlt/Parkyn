@@ -112,7 +112,7 @@ public class AuthService {
         // Inscription hors connexion : aucun tenant courant, il est fixé ici (invitations par entreprise au lot 4)
         user.setTenantId(Tenants.DEFAULT_ID);
         roleAssignmentService.assign(user, User.Role.DRIVER);
-        user.setActive(true);
+        user.setStatus(User.Status.PENDING_EMAIL_VERIFICATION);
         return UserResponse.from(userRepository.saveAndFlush(user));
     }
 

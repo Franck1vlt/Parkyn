@@ -47,7 +47,7 @@ class PasswordHashingTest {
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isCreated());
+            .andExpect(status().isAccepted());
 
         String hash = hashOf(User.normalizeEmail(request.email()));
         assertTrue(hash.startsWith(ARGON2_PREFIX), "Hash attendu en Argon2id, obtenu : " + hash);

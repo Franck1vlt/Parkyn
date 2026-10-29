@@ -98,7 +98,7 @@ class RoleAssignmentTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(TestRequests.validRegisterRequest()))
                 .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isCreated());
+            .andExpect(status().isAccepted());
         String newEmail = TestRequests.validRegisterRequest().email();
         String normalizedEmail = User.normalizeEmail(newEmail);
         UUID newUserId = userRepository.findByEmail(normalizedEmail).orElseThrow().getId();

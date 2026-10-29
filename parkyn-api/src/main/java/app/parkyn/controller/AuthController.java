@@ -52,6 +52,6 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         authService.createAccount(request);
-        return ResponseEntity.status(201).build();
+        return ResponseEntity.status(202).build();
     }
 }

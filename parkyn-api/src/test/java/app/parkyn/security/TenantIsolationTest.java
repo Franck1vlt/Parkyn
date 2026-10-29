@@ -444,18 +444,19 @@ class TenantIsolationTest {
                 .header(HttpHeaders.AUTHORIZATION, bearer(adminB))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(register)))
-            .andExpect(status().isCreated());
+            .andExpect(status().isAccepted());
         assertEquals(Tenants.DEFAULT_ID, jdbc.queryForObject(
             "SELECT tenant_id FROM users WHERE email = ?", UUID.class, User.normalizeEmail(register.email())));
     }
 
+    // Test de l'inscription hors de tout tenant
     @Test
     void registrationJoinsDefaultTenant() throws Exception {
         var request = TestRequests.validRegisterRequest();
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isCreated());
+            .andExpect(status().isAccepted());
 
         assertEquals(Tenants.DEFAULT_ID, jdbc.queryForObject(
             "SELECT tenant_id FROM users WHERE email = ?", UUID.class, User.normalizeEmail(request.email())));
