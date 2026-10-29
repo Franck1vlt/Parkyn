@@ -1,0 +1,11 @@
+Bienvenue sur Parkyn, [(${name})].
+
+Confirmez votre adresse en cliquant sur le lien ci-dessous.
+Ce lien est valable 48 heures.
+Si vous n'avez pas créé de compte, ignorez ce message.
+
+Confirmer mon adresse :
+[(${link})]
+
+Cordialement,
+Parkyn

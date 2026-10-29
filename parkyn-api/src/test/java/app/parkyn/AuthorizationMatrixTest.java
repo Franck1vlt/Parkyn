@@ -1,15 +1,17 @@
 package app.parkyn;
 
+import static app.parkyn.AuthorizationMatrixTest.Expected.ALLOWED;
+import static app.parkyn.AuthorizationMatrixTest.Expected.DENIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 
+import java.time.OffsetDateTime;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
-import java.time.OffsetDateTime;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,26 +25,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import tools.jackson.databind.ObjectMapper;
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.RefreshRequest;
-import app.parkyn.dto.RegisterRequest;
-import app.parkyn.dto.ReservationRequest;
-import app.parkyn.dto.ReturnVehicleRequest;
-import app.parkyn.dto.UserRequest;
-import app.parkyn.dto.UserUpdateRequest;
-import app.parkyn.dto.VehicleRequest;
-import app.parkyn.dto.VehicleStatusRequest;
-import app.parkyn.dto.VehicleUpdateRequest;
 import app.parkyn.model.RefreshToken;
-import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
-import app.parkyn.model.Vehicle;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.security.JwtService;
-
-import static app.parkyn.AuthorizationMatrixTest.Expected.*;
+import tools.jackson.databind.ObjectMapper;
 
 @AutoConfigureMockMvc 
 @IntegrationTest

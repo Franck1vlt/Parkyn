@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vérification de votre adresse</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      color: #1f2937;
+    "
+  >
+    <div
+      style="
+        max-width: 600px;
+        margin: 40px auto;
+        background: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      "
+    >
+      <div style="background: #111827; color: #ffffff; padding: 24px 32px">
+        <h1 style="margin: 0; font-size: 24px">Parkyn</h1>
+      </div>
+
+      <div style="padding: 32px">
+        <p style="margin: 0 0 16px; font-size: 16px">
+          Bienvenue sur Parkyn, <strong th:text="${name}">Utilisateur</strong>.
+        </p>
+        <p style="margin: 0 0 16px; line-height: 1.6">
+          Confirmez votre adresse en cliquant sur le lien ci-dessous. Ce lien
+          est valable 48 heures.
+        </p>
+        <p style="margin: 0 0 24px; line-height: 1.6">
+          Si vous n'avez pas créé de compte, ignorez ce message.
+        </p>
+        <div style="text-align: center; margin-bottom: 24px">
+          <a
+            th:href="${link}"
+            href="#"
+            style="
+              display: inline-block;
+              background-color: #2563eb;
+              color: #ffffff;
+              text-decoration: none;
+              padding: 12px 24px;
+              border-radius: 6px;
+              font-weight: bold;
+            "
+          >
+            Vérifier mon adresse
+          </a>
+        </div>
+        <p style="margin: 0; font-size: 14px; color: #6b7280">
+          Si le bouton ne fonctionne pas, utilisez ce lien :
+          <a th:href="${link}" th:text="${link}" href="#" style="color: #2563eb"
+            >lien</a
+          >
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

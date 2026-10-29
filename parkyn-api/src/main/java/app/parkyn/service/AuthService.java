@@ -39,6 +39,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final RoleAssignmentService roleAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
+    private final VerificationTokenService verificationTokenService;
 
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
@@ -127,6 +128,11 @@ public class AuthService {
         roleAssignmentService.assign(user, User.Role.DRIVER);
         user.setStatus(User.Status.PENDING_EMAIL_VERIFICATION);
         userRepository.saveAndFlush(user);
+
+        String token = verificationTokenService.issue(user);
+        eventPublisher.publishEvent(new EmailRequest(
+            user.getEmail(), "Vérifiez votre adresse email", "verify-email",
+            Map.of("name", user.getFirstName(), "link", frontendUrl + "/verify-email?token=" + token)));
     }
 
     public MeResponse me(User user) {
