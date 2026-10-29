@@ -148,6 +148,10 @@
 - [ ] B2 et suivants : un test d'intégration qui déclenche un email sans l'attendre peut le faire arriver dans le GreenMail d'un autre test (`singleMessage` en verrait 2). Attendre l'email ou vider la boîte dans ces tests
 - [ ] `EmailServiceTest.missingTemplateSendsNothing` : le compte de 0 message est immédiat, il ne prouve rien pour un envoi asynchrone. Le vrai garde-fou est l'`assertThrows` (rendu synchrone)
 - [ ] `mail.smtp.localhost` n'est fixé qu'en test : hors Docker sous Windows, le `EHLO` peut rester lent. Variable optionnelle `MAIL_SMTP_LOCALHOST` si besoin (ne pas forcer `localhost` en production)
+- [ ] B3 : réinscription d'un compte encore `PENDING_EMAIL_VERIFICATION` : l'email `account-exists` dit « connectez-vous », impossible avant vérification. Renvoyer plutôt l'email de vérification dans ce cas
+- [ ] B4 : inscriptions répétées avec l'adresse d'un tiers = autant d'emails `account-exists` (inondation de sa boîte). Limite par IP et par adresse, ou un avertissement par compte toutes les X minutes
+- [ ] Inscription : le cas « email pris » ne fait pas l'`INSERT` du nouveau compte, petit écart de durée (faible devant le hash Argon2id, calculé dans les deux cas). Acceptable
+- [ ] Inscription : deux requêtes simultanées avec le même email, la contrainte d'unicité en refuse une avec une `500`. À traiter si le temps le permet (attraper `DataIntegrityViolationException` → même `202`)
 - [ ] Trois contextes Spring pour les tests email (défaut, `@MockitoSpyBean`, `@MockitoBean`) : les regrouper si la mémoire manque
 
 ## Tests de portée

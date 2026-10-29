@@ -1,9 +1,11 @@
 package app.parkyn.service;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,7 +19,7 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
-import app.parkyn.dto.UserResponse;
+import app.parkyn.email.EmailRequest;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
@@ -36,12 +38,16 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final RoleAssignmentService roleAssignmentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
 
     @Value("${jwt.expiration-ms}")
     private long accessExpirationMs;
+
+    @Value("${parkyn.frontend-url}")
+    private String frontendUrl;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -99,21 +105,28 @@ public class AuthService {
     }
 
     @Transactional
-    public UserResponse createAccount(RegisterRequest request) {
-        if (userRepository.existsByEmailInAnyTenant(User.normalizeEmail(request.email()))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+    public void createAccount(RegisterRequest request) {
+        String hashedPassword = passwordEncoder.encode(request.password());
+        String normalizedEmail = User.normalizeEmail(request.email());
+
+        if (userRepository.existsByEmailInAnyTenant(normalizedEmail)) {
+            User existing = userRepository.findByEmail(normalizedEmail).orElseThrow();
+            eventPublisher.publishEvent(new EmailRequest(
+                existing.getEmail(), "Votre compte Parkyn", "account-exists",
+                Map.of("name", existing.getFirstName(), "link", frontendUrl + "/login")));
+            return;
         }
 
         User user = new User();
         user.setFirstName(request.firstname());
         user.setLastName(request.lastname());
         user.setEmail(request.email());
-        user.setHashedPwd(passwordEncoder.encode(request.password()));
+        user.setHashedPwd(hashedPassword);
         // Inscription hors connexion : aucun tenant courant, il est fixé ici (invitations par entreprise au lot 4)
         user.setTenantId(Tenants.DEFAULT_ID);
         roleAssignmentService.assign(user, User.Role.DRIVER);
         user.setStatus(User.Status.PENDING_EMAIL_VERIFICATION);
-        return UserResponse.from(userRepository.saveAndFlush(user));
+        userRepository.saveAndFlush(user);
     }
 
     public MeResponse me(User user) {

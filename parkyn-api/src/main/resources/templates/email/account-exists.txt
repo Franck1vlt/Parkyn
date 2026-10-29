@@ -1,0 +1,11 @@
+Bonjour [(${name})],
+
+Quelqu'un (peut-être vous) a essayé de créer un compte Parkyn avec cette adresse.
+Vous avez déjà un compte : connectez-vous.
+Si ce n'est pas vous, vous pouvez ignorer ce message.
+
+Se connecter :
+[(${link})]
+
+Cordialement,
+Parkyn
