@@ -10,9 +10,11 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
+import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.User;
 import app.parkyn.security.PublicEndpoint;
 import app.parkyn.service.AuthService;
+import app.parkyn.service.VerificationTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final VerificationTokenService verificationTokenService;
 
     @PublicEndpoint 
     @PostMapping("/login") 
@@ -53,5 +56,12 @@ public class AuthController {
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         authService.createAccount(request);
         return ResponseEntity.status(202).build();
+    }
+
+    @PublicEndpoint
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        verificationTokenService.verify(request.token());
+        return ResponseEntity.ok().build();
     }
 }

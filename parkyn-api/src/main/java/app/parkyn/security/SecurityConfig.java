@@ -30,8 +30,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    // Connexion, rafraîchissement, inscription : publics. JwtAuthFilter ignore un token envoyé avec eux
-    static final String[] PUBLIC_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register"};
+    // Connexion, rafraîchissement, inscription, vérification d'email : publics. JwtAuthFilter ignore un token envoyé avec eux
+    static final String[] PUBLIC_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register", "/api/v1/auth/verify-email"};
 
 
     private final JwtAuthFilter jwtAuthFilter;

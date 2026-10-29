@@ -6,8 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.EnumMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +31,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.RefreshRequest;
+import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
@@ -73,6 +78,7 @@ class AuthorizationMatrixTest {
     private static final String DRIVER_EMAIL = "driver@parkyn.app";
     private static final String LOGIN_PASSWORD = "Password123!";
     private static final String REFRESH_TOKEN = UUID.randomUUID().toString();
+    private static final String VERIFICATION_TOKEN = "x".repeat(43);
 
     @BeforeEach
     void setUp() {
@@ -90,6 +96,11 @@ class AuthorizationMatrixTest {
         rt.setToken(REFRESH_TOKEN);
         rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt);
+
+        jdbcTemplate.update("""
+            INSERT INTO verification_tokens (user_id, token_hash, expires_at, created_at)
+            VALUES (?, ?, now() - interval '1 minute', now() - interval '2 days')
+            """, driver.getId(), sha256Hex(VERIFICATION_TOKEN));
     }
 
     static LoginRequest validLoginRequest() {
@@ -146,7 +157,10 @@ class AuthorizationMatrixTest {
             row(HttpMethod.GET, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID, TestRequests.validVehicleUpdateRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
             row(HttpMethod.DELETE, "/api/v1/vehicles/" + RANDOM_ID, null, ALLOWED, DENIED, DENIED, DENIED),
-            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED)
+            row(HttpMethod.PATCH, "/api/v1/vehicles/" + RANDOM_ID + "/status", TestRequests.validVehicleStatusRequest(), ALLOWED, ALLOWED, DENIED, DENIED),
+
+            // Endpoint de vérification d'email
+            row(HttpMethod.POST, "/api/v1/auth/verify-email", new VerifyEmailRequest(VERIFICATION_TOKEN), ALLOWED, ALLOWED, ALLOWED, ALLOWED)
         ).flatMap(s -> s);
     }
 
@@ -176,6 +190,17 @@ class AuthorizationMatrixTest {
                 "Accès attendu, mais statut " + status
                     + " (400 = corps de test invalide, 401/403 = accès refusé)"
             );
+        }
+    }
+
+    // Renvoie le jeton correspondant au hash, ou null si inexistant ou expiré
+    static String sha256Hex(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
         }
     }
 }

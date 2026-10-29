@@ -10,7 +10,10 @@ import java.util.Base64;
 import java.util.HexFormat;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import app.parkyn.model.User;
 import app.parkyn.model.VerificationToken;
@@ -48,7 +51,7 @@ public class VerificationTokenService {
         return token;
     }
 
-    // SHA-256 en hexadécimal (64 caractères) : déterministe, pour retrouver le jeton reçu (étape 2).
+    // SHA-256 en hexadécimal (64 caractères) : déterministe, pour retrouver le jeton reçu. 
     // Pas d'Argon2id : le jeton a 256 bits d'aléa, un hash lent n'apporte rien et empêcherait la recherche
     static String sha256Hex(String value) {
         try {
@@ -58,5 +61,34 @@ public class VerificationTokenService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
+    }
+
+    // Vérifie et consomme le jeton s'il est valide
+    @Transactional 
+    public void verify(String token) {
+        VerificationToken verificationToken = repository.findByTokenHash(sha256Hex(token))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Invalid verification token"));
+
+        if (verificationToken.getConsumedAt() != null) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Invalid verification token");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if (!verificationToken.getExpiresAt().isAfter(now)) {
+            throw new ResponseStatusException(
+                HttpStatus.GONE, "Verification token expired");
+        }
+
+        User user = verificationToken.getUser();
+
+        if (user.getStatus() != User.Status.PENDING_EMAIL_VERIFICATION) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Invalid verification token");
+        }
+
+        user.setStatus(User.Status.ACTIVE);
+        verificationToken.setConsumedAt(now);
     }
 }
