@@ -26,13 +26,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import app.parkyn.IntegrationTest;
 import app.parkyn.TestUsers;
 import app.parkyn.dto.LoginRequest;
-import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.UserRequest;
 import app.parkyn.dto.UserUpdateRequest;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
 
 @AutoConfigureMockMvc 
@@ -158,9 +158,10 @@ public class AccountStatusTest {
         disable(user.getEmail());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new RefreshRequest(refreshToken.getToken()))))
-            .andExpect(status().isUnauthorized());
+            .cookie(new Cookie("refresh_token", refreshToken.getToken())))
+            .andExpect(status().isUnauthorized())
+            // Même message qu'un token inconnu : le refus ne révèle pas le statut du compte
+            .andExpect(content().string("Session expirée, veuillez vous reconnecter"));
     }
 
     // Un conducteur en attente de vérification n'apparaît pas dans la liste des conducteurs

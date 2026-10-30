@@ -1,2 +1,9 @@
 .env
 *.log
+
+# Claude Code : fichiers personnels
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Traces de plantage de Git Bash
+*.stackdump

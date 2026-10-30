@@ -17,7 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
-import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.RegisterRequest;
 import app.parkyn.email.EmailRequest;
 import app.parkyn.model.RefreshToken;
@@ -43,6 +42,9 @@ public class AuthService {
     private final VerificationTokenService verificationTokenService;
     private final RateLimiter rateLimiter;
 
+    // Même message pour tous les refus du refresh : le client ne doit pas savoir si le token a existé
+    private static final String SESSION_EXPIRED = "Session expirée, veuillez vous reconnecter";
+
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
 
@@ -53,7 +55,7 @@ public class AuthService {
     private String frontendUrl;
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public AuthTokens login(LoginRequest request) {
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
@@ -69,21 +71,26 @@ public class AuthService {
         refreshTokenRepository.save(rt);
 
         OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
-        return new LoginResponse(accessToken, accessExpiredAt, rawRefresh, rt.getExpiresAt());
+        LoginResponse body = new LoginResponse(accessToken, accessExpiredAt, rt.getExpiresAt());
+        return new AuthTokens(body, rawRefresh);
     }
 
     @Transactional
-    public LoginResponse refresh(RefreshRequest request) {
-        RefreshToken stored = refreshTokenRepository.findByToken(request.refreshToken())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+    public AuthTokens refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
+        }
+
+        RefreshToken stored = refreshTokenRepository.findByToken(refreshToken)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED));
 
         if (stored.getRevokedAt() != null || stored.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired or revoked");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
         // Un compte désactivé ou en attente de vérification n'obtient plus de nouvel access token
         if (!stored.getUser().isEnabled()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
         stored.setRevokedAt(OffsetDateTime.now());
@@ -98,7 +105,8 @@ public class AuthService {
         refreshTokenRepository.save(newRt);
 
         OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
-        return new LoginResponse(newAccess, accessExpiredAt, newRaw, newRt.getExpiresAt());
+        LoginResponse body = new LoginResponse(newAccess, accessExpiredAt, newRt.getExpiresAt());
+        return new AuthTokens(body, newRaw);
     }
     
     @Transactional

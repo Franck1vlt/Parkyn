@@ -30,10 +30,15 @@ participant BDD
         Note right of BDD: user_id<br/>refresh_token_hash<br/>expires_at<br/>created_at<br/>revoked_at = NULL
 
         API-->>Navigateur: Set-Cookie refresh_token
-        Note right of Navigateur: HttpOnly<br/>Secure<br/>SameSite adapté<br/>Path = /api/v1/auth/refresh
+        Note right of Navigateur: HttpOnly<br/>Secure<br/>SameSite=Strict<br/>Path = /api/v1/auth/refresh<br/>Max-Age = durée du refresh token
 
-        API-->>Angular: 200 OK + access token
+        API-->>Angular: 200 OK + access token (pas de refresh token dans le JSON)
         Angular->>Angular: Garde l'access token en mémoire (pas de localStorage)
         Angular-->>Navigateur: Session authentifiée
     end
 ```
+
+## État de la mise en œuvre
+
+- **Fait (C1) :** cookie `refresh_token` posé au login avec ces attributs, corps sans refresh token.
+- **Pas encore fait :** le token est stocké en clair dans `refresh_tokens` (hachage et `user_sessions` en C3) ; Angular garde encore l'access token dans `localStorage` (phase D).

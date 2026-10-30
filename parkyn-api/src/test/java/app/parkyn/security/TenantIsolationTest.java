@@ -3,6 +3,7 @@ package app.parkyn.security;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.everyItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -44,6 +45,7 @@ import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.VehicleRepository;
 import app.parkyn.service.NotificationService;
 import app.parkyn.tenant.Tenants;
+import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -430,13 +432,13 @@ class TenantIsolationTest {
                 .content("{\"email\":\"login@a.test\",\"password\":\"Password123!\"}"))
             .andExpect(status().isOk())
             .andReturn();
-        String refreshToken = objectMapper.readTree(login.getResponse().getContentAsString())
-            .get("refresh_token").asString();
+            
+        Cookie refreshCookie = login.getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                 .header(HttpHeaders.AUTHORIZATION, bearer(adminB))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("refresh_token", refreshToken))))
+                .cookie(refreshCookie))
             .andExpect(status().isOk());
 
         var register = TestRequests.validRegisterRequest();

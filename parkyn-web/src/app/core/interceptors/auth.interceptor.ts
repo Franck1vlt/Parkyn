@@ -32,7 +32,8 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
           );
         }
 
-        if (error.status === 401) {
+        // Un logout refusé ne relance pas de logout : la session locale est déjà effacée par son finalize
+        if (error.status === 401 && !req.url.includes('/auth/logout')) {
           authService.logout();
         }
         return throwError(() => error);

@@ -19,7 +19,7 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | ----------------- | ------- | ---------------------------------- | ---------------------- | ----- | ----- | ------ | ------- | --- |
 | **Auth**          |
 | 1                 | POST    | `/api/v1/auth/login`               | `LoginRequest`         | OK    | OK    | OK     | OK      | aucune (public) |
-| 2                 | POST    | `/api/v1/auth/refresh`             | `RefreshRequest`       | OK    | OK    | OK     | OK      | aucune (public) |
+| 2                 | POST    | `/api/v1/auth/refresh`             | cookie `refresh_token` | OK    | OK    | OK     | OK      | aucune (public) |
 | 3                 | POST    | `/api/v1/auth/register`            | `RegisterRequest`      | OK    | OK    | OK     | OK      | aucune (public) |
 | 4                 | POST    | `/api/v1/auth/logout`              | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
 | 5                 | GET     | `/api/v1/auth/me`                  | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
@@ -78,6 +78,8 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | 2026-10-29 | 30 (nouvel endpoint) | tous | - | OK | Vérification de l'adresse email (B3) : public, comme l'inscription, et ignoré par `JwtAuthFilter` (`PUBLIC_AUTH_PATHS`). Le jeton est envoyé dans le corps JSON, jamais dans l'URL. Jeton valide : `200` et compte `ACTIVE` ; inconnu, déjà utilisé ou compte qui n'est plus en attente (`DISABLED` compris) : même `400` ; expiré : `410` (`EmailVerificationTest`). Dans la matrice, un jeton expiré créé dans `setUp()` donne `410`, car un jeton inconnu répondrait `400`, compté comme un refus |
 | 2026-10-29 | 31 (nouvel endpoint) | tous | - | OK | Renvoi du lien de vérification (B3) : public, ignoré par `JwtAuthFilter` (`PUBLIC_AUTH_PATHS`). Toujours `202` sans corps, que le compte existe ou non (pas d'énumération) ; seul un compte en attente reçoit un nouveau lien, les anciens jetons non consommés sont supprimés (`EmailVerificationTest`) |
 | 2026-10-23 | 29 (nouvel endpoint) | ADMIN, AGENT | - | OK | Remise du véhicule (état des lieux de départ et remise des clés) : kilométrage saisi, état repris du véhicule, à partir du rendez-vous de début et jusqu'au rendez-vous de fin. Permission `reservation:handover:all` (V17), refusée au DRIVER (`ReservationHandoverTest`) |
+| 2026-10-30 | 2 (`POST /auth/refresh`) | tous | OK | OK | Cases inchangées, contrat modifié (C1) : le refresh token n'est plus dans le corps mais dans le cookie `HttpOnly` `refresh_token` (`Path=/api/v1/auth/refresh`). La matrice l'envoie par `CookieOption.REFRESH_TOKEN` ; sans cookie, la ligne répondrait `401`, compté comme un refus. Un token envoyé dans le corps est ignoré, tous les refus donnent le même `401` (`RefreshCookieTest`) |
+| 2026-10-30 | 1, 4 (login, logout) | tous | OK | OK | Cases inchangées (C1) : le login pose le cookie et ne renvoie plus `refresh_token` dans le JSON ; le logout révoque les refresh tokens et efface le cookie (`Max-Age=0`). Logout anonyme toujours `403` |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.
 

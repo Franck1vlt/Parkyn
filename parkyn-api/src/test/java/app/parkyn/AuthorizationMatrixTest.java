@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,7 +31,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import app.parkyn.dto.LoginRequest;
-import app.parkyn.dto.RefreshRequest;
 import app.parkyn.dto.ResendVerificationRequest;
 import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.RefreshToken;
@@ -56,7 +56,10 @@ class AuthorizationMatrixTest {
 
     enum Expected { ALLOWED, DENIED }
 
-    record MatrixCase(Actor actor, HttpMethod method, String path, Object body, Expected expected) {
+    enum CookieOption { NONE, REFRESH_TOKEN }
+
+    record MatrixCase(Actor actor, HttpMethod method, String path, Object body,
+            CookieOption cookieOption, Expected expected) {
         @Override
         public String toString() {
             return String.format("%-9s %-6s %s", actor, method, path);
@@ -64,15 +67,21 @@ class AuthorizationMatrixTest {
     }
 
     static Stream<MatrixCase> row(HttpMethod method, String path, Object body, Expected admin, Expected agent, Expected driver, Expected anonymous) {
+        return row(method, path, body, CookieOption.NONE, admin, agent, driver, anonymous);
+    }
+
+    static Stream<MatrixCase> row(HttpMethod method, String path, Object body, CookieOption cookieOption,
+            Expected admin, Expected agent, Expected driver, Expected anonymous) {
         return Stream.of(
-            new MatrixCase(Actor.ADMIN, method, path, body, admin),
-            new MatrixCase(Actor.AGENT, method, path, body, agent),
-            new MatrixCase(Actor.DRIVER, method, path, body, driver),
-            new MatrixCase(Actor.ANONYMOUS, method, path, body, anonymous)
+            new MatrixCase(Actor.ADMIN, method, path, body, cookieOption, admin),
+            new MatrixCase(Actor.AGENT, method, path, body, cookieOption, agent),
+            new MatrixCase(Actor.DRIVER, method, path, body, cookieOption, driver),
+            new MatrixCase(Actor.ANONYMOUS, method, path, body, cookieOption, anonymous)
         );
     }
 
     private final Map<Actor, String> tokens = new EnumMap<>(Actor.class);
+    private Cookie refreshCookie;
     private static final String RANDOM_ID = UUID.randomUUID().toString();
     private static final String LOGIN_EMAIL = "admin@parkyn.app";
     private static final String AGENT_EMAIL = "agent@parkyn.app";
@@ -97,6 +106,7 @@ class AuthorizationMatrixTest {
         rt.setToken(REFRESH_TOKEN);
         rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
         refreshTokenRepository.saveAndFlush(rt);
+        refreshCookie = new Cookie("refresh_token", REFRESH_TOKEN);
 
         jdbcTemplate.update("""
             INSERT INTO verification_tokens (user_id, token_hash, expires_at, created_at)
@@ -108,17 +118,11 @@ class AuthorizationMatrixTest {
         return new LoginRequest(LOGIN_EMAIL, LOGIN_PASSWORD);
     }
 
-    static RefreshRequest validRefreshRequest() {
-        return new RefreshRequest(
-            REFRESH_TOKEN
-        );
-    }
-
     static Stream<MatrixCase> matrix() {
         return Stream.of(
             // Endpoints d'Authentification
             row(HttpMethod.POST, "/api/v1/auth/login", validLoginRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
-            row(HttpMethod.POST, "/api/v1/auth/refresh", validRefreshRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
+            row(HttpMethod.POST, "/api/v1/auth/refresh", null, CookieOption.REFRESH_TOKEN, ALLOWED, ALLOWED, ALLOWED, ALLOWED),
             row(HttpMethod.POST, "/api/v1/auth/register", TestRequests.validRegisterRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
             row(HttpMethod.POST, "/api/v1/auth/logout", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.GET, "/api/v1/auth/me", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
@@ -174,6 +178,10 @@ class AuthorizationMatrixTest {
         if (c.body() != null) {
             requestBuilder.contentType("application/json");
             requestBuilder.content(objectMapper.writeValueAsString(c.body()));
+        }
+
+        if (c.cookieOption() == CookieOption.REFRESH_TOKEN) {
+            requestBuilder.cookie(refreshCookie);
         }
 
         if (c.actor() != Actor.ANONYMOUS) {

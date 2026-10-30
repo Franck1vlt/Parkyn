@@ -1,32 +1,27 @@
 package app.parkyn;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
-
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
 
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.LoginResponse;
-import app.parkyn.dto.RefreshRequest;
-import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
-import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
+import tools.jackson.databind.ObjectMapper;
 
 @AutoConfigureMockMvc
 @IntegrationTest
@@ -36,24 +31,15 @@ public class AuthControllerTest {
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository userRepository;
     @Autowired PasswordEncoder passwordEncoder;
-    @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired JdbcTemplate jdbcTemplate;
 
     private static final String TEST_EMAIL = "test@parkyn.app";
     private static final String TEST_PASSWORD = "Password123!";
-    private String testRefreshToken;
 
     @BeforeEach
     void setUp() {
-        User user = new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
+        new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
             .create(TEST_EMAIL, TEST_PASSWORD, User.Role.ADMIN);
-
-        testRefreshToken = UUID.randomUUID().toString();
-        RefreshToken rt = new RefreshToken();
-        rt.setUser(user);
-        rt.setToken(testRefreshToken);
-        rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
-        refreshTokenRepository.saveAndFlush(rt);
     }
 
     @Test
@@ -66,21 +52,29 @@ public class AuthControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.access_token").isString())
-            .andExpect(jsonPath("$.refresh_token").isString())
+            .andExpect(jsonPath("$.refresh_token").doesNotExist())
+            .andExpect(cookie().exists("refresh_token"))
             .andExpect(jsonPath("$.token_type").value("Bearer"));
     }
 
     @Test
     public void testRefreshToken() throws Exception {
-        RefreshRequest request = new RefreshRequest(testRefreshToken);
-
-        mockMvc.perform(post("/api/v1/auth/refresh")
+        LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD);
+        Cookie refreshCookie = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
+            .andReturn().getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie);
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .cookie(refreshCookie)
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
             .andExpect(jsonPath("$.access_token").isString())
-            .andExpect(jsonPath("$.refresh_token").isString())
+            .andExpect(jsonPath("$.refresh_token").doesNotExist())
+            .andExpect(cookie().exists("refresh_token"))
             .andExpect(jsonPath("$.token_type").value("Bearer"));
     }
     

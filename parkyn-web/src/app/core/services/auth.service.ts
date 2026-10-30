@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, finalize, Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type Role = 'ADMIN' | 'AGENT' | 'DRIVER';
@@ -65,8 +65,10 @@ export class AuthService {
   }
 
   logout(): void {
-    this.clearSession();
-    this.http.post<LoginResponse>(`${this.API_URL}/logout`, {}).subscribe();
+    this.http
+      .post<void>(`${this.API_URL}/logout`, {})
+      .pipe(finalize(() => this.clearSession()))
+      .subscribe({ error: () => {} });
   }
 
   currentUserDetails(): Observable<CurrentUser> {

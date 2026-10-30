@@ -137,3 +137,11 @@ Nous choisissons de conserver l'access token uniquement en mémoire côté Angul
 - **Le `Path` doit correspondre à la vraie route.** L'API expose `/api/v1/auth/refresh`, pas `/auth/refresh`. Le logout doit aussi recevoir le cookie pour révoquer la session : à traiter (Path `/api/v1/auth` ou cookie effacé côté serveur).
 
 On accepte donc une configuration plus complexe (cookies + CORS + CSRF) pour réduire l'exposition du token à longue durée de vie.
+
+## Mise en œuvre (C1, 2026-10-30)
+
+- **Cookie retenu :** `refresh_token`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth/refresh`, `Max-Age` égal à la durée du refresh token (`RefreshTokenCookie`).
+- **`Strict` plutôt que `Lax` :** le frontend et l'API sont servis par la même origine (`/` et `/api/` derrière nginx). Le cookie n'a jamais à partir depuis un autre site, même lors d'une navigation. À revoir si l'API passe sur un autre site.
+- **Logout :** le cookie n'est pas envoyé à `/api/v1/auth/logout` (Path restreint). Le logout révoque les refresh tokens à partir de l'utilisateur authentifié par l'access token, puis efface le cookie côté serveur (`Max-Age=0`, mêmes attributs). Limite : sans access token valide, rien n'est révoqué ; la révocation à partir du cookie est reportée à C4 (Path élargi à `/api/v1/auth` ou logout sous `/refresh`).
+- **Corps de la réponse :** le login et le refresh ne renvoient plus le refresh token, seulement l'access token et les dates d'expiration. Un refresh token envoyé dans un corps JSON est ignoré.
+- **Pas encore fait :** access token en mémoire côté Angular (phase D), hachage du token et détection de réutilisation (C3), protection CSRF (C2). `Secure` impose HTTPS en production.

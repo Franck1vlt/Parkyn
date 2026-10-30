@@ -38,7 +38,7 @@
 
 ## Phase C : cookies, CSRF et sessions
 
-- [ ] C1 Cookies HttpOnly
+- [x] C1 Cookies HttpOnly. Le refresh token quitte le JSON : cookie `refresh_token` posé par `RefreshTokenCookie` (`HttpOnly`, `Secure`, `SameSite=Strict` car front et API sont sur la même origine via nginx, `Path=/api/v1/auth/refresh`, `Max-Age` = `jwt.refresh-expiration-days`). Login : `Set-Cookie`, le corps garde `access_token`, `expired_at`, `refresh_expired_at` et `token_type`. Refresh : lit le cookie seulement (`@CookieValue`, plus de corps, `RefreshRequest` supprimé), rotation avec un nouveau cookie ; un token envoyé dans le corps est ignoré. Logout : révoque les refresh tokens de l'utilisateur et efface le cookie (`Max-Age=0`, mêmes attributs). Le service renvoie `AuthTokens` (corps + token, `toString()` masqué), le contrôleur pose le cookie. Tous les refus du refresh (cookie absent, inconnu, révoqué, expiré, compte désactivé) donnent le même `401` « Session expirée, veuillez vous reconnecter ». Front : le logout est envoyé avant d'effacer la session locale (avant, il partait sans token et recevait `403`, donc rien n'était révoqué), et un `401` sur `/auth/logout` ne relance plus de logout. Pas d'Expand and Contract : le refresh du front était déjà cassé (`refreshToken` au lieu de `refresh_token`). `RefreshCookieTest` (10 tests), relecture faite et corrigée. Vérifié à la main (Docker) : `Set-Cookie` correct, `fetch('/api/v1/auth/refresh')` → `200` sans lecture JS, logout `204` puis refresh `401`
 - [ ] C2 CSRF
 - [ ] C3 Rotation des refresh tokens
 - [ ] C4 Sessions actives
@@ -166,6 +166,14 @@
 - [ ] Docker Desktop (Windows) : nginx voit toutes les requêtes locales avec l'IP de la passerelle (`172.18.0.1`), donc un seul seau en local. En production (Linux), `$remote_addr` est la vraie IP du visiteur
 - [ ] nginx résout `api` et `web` au démarrage : après la reconstruction d'un de ces conteneurs, `docker compose restart nginx` si les requêtes répondent `502`
 - [ ] Frontend (phase D, avec D1) : messages d'erreur du login et de l'intercepteur. `401` au login → « Email ou mot de passe incorrect » (aujourd'hui `console.log` seulement dans `LoginComponent`) ; `429` → « Trop de tentatives, réessayez dans X secondes » (en-tête `Retry-After`) ; statut `0` → « Serveur injoignable » (aujourd'hui « Une erreur est survenue »)
+- [ ] C1 : `Secure` impose HTTPS en production (les navigateurs ne l'acceptent sur HTTP que pour `localhost`). nginx n'a pas encore de TLS : à prévoir avec Traefik au déploiement, sinon le cookie n'est jamais stocké
+- [ ] C1 → C4 : le logout exige un access token valide. Access token expiré = `401`, rien n'est révoqué et le cookie reste (refresh possible jusqu'à son expiration sur un poste partagé). Révoquer à partir du cookie : élargir son `Path` à `/api/v1/auth` ou faire passer le logout sous `/refresh` (limite déjà notée dans l'ADR-0001)
+- [ ] C1 → C3 : la table `refresh_tokens` stocke le token en clair et n'a pas de `tenant_id`. Remplacée par `user_sessions` (hachage, familles, détection de réutilisation)
+- [ ] Frontend (phase D) : `localStorage` contient `parkyn_refresh_token = "undefined"` depuis C1 (le login ne renvoie plus le token). À supprimer avec le passage de l'access token en mémoire ; `refresh()` envoie encore `{ refreshToken }` (ignoré par l'API), envoyer `{}` ; l'interface `LoginResponse` déclare `refresh_token` et `refresh_token_expired_at` alors que l'API renvoie `refresh_expired_at`
+- [ ] Frontend (phase D) : `environment.ts` (`ng serve`) pointe sur `http://localhost:8080`, une autre origine : le cookie n'y serait ni stocké ni envoyé. Utiliser un proxy de développement (`proxy.conf.json` vers nginx) plutôt que CORS avec credentials
+- [ ] Frontend (phase D, avant C3) : un seul refresh partagé quand plusieurs requêtes reçoivent `401` en même temps. Avec la rotation, le deuxième refresh présente un token déjà révoqué et déconnecte l'utilisateur ; avec la détection de réutilisation (C3), il révoquerait toute la famille
+- [ ] Frontend : aucun test (`*.spec.ts`) sur `AuthService` ni sur l'intercepteur (logout, refresh). À couvrir avec l'audit des tests avant la phase D
+- [ ] `jwt.refresh-expiration-days` et `jwt.expiration-ms` ne sont pas sous le préfixe `parkyn.*`. Renommer plus tard (variables d'environnement à suivre)
 - [x] Frontend sous Docker : le build de production gardait `environment.ts` (`http://localhost:8080`, port non publié depuis B0) faute de `fileReplacements` dans `angular.json`. Corrigé : `environment.prod.ts` (`/api/v1`, même origine, via nginx)
 
 ## Tests de portée
