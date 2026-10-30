@@ -30,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final RateLimitFilter rateLimitFilter;
+
     // Connexion, rafraîchissement, inscription, vérification d'email et renvoi du lien : publics. JwtAuthFilter ignore un token envoyé avec eux
     static final String[] PUBLIC_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register", "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification"};
 
@@ -76,7 +78,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/**").authenticated()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(rateLimitFilter, JwtAuthFilter.class);
 
         return http.build();
     }

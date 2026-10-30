@@ -25,6 +25,7 @@ import app.parkyn.model.User;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.security.JwtService;
+import app.parkyn.security.RateLimiter;
 import app.parkyn.tenant.Tenants;
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +41,7 @@ public class AuthService {
     private final RoleAssignmentService roleAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
     private final VerificationTokenService verificationTokenService;
+    private final RateLimiter rateLimiter;
 
     @Value("${jwt.refresh-expiration-days}")
     private long refreshExpirationDays;
@@ -117,6 +119,10 @@ public class AuthService {
                 return;
             }
 
+            if (!rateLimiter.tryConsumeEmail(existing.getEmail())) {
+                return;
+            }
+
             eventPublisher.publishEvent(new EmailRequest(
                 existing.getEmail(), "Votre compte Parkyn", "account-exists",
                 Map.of("name", existing.getFirstName(), "link", frontendUrl + "/login")));
@@ -150,6 +156,10 @@ public class AuthService {
     }
 
     private void sendVerificationEmail(User user) {
+        if (!rateLimiter.tryConsumeEmail(user.getEmail())) {
+            return;
+        }
+
         String token = verificationTokenService.issue(user);
         eventPublisher.publishEvent(new EmailRequest(
             user.getEmail(), "Vérifiez votre adresse email", "verify-email",
