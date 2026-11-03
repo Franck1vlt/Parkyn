@@ -7,10 +7,18 @@ participant Angular
 participant API as API Spring
 participant BDD
 
-    Angular->>API: Requête API + access token
-    API-->>Angular: 401 Unauthorized
-    Angular->>API: POST /api/v1/auth/refresh
-    Note right of Navigateur: Le navigateur joint automatiquement<br/>le cookie HttpOnly refresh_token
+    Angular->>API: Requêtes API + access token (plusieurs en parallèle)
+    API-->>Angular: 401 Unauthorized (pour chacune)
+    alt Le token a déjà changé depuis l'envoi de la requête
+        Angular->>API: Rejoue la requête avec le token courant, sans refresh
+    end
+    Note over Angular: Un seul refresh partagé entre toutes les requêtes en 401<br/>(les autres attendent son résultat)
+    Angular->>API: POST /api/v1/auth/refresh + en-tête X-XSRF-TOKEN
+    Note right of Navigateur: Le navigateur joint automatiquement<br/>les cookies refresh_token (HttpOnly) et XSRF-TOKEN.<br/>Angular recopie XSRF-TOKEN dans l'en-tête
+
+    alt En-tête X-XSRF-TOKEN absent ou différent du cookie
+        API-->>Angular: 403 Forbidden (CsrfFilter, refresh token non lu ni consommé)
+    end
 
     API->>API: Extrait le refresh token du cookie
     API->>API: Hash du refresh token
@@ -38,15 +46,17 @@ participant BDD
         API->>API: Génère nouveau refresh token
         API->>API: Hash le nouveau refresh token
 
-        API->>BDD: Révoque l'ancienne session (transaction unique)
+        API->>BDD: UPDATE … SET revoked_at WHERE id = ? AND revoked_at IS NULL
+        Note right of BDD: Atomique : entre deux refresh simultanés,<br/>un seul modifie la ligne. 0 ligne → 401
         API->>BDD: Crée une nouvelle user_session (même famille)
         Note right of BDD: Ancien refresh token → revoked_at<br/>Nouveau refresh token → actif
 
         API-->>Navigateur: Set-Cookie nouveau refresh_token
         API-->>Angular: 200 OK + nouvel access token
-        Angular->>API: Rejoue la requête initiale
-        API-->>Angular: Réponse
+        Angular->>API: Rejoue les requêtes en attente
+        API-->>Angular: Réponses (une erreur du rejeu, 409 par exemple, remonte telle quelle)
     end
+    Note over Angular: Refresh refusé (401 ou 403) : un seul logout,<br/>chaque requête en attente reçoit son 401 d'origine
 ```
 
 Tous les `401` ont le même corps (« Session expirée, veuillez vous reconnecter ») : le client ne distingue pas un token inconnu, révoqué, expiré ou un compte désactivé.
@@ -54,8 +64,8 @@ Tous les `401` ont le même corps (« Session expirée, veuillez vous reconnecte
 ## État de la mise en œuvre
 
 - **Fait (C1) :** le token est lu dans le cookie uniquement (cookie absent = même `401`, token dans le corps ignoré) ; rotation avec révocation de l'ancien token et nouveau `Set-Cookie` ; refus uniformes.
-- **Pas encore fait (C3) :** hachage, `user_sessions`, familles et révocation de toute la famille en cas de réutilisation. Aujourd'hui, un token réutilisé est simplement refusé, et un token expiré ou d'un compte désactivé n'est pas révoqué en base.
-- **Pas encore fait (phase D) :** un seul refresh partagé quand plusieurs requêtes reçoivent `401` en même temps.
+- **Fait (C2) :** protection CSRF par double-submit (`403` sans en-tête ou avec une valeur fausse) ; révocation atomique de l'ancien token (`revokeIfActive`), un seul refresh réussit parmi des requêtes simultanées ; côté Angular, refresh partagé, rejeu sans refresh si le token a déjà changé, un seul logout en cas d'échec.
+- **Pas encore fait (C3) :** hachage, `user_sessions`, familles et révocation de toute la famille en cas de réutilisation. Aujourd'hui, un token réutilisé est simplement refusé, et un token expiré ou d'un compte désactivé n'est pas révoqué en base. Le diagramme montre la cible : la table est encore `refresh_tokens`.
 
 # Séquence : logout
 
@@ -72,7 +82,7 @@ participant BDD
 
     alt Access token valide
         API->>BDD: Révoque tous les refresh tokens de l'utilisateur
-        API-->>Navigateur: 204 + Set-Cookie refresh_token= ; Max-Age=0
+        API-->>Navigateur: 204 + Set-Cookie refresh_token= #59; Max-Age=0
         Note right of Navigateur: Mêmes attributs et même Path :<br/>le navigateur supprime le cookie
     else Access token expiré ou absent
         API-->>Angular: 401 ou 403, rien n'est révoqué

@@ -1,7 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, finalize, Observable, tap } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  finalize,
+  Observable,
+  shareReplay,
+  tap,
+  throwError,
+} from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type Role = 'ADMIN' | 'AGENT' | 'DRIVER';
@@ -30,6 +38,7 @@ export class AuthService {
   private readonly ACCESS_TOKEN_KEY = 'parkyn_access_token';
   private readonly REFRESH_TOKEN_KEY = 'parkyn_refresh_token';
   private readonly USER_KEY = 'parkyn_user';
+  private refreshInFlight$: Observable<LoginResponse> | null = null;
 
   private currentUserSubject = new BehaviorSubject<CurrentUser | null>(this.getStoredUser());
   currentUser$ = this.currentUserSubject.asObservable();
@@ -58,10 +67,23 @@ export class AuthService {
   }
 
   refresh(): Observable<LoginResponse> {
-    const refreshToken = this.getRefreshToken();
-    return this.http
-      .post<LoginResponse>(`${this.API_URL}/refresh`, { refreshToken })
-      .pipe(tap((response) => this.storeToken(response)));
+    if (!this.refreshInFlight$) {
+      const refreshToken = this.getRefreshToken();
+      this.refreshInFlight$ = this.http
+        .post<LoginResponse>(`${this.API_URL}/refresh`, { refreshToken })
+        .pipe(
+          tap((response) => this.storeToken(response)),
+          catchError((error) => {
+            this.logout();
+            return throwError(() => error);
+          }),
+          finalize(() => {
+            this.refreshInFlight$ = null;
+          }),
+          shareReplay(1),
+        );
+    }
+    return this.refreshInFlight$;
   }
 
   logout(): void {

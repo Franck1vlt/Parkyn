@@ -2,7 +2,10 @@ package app.parkyn;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.UUID;
+
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import app.parkyn.dto.RegisterRequest;
 import app.parkyn.dto.ReservationRequest;
@@ -15,6 +18,7 @@ import app.parkyn.dto.VehicleUpdateRequest;
 import app.parkyn.model.Reservation;
 import app.parkyn.model.User;
 import app.parkyn.model.Vehicle;
+import jakarta.servlet.http.Cookie;
 
 /**
  * Corps de requêtes valides pour les tests : ils passent la validation @Valid,
@@ -101,7 +105,8 @@ public final class TestRequests {
         );
     }
 
-    // RESERVED n'est plus une transition manuelle (statut calculé à partir des réservations)
+    // --- Helpers ---
+
     public static VehicleStatusRequest validVehicleStatusRequest() {
         return new VehicleStatusRequest(Vehicle.VehicleStatus.MAINTENANCE);
     }
@@ -113,5 +118,16 @@ public final class TestRequests {
             "jean.dupont@parkyn.app", 
             "Password123!"
         );
+    }
+
+    public static RequestPostProcessor csrfToken() {
+        return request -> {
+            Cookie[] existing = request.getCookies() == null ? new Cookie[0] : request.getCookies();
+            Cookie[] cookies = Arrays.copyOf(existing, existing.length + 1);
+            cookies[existing.length] = new Cookie("XSRF-TOKEN", "test-csrf-token");
+            request.setCookies(cookies);
+            request.addHeader("X-XSRF-TOKEN", "test-csrf-token");
+            return request;
+        };
     }
 }

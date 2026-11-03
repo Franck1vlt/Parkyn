@@ -69,6 +69,7 @@ public class AuthControllerTest {
         assertNotNull(refreshCookie);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .cookie(refreshCookie)
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())

@@ -438,6 +438,7 @@ class TenantIsolationTest {
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                 .header(HttpHeaders.AUTHORIZATION, bearer(adminB))
+                .with(TestRequests.csrfToken())
                 .cookie(refreshCookie))
             .andExpect(status().isOk());
 

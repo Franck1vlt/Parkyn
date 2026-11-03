@@ -93,7 +93,12 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
-        stored.setRevokedAt(OffsetDateTime.now());
+        // Usage unique : seule la requête qui révoque le token obtient une nouvelle session.
+        // UPDATE en masse : l'entité stored garde revokedAt = null en mémoire. Ne plus la modifier
+        // ensuite, sinon Hibernate réécrirait revoked_at = null au commit et annulerait la révocation.
+        if (refreshTokenRepository.revokeIfActive(stored.getId(), OffsetDateTime.now()) == 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
+        }
 
         String newAccess = jwtService.generateToken(stored.getUser());
         String newRaw = UUID.randomUUID().toString();
@@ -108,7 +113,7 @@ public class AuthService {
         LoginResponse body = new LoginResponse(newAccess, accessExpiredAt, newRt.getExpiresAt());
         return new AuthTokens(body, newRaw);
     }
-    
+
     @Transactional
     public void logout(User user) {
         refreshTokenRepository.findByUserAndRevokedAtIsNull(user)

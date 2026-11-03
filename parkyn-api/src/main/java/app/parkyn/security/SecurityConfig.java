@@ -16,6 +16,9 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,16 +34,12 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final RateLimitFilter rateLimitFilter;
-
-    // Connexion, rafraîchissement, inscription, vérification d'email et renvoi du lien : publics. JwtAuthFilter ignore un token envoyé avec eux
     static final String[] PUBLIC_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/register", "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification"};
-
-
     private final JwtAuthFilter jwtAuthFilter;
 
     @Value("${CORS_ALLOWED_ORIGINS:http://localhost:4200}")
     private String corsAllowedOrigins;
-
+    
     @Bean
     public PasswordEncoder passwordEncoder(
         @Value("${parkyn.security.argon2.memory-kib}") int memoryKib,
@@ -68,7 +67,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .spa()
+                .csrfTokenRepository(csrfTokenRepository())
+                .requireCsrfProtectionMatcher(
+                    PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/refresh"))
+            )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -79,7 +83,8 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(rateLimitFilter, JwtAuthFilter.class);
+            .addFilterBefore(rateLimitFilter, JwtAuthFilter.class)
+            .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 
         return http.build();
     }
@@ -97,4 +102,10 @@ public class SecurityConfig {
         return source;
     }
 
+    private CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookiePath("/");
+        repository.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Strict"));
+        return repository;
+    }
 }

@@ -7,10 +7,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +38,7 @@ import com.jayway.jsonpath.JsonPath;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.IntegrationTest;
+import app.parkyn.TestRequests;
 import app.parkyn.TestUsers;
 import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
@@ -47,21 +57,13 @@ public class RefreshCookieTest {
 
     private static final String EMAIL = "test@parkyn.app";
     private static final String PASSWORD = "Password123!";
-    // Même message pour tous les refus : le client ne doit pas savoir si le token a existé
     private static final String SESSION_EXPIRED = "Session expirée, veuillez vous reconnecter";
+    private static final Integer THREADS = 10;
 
     @BeforeEach
     void setUp() {
         new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
             .create(EMAIL, PASSWORD, User.Role.DRIVER);
-    }
-
-    private ResultActions login() throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + EMAIL + "\",\"password\":\"" + PASSWORD + "\"}"))
-                .andExpect(status().isOk())
-                ;
     }
 
     @Test 
@@ -90,6 +92,7 @@ public class RefreshCookieTest {
         assertNotNull(refreshCookie);
 
         MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .cookie(refreshCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.access_token").exists())
@@ -106,17 +109,19 @@ public class RefreshCookieTest {
 
     @Test
     public void refreshWithoutCookieIsRejected() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/refresh"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken()))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
     @Test 
     public void refreshWithUnknownCookieIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .cookie(new Cookie("refresh_token", "inconnu")))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
     @Test
@@ -129,10 +134,11 @@ public class RefreshCookieTest {
         refreshTokenRepository.save(refreshToken);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"refresh_token\":\"" + refreshToken.getToken() + "\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+                .content("{\"refresh_token\":\"" + refreshToken.getToken() + "\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
     @Test 
@@ -143,13 +149,15 @@ public class RefreshCookieTest {
         assertNotNull(refreshCookie);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-            .cookie(refreshCookie))
+                .with(TestRequests.csrfToken())
+                .cookie(refreshCookie))
             .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-            .cookie(refreshCookie))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+                .with(TestRequests.csrfToken())
+                .cookie(refreshCookie))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
     @Test
@@ -162,9 +170,10 @@ public class RefreshCookieTest {
         refreshTokenRepository.save(refreshToken);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .cookie(new Cookie("refresh_token", refreshToken.getToken())))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
     @Test 
@@ -178,14 +187,14 @@ public class RefreshCookieTest {
 
         mockMvc.perform(post("/api/v1/auth/logout")
                 .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNoContent())
-                .andExpect(cookie().exists("refresh_token"))
-                .andExpect(cookie().value("refresh_token", ""))
-                .andExpect(cookie().maxAge("refresh_token", 0))
-                .andExpect(cookie().path("refresh_token", "/api/v1/auth/refresh"))
-                .andExpect(cookie().httpOnly("refresh_token", true))
-                .andExpect(cookie().secure("refresh_token", true))
-                .andExpect(cookie().sameSite("refresh_token", "Strict"));
+            .andExpect(status().isNoContent())
+            .andExpect(cookie().exists("refresh_token"))
+            .andExpect(cookie().value("refresh_token", ""))
+            .andExpect(cookie().maxAge("refresh_token", 0))
+            .andExpect(cookie().path("refresh_token", "/api/v1/auth/refresh"))
+            .andExpect(cookie().httpOnly("refresh_token", true))
+            .andExpect(cookie().secure("refresh_token", true))
+            .andExpect(cookie().sameSite("refresh_token", "Strict"));
     }
 
     @Test 
@@ -199,12 +208,85 @@ public class RefreshCookieTest {
 
         mockMvc.perform(post("/api/v1/auth/logout")
                 .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNoContent());
+            .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
                 .cookie(refreshCookie))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().string(SESSION_EXPIRED));
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string(SESSION_EXPIRED));
     }
 
+    @Test
+    public void concurrentRefreshCookiesOnlyOneSucceeds() throws Exception {
+        User user = userRepository.findByEmail(EMAIL).orElseThrow();
+
+        // Token créé en base à chaque manche : pas de login, donc pas de limite de débit consommée
+        for (int round = 0; round < 10; round++) {
+            RefreshToken refreshToken = new RefreshToken();
+            refreshToken.setUser(user);
+            refreshToken.setToken(UUID.randomUUID().toString());
+            refreshToken.setExpiresAt(OffsetDateTime.now().plusDays(1));
+            refreshTokenRepository.save(refreshToken);
+            Cookie refreshCookie = new Cookie("refresh_token", refreshToken.getToken());
+
+            Integer activeBefore = activeRefreshTokens(user);
+
+            CountDownLatch ready = new CountDownLatch(THREADS);
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService executor = Executors.newFixedThreadPool(THREADS);
+            List<Future<Integer>> futures = new ArrayList<>();
+
+            try {
+                for (int i = 0; i < THREADS; i++) {
+                    futures.add(executor.submit(() -> {
+                        ready.countDown();
+                        assertTrue(start.await(5, TimeUnit.SECONDS), "Départ jamais donné");
+                        return mockMvc.perform(post("/api/v1/auth/refresh")
+                                .with(TestRequests.csrfToken())
+                                .cookie(refreshCookie))
+                            .andReturn()
+                            .getResponse()
+                            .getStatus();
+                    }));
+                }
+                assertTrue(ready.await(5, TimeUnit.SECONDS), "Threads jamais prêts");
+                start.countDown();
+
+                // Timeouts : un blocage (pool saturé, verrou) fait échouer le test au lieu de figer la suite
+                List<Integer> statuses = new ArrayList<>();
+                for (Future<Integer> future : futures) {
+                    statuses.add(future.get(10, TimeUnit.SECONDS));
+                }
+
+                long ok = statuses.stream().filter(status -> status == 200).count();
+                assertEquals(1, ok, () -> "Statuts : " + statuses);
+                assertEquals(THREADS - 1,
+                    statuses.stream().filter(status -> status == 401).count());
+
+                Integer activeAfter = activeRefreshTokens(user);
+                assertEquals(activeBefore, activeAfter,
+                    () -> "Tokens actifs avant/après : " + activeBefore + "/" + activeAfter);
+            } finally {
+                executor.shutdownNow();
+                executor.awaitTermination(5, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    // --- Helpers ---
+    private ResultActions login() throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + EMAIL + "\",\"password\":\"" + PASSWORD + "\"}"))
+            .andExpect(status().isOk());
+    }
+
+    private Integer activeRefreshTokens(User user) {
+        return jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM refresh_tokens "
+                + "WHERE user_id = ? AND revoked_at IS NULL",
+            Integer.class,
+            user.getId());
+    }
 }

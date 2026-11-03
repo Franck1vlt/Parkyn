@@ -7,7 +7,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import app.parkyn.repository.RoleRepository;
 import app.parkyn.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 

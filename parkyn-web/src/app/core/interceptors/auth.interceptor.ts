@@ -1,7 +1,7 @@
-import { HttpInterceptor, HttpInterceptorFn } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
-import { catchError, switchMap, throwError } from 'rxjs';
+import { catchError, map, of, switchMap, throwError } from 'rxjs';
 
 export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -18,23 +18,26 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
           !req.url.includes('/auth/refresh') &&
           !req.url.includes('/auth/logout')
         ) {
-          return authService.refresh().pipe(
-            switchMap((response) => {
-              const retryReq = req.clone({
-                headers: req.headers.set('Authorization', `Bearer ${response.access_token}`),
-              });
-              return next(retryReq);
-            }),
-            catchError(() => {
-              authService.logout();
-              return throwError(() => error);
-            }),
-          );
-        }
+          const currentToken = authService.getAccessToken();
+          const token$ =
+            currentToken && currentToken !== accessToken
+              ? of(currentToken)
+              : authService.refresh().pipe(
+                  map((response) => response.access_token),
+                  // Refresh refusé : l'appelant reçoit le 401 d'origine
+                  catchError(() => throwError(() => error)),
+                );
 
-        // Un logout refusé ne relance pas de logout : la session locale est déjà effacée par son finalize
-        if (error.status === 401 && !req.url.includes('/auth/logout')) {
-          authService.logout();
+          // L'erreur de la requête rejouée (409, 404…) remonte telle quelle
+          return token$.pipe(
+            switchMap((token) =>
+              next(
+                req.clone({
+                  headers: req.headers.set('Authorization', `Bearer ${token}`),
+                }),
+              ),
+            ),
+          );
         }
         return throwError(() => error);
       }),

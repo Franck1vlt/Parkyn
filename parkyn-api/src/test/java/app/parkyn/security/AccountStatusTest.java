@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import app.parkyn.IntegrationTest;
+import app.parkyn.TestRequests;
 import app.parkyn.TestUsers;
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.UserRequest;
@@ -158,9 +159,9 @@ public class AccountStatusTest {
         disable(user.getEmail());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+            .with(TestRequests.csrfToken())
             .cookie(new Cookie("refresh_token", refreshToken.getToken())))
             .andExpect(status().isUnauthorized())
-            // Même message qu'un token inconnu : le refus ne révèle pas le statut du compte
             .andExpect(content().string("Session expirée, veuillez vous reconnecter"));
     }
 

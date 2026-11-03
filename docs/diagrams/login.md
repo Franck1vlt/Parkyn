@@ -31,6 +31,8 @@ participant BDD
 
         API-->>Navigateur: Set-Cookie refresh_token
         Note right of Navigateur: HttpOnly<br/>Secure<br/>SameSite=Strict<br/>Path = /api/v1/auth/refresh<br/>Max-Age = durée du refresh token
+        API-->>Navigateur: Set-Cookie XSRF-TOKEN
+        Note right of Navigateur: Lisible par JavaScript (pas HttpOnly)<br/>Secure, SameSite=Strict, Path = /<br/>Angular le recopie dans X-XSRF-TOKEN au refresh
 
         API-->>Angular: 200 OK + access token (pas de refresh token dans le JSON)
         Angular->>Angular: Garde l'access token en mémoire (pas de localStorage)
@@ -41,4 +43,5 @@ participant BDD
 ## État de la mise en œuvre
 
 - **Fait (C1) :** cookie `refresh_token` posé au login avec ces attributs, corps sans refresh token.
+- **Fait (C2) :** cookie `XSRF-TOKEN` posé au login (`CsrfCookieFilter`). Le login lui-même n'est pas protégé par le CSRF : il exige un corps JSON (`415` sinon).
 - **Pas encore fait :** le token est stocké en clair dans `refresh_tokens` (hachage et `user_sessions` en C3) ; Angular garde encore l'access token dans `localStorage` (phase D).

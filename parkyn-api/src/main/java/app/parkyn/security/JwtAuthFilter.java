@@ -1,6 +1,5 @@
 package app.parkyn.security;
 
-import app.parkyn.service.PermissionService;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -14,7 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import app.parkyn.model.User;
-import io.jsonwebtoken.ExpiredJwtException;
+import app.parkyn.service.PermissionService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,7 +51,7 @@ public class JwtAuthFilter extends OncePerRequestFilter{
         String email;
         try {
             email = jwtService.extractUsername(token);
-        } catch (ExpiredJwtException e) {
+        } catch (JwtException | IllegalArgumentException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

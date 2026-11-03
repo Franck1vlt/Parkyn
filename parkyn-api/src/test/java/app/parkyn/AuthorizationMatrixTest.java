@@ -182,6 +182,7 @@ class AuthorizationMatrixTest {
 
         if (c.cookieOption() == CookieOption.REFRESH_TOKEN) {
             requestBuilder.cookie(refreshCookie);
+            requestBuilder.with(TestRequests.csrfToken());
         }
 
         if (c.actor() != Actor.ANONYMOUS) {
