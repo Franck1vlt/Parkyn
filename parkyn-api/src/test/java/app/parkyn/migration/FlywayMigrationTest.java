@@ -18,6 +18,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import app.parkyn.IntegrationTest;
+import app.parkyn.tenant.Tenants;
 
 @IntegrationTest
 class FlywayMigrationTest {
@@ -92,11 +93,13 @@ class FlywayMigrationTest {
     void expiredSessionIsRejected() {
         UUID userId = insertUser("test@parkyn.app");
 
-        assertThrows(DataIntegrityViolationException.class, () ->
+        // tenant_id fourni (NOT NULL depuis V18) : seule la contrainte de dates peut refuser l'insertion
+        DataIntegrityViolationException error = assertThrows(DataIntegrityViolationException.class, () ->
             jdbc.update(
-                "INSERT INTO user_sessions (user_id, refresh_token_hash, family_id, expires_at) "
-                    + "VALUES (?, ?, ?, NOW() - INTERVAL '1 day')",
-                userId, "hash-de-test", UUID.randomUUID()));
+                "INSERT INTO user_sessions (tenant_id, user_id, refresh_token_hash, family_id, expires_at) "
+                    + "VALUES (?, ?, ?, ?, NOW() - INTERVAL '1 day')",
+                Tenants.DEFAULT_ID, userId, "hash-de-test", UUID.randomUUID()));
+        assertTrue(error.getMessage().contains("chk_user_sessions_dates"), error.getMessage());
     }
 
     @Test

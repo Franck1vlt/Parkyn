@@ -18,10 +18,13 @@ import app.parkyn.dto.RegisterRequest;
 import app.parkyn.dto.ResendVerificationRequest;
 import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.User;
+import app.parkyn.security.ClientIpResolver;
 import app.parkyn.security.PublicEndpoint;
 import app.parkyn.security.RefreshTokenCookie;
 import app.parkyn.service.AuthService;
 import app.parkyn.service.AuthTokens;
+import app.parkyn.service.ClientInfo;
+import jakarta.servlet.http.HttpServletRequest;
 import app.parkyn.service.VerificationTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,11 +38,12 @@ public class AuthController {
     private final AuthService authService;
     private final VerificationTokenService verificationTokenService;
     private final RefreshTokenCookie refreshTokenCookie;
+    private final ClientIpResolver clientIpResolver;
 
     @PublicEndpoint 
     @PostMapping("/login") 
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request){
-        AuthTokens tokens = authService.login(request);
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest){
+        AuthTokens tokens = authService.login(request, clientInfo(httpRequest));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.create(tokens.refreshToken()).toString())
                 .body(tokens.body());
@@ -48,9 +52,10 @@ public class AuthController {
     @PublicEndpoint 
     @PostMapping("/refresh") 
     public ResponseEntity<LoginResponse> refreshToken(
-            @CookieValue(name = RefreshTokenCookie.NAME, required = false) String refreshToken
+            @CookieValue(name = RefreshTokenCookie.NAME, required = false) String refreshToken,
+            HttpServletRequest httpRequest
         ) {
-        AuthTokens tokens = authService.refresh(refreshToken);
+        AuthTokens tokens = authService.refresh(refreshToken, clientInfo(httpRequest));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.create(tokens.refreshToken()).toString())
                 .body(tokens.body());
@@ -91,5 +96,10 @@ public class AuthController {
         authService.resendVerification(request.email());
         return ResponseEntity.accepted().build();
     }
-    
+
+    // IP lue uniquement par ClientIpResolver (X-Real-IP cru seulement depuis un proxy de confiance)
+    private ClientInfo clientInfo(HttpServletRequest httpRequest) {
+        return new ClientInfo(httpRequest.getHeader(HttpHeaders.USER_AGENT), clientIpResolver.resolve(httpRequest));
+    }
+
 }

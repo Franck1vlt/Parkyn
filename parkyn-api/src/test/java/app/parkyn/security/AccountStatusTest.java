@@ -10,9 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.OffsetDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,13 +23,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import app.parkyn.IntegrationTest;
 import app.parkyn.TestRequests;
+import app.parkyn.TestSessions;
 import app.parkyn.TestUsers;
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.UserRequest;
 import app.parkyn.dto.UserUpdateRequest;
-import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
-import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
@@ -46,7 +43,6 @@ public class AccountStatusTest {
     @Autowired UserRepository userRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JwtService jwtService;
-    @Autowired RefreshTokenRepository refreshTokenRepository;
 
     private TestUsers testUsers;
 
@@ -150,17 +146,13 @@ public class AccountStatusTest {
     @Test
     void refreshOfDisabledAccountIsRefused() throws Exception {
         User user = testUsers.create(LOGIN_EMAIL, LOGIN_PASSWORD, User.Role.ADMIN);
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiresAt(OffsetDateTime.now().plusDays(1));
-        refreshTokenRepository.saveAndFlush(refreshToken);
+        String refreshToken = new TestSessions(jdbcTemplate).create(user);
 
         disable(user.getEmail());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
             .with(TestRequests.csrfToken())
-            .cookie(new Cookie("refresh_token", refreshToken.getToken())))
+            .cookie(new Cookie("refresh_token", refreshToken)))
             .andExpect(status().isUnauthorized())
             .andExpect(content().string("Session expirée, veuillez vous reconnecter"));
     }

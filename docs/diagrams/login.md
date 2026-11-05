@@ -44,4 +44,5 @@ participant BDD
 
 - **Fait (C1) :** cookie `refresh_token` posé au login avec ces attributs, corps sans refresh token.
 - **Fait (C2) :** cookie `XSRF-TOKEN` posé au login (`CsrfCookieFilter`). Le login lui-même n'est pas protégé par le CSRF : il exige un corps JSON (`415` sinon).
-- **Pas encore fait :** le token est stocké en clair dans `refresh_tokens` (hachage et `user_sessions` en C3) ; Angular garde encore l'access token dans `localStorage` (phase D).
+- **Fait (C3) :** le login crée une `user_session` (empreinte SHA-256 du token, nouvelle famille, user agent, IP via `ClientIpResolver`, tenant de l'utilisateur).
+- **Pas encore fait :** Angular garde encore l'access token dans `localStorage` (phase D).

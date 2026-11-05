@@ -28,7 +28,10 @@ participant BDD
     alt Token inexistant
         API-->>Angular: 401 Unauthorized
         Angular-->>Navigateur: Session invalide → reconnexion
-    else Token déjà révoqué / déjà utilisé
+    else Token déjà révoqué, moins de 10 s après la rotation
+        Note right of API: Période de grâce (parkyn.session.reuse-grace) :<br/>course légitime (deux onglets), la famille reste active
+        API-->>Angular: 401 Unauthorized
+    else Token déjà révoqué, plus de 10 s après la rotation
         API->>BDD: Révoque toutes les sessions de la même famille
         Note right of API: Réutilisation d'un refresh token déjà tourné<br/>→ vol possible, on coupe toute la chaîne
         API-->>Angular: 401 Unauthorized
@@ -65,7 +68,8 @@ Tous les `401` ont le même corps (« Session expirée, veuillez vous reconnecte
 
 - **Fait (C1) :** le token est lu dans le cookie uniquement (cookie absent = même `401`, token dans le corps ignoré) ; rotation avec révocation de l'ancien token et nouveau `Set-Cookie` ; refus uniformes.
 - **Fait (C2) :** protection CSRF par double-submit (`403` sans en-tête ou avec une valeur fausse) ; révocation atomique de l'ancien token (`revokeIfActive`), un seul refresh réussit parmi des requêtes simultanées ; côté Angular, refresh partagé, rejeu sans refresh si le token a déjà changé, un seul logout en cas d'échec.
-- **Pas encore fait (C3) :** hachage, `user_sessions`, familles et révocation de toute la famille en cas de réutilisation. Aujourd'hui, un token réutilisé est simplement refusé, et un token expiré ou d'un compte désactivé n'est pas révoqué en base. Le diagramme montre la cible : la table est encore `refresh_tokens`.
+- **Fait (C3) :** `user_sessions` (empreinte SHA-256 seulement, token de 256 bits), rotation dans la même famille, session expirée ou compte non actif révoqué en base avant le `401` (`noRollbackFor = SessionRejectedException.class`), révocation de toute la famille en cas de réutilisation au-delà de la période de grâce (10 s). `refresh_tokens` n'est plus utilisée.
+- **Limite connue (grâce) :** si un voleur fait la rotation avant l'utilisateur et que celui-ci représente l'ancien token dans les 10 s, la famille n'est pas révoquée et le voleur garde son nouveau token. Grâce à retirer quand Angular aura un verrou entre onglets (phase D).
 
 # Séquence : logout
 
@@ -81,7 +85,7 @@ participant BDD
     Note right of Navigateur: Le cookie refresh_token n'est pas envoyé<br/>(Path = /api/v1/auth/refresh)
 
     alt Access token valide
-        API->>BDD: Révoque tous les refresh tokens de l'utilisateur
+        API->>BDD: Révoque toutes les sessions de l'utilisateur (tous ses appareils)
         API-->>Navigateur: 204 + Set-Cookie refresh_token= #59; Max-Age=0
         Note right of Navigateur: Mêmes attributs et même Path :<br/>le navigateur supprime le cookie
     else Access token expiré ou absent

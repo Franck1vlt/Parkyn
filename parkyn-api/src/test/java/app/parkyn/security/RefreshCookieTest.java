@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,11 +35,10 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.jayway.jsonpath.JsonPath;
 
 import app.parkyn.repository.UserRepository;
-import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.IntegrationTest;
 import app.parkyn.TestRequests;
+import app.parkyn.TestSessions;
 import app.parkyn.TestUsers;
-import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
 import jakarta.servlet.http.Cookie;
 
@@ -50,10 +48,11 @@ public class RefreshCookieTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired PasswordEncoder passwordEncoder;
     @Value("${jwt.refresh-expiration-days}") long refreshDays;
+
+    private TestSessions testSessions;
 
     private static final String EMAIL = "test@parkyn.app";
     private static final String PASSWORD = "Password123!";
@@ -64,6 +63,7 @@ public class RefreshCookieTest {
     void setUp() {
         new TestUsers(userRepository, jdbcTemplate, passwordEncoder)
             .create(EMAIL, PASSWORD, User.Role.DRIVER);
+        testSessions = new TestSessions(jdbcTemplate);
     }
 
     @Test 
@@ -127,16 +127,12 @@ public class RefreshCookieTest {
     @Test
     public void refreshTokenInBodyIsIgnored() throws Exception {
         User user = userRepository.findByEmail(EMAIL).orElseThrow();
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiresAt(OffsetDateTime.now().plusSeconds(86400));
-        refreshTokenRepository.save(refreshToken);
+        String refreshToken = testSessions.create(user);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                 .with(TestRequests.csrfToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + refreshToken.getToken() + "\"}"))
+                .content("{\"refresh_token\":\"" + refreshToken + "\"}"))
             .andExpect(status().isUnauthorized())
             .andExpect(content().string(SESSION_EXPIRED));
     }
@@ -163,15 +159,11 @@ public class RefreshCookieTest {
     @Test
     public void expiredRefreshCookieIsRejected() throws Exception {
         User user = userRepository.findByEmail(EMAIL).orElseThrow();
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
-        refreshTokenRepository.save(refreshToken);
+        String refreshToken = testSessions.create(user, OffsetDateTime.now().minusMinutes(1));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                 .with(TestRequests.csrfToken())
-                .cookie(new Cookie("refresh_token", refreshToken.getToken())))
+                .cookie(new Cookie("refresh_token", refreshToken)))
             .andExpect(status().isUnauthorized())
             .andExpect(content().string(SESSION_EXPIRED));
     }
@@ -217,20 +209,41 @@ public class RefreshCookieTest {
             .andExpect(content().string(SESSION_EXPIRED));
     }
 
+    // Le logout déconnecte tous les appareils : une autre famille de sessions est aussi révoquée
+    @Test
+    public void logoutRevokesAllSessions() throws Exception {
+        User user = userRepository.findByEmail(EMAIL).orElseThrow();
+        Cookie otherDevice = new Cookie("refresh_token", testSessions.create(user));
+
+        MvcResult loginResult = login().andReturn();
+        Cookie refreshCookie = loginResult.getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie);
+        String accessToken = JsonPath.read(
+            loginResult.getResponse().getContentAsString(), "$.access_token");
+        assertEquals(2, activeSessions(user));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isNoContent());
+
+        assertEquals(0, activeSessions(user));
+        for (Cookie cookie : List.of(refreshCookie, otherDevice)) {
+            mockMvc.perform(post("/api/v1/auth/refresh")
+                    .with(TestRequests.csrfToken())
+                    .cookie(cookie))
+                .andExpect(status().isUnauthorized());
+        }
+    }
+
     @Test
     public void concurrentRefreshCookiesOnlyOneSucceeds() throws Exception {
         User user = userRepository.findByEmail(EMAIL).orElseThrow();
 
         // Token créé en base à chaque manche : pas de login, donc pas de limite de débit consommée
         for (int round = 0; round < 10; round++) {
-            RefreshToken refreshToken = new RefreshToken();
-            refreshToken.setUser(user);
-            refreshToken.setToken(UUID.randomUUID().toString());
-            refreshToken.setExpiresAt(OffsetDateTime.now().plusDays(1));
-            refreshTokenRepository.save(refreshToken);
-            Cookie refreshCookie = new Cookie("refresh_token", refreshToken.getToken());
+            Cookie refreshCookie = new Cookie("refresh_token", testSessions.create(user));
 
-            Integer activeBefore = activeRefreshTokens(user);
+            Integer activeBefore = activeSessions(user);
 
             CountDownLatch ready = new CountDownLatch(THREADS);
             CountDownLatch start = new CountDownLatch(1);
@@ -264,7 +277,7 @@ public class RefreshCookieTest {
                 assertEquals(THREADS - 1,
                     statuses.stream().filter(status -> status == 401).count());
 
-                Integer activeAfter = activeRefreshTokens(user);
+                Integer activeAfter = activeSessions(user);
                 assertEquals(activeBefore, activeAfter,
                     () -> "Tokens actifs avant/après : " + activeBefore + "/" + activeAfter);
             } finally {
@@ -282,9 +295,9 @@ public class RefreshCookieTest {
             .andExpect(status().isOk());
     }
 
-    private Integer activeRefreshTokens(User user) {
+    private Integer activeSessions(User user) {
         return jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens "
+            "SELECT COUNT(*) FROM user_sessions "
                 + "WHERE user_id = ? AND revoked_at IS NULL",
             Integer.class,
             user.getId());

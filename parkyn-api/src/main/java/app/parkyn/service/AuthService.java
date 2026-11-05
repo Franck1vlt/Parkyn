@@ -1,5 +1,6 @@
 package app.parkyn.service;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -19,12 +20,14 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RegisterRequest;
 import app.parkyn.email.EmailRequest;
-import app.parkyn.model.RefreshToken;
+import app.parkyn.exception.SessionRejectedException;
 import app.parkyn.model.User;
-import app.parkyn.repository.RefreshTokenRepository;
+import app.parkyn.model.UserSession;
 import app.parkyn.repository.UserRepository;
+import app.parkyn.repository.UserSessionRepository;
 import app.parkyn.security.JwtService;
 import app.parkyn.security.RateLimiter;
+import app.parkyn.security.SessionTokens;
 import app.parkyn.tenant.Tenants;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +37,7 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final UserSessionRepository userSessionRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final RoleAssignmentService roleAssignmentService;
@@ -51,73 +54,85 @@ public class AuthService {
     @Value("${jwt.expiration-ms}")
     private long accessExpirationMs;
 
+    @Value("${parkyn.session.reuse-grace}")
+    private Duration reuseGrace;
+
     @Value("${parkyn.frontend-url}")
     private String frontendUrl;
 
     @Transactional
-    public AuthTokens login(LoginRequest request) {
+    public AuthTokens login(LoginRequest request, ClientInfo client) {
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
         User user = userRepository.findByEmail(User.normalizeEmail(request.email())).orElseThrow();
 
-        String accessToken = jwtService.generateToken(user);
-        String rawRefresh = UUID.randomUUID().toString();
-
-        RefreshToken rt = new RefreshToken();
-        rt.setUser(user);
-        rt.setToken(rawRefresh);
-        rt.setExpiresAt(OffsetDateTime.now().plusDays(refreshExpirationDays));
-        refreshTokenRepository.save(rt);
-
-        OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
-        LoginResponse body = new LoginResponse(accessToken, accessExpiredAt, rt.getExpiresAt());
-        return new AuthTokens(body, rawRefresh);
+        // Chaque login ouvre une nouvelle famille de sessions
+        return openSession(user, UUID.randomUUID(), client);
     }
 
-    @Transactional
-    public AuthTokens refresh(String refreshToken) {
+    // SessionRejectedException : refus après révocation, la transaction est validée (pas de rollback)
+    @Transactional(noRollbackFor = SessionRejectedException.class)
+    public AuthTokens refresh(String refreshToken, ClientInfo client) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
-        RefreshToken stored = refreshTokenRepository.findByToken(refreshToken)
+        UserSession stored = userSessionRepository.findByRefreshTokenHash(SessionTokens.hash(refreshToken))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED));
 
-        if (stored.getRevokedAt() != null || stored.getExpiresAt().isBefore(OffsetDateTime.now())) {
+        // Token déjà consommé. Juste après la rotation : course légitime (deux onglets), refus simple.
+        // Au-delà de la grâce : token probablement volé, toute la famille est révoquée (voleur et utilisateur)
+        if (stored.getRevokedAt() != null) {
+            if (stored.getRevokedAt().isBefore(OffsetDateTime.now().minus(reuseGrace))) {
+                userSessionRepository.revokeFamily(stored.getFamilyId(), OffsetDateTime.now());
+                throw new SessionRejectedException(SESSION_EXPIRED);
+            }
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
-        // Un compte désactivé ou en attente de vérification n'obtient plus de nouvel access token
-        if (!stored.getUser().isEnabled()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
+        // Session expirée, ou compte désactivé ou en attente de vérification : session révoquée, puis refus
+        User user = stored.getUser();
+        if (stored.getExpiresAt().isBefore(OffsetDateTime.now()) || !user.isEnabled()) {
+            userSessionRepository.revokeIfActive(stored.getId(), OffsetDateTime.now());
+            throw new SessionRejectedException(SESSION_EXPIRED);
         }
 
-        // Usage unique : seule la requête qui révoque le token obtient une nouvelle session.
+        // Usage unique : seule la requête qui révoque la session obtient la suivante.
         // UPDATE en masse : l'entité stored garde revokedAt = null en mémoire. Ne plus la modifier
         // ensuite, sinon Hibernate réécrirait revoked_at = null au commit et annulerait la révocation.
-        if (refreshTokenRepository.revokeIfActive(stored.getId(), OffsetDateTime.now()) == 0) {
+        if (userSessionRepository.revokeIfActive(stored.getId(), OffsetDateTime.now()) == 0) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, SESSION_EXPIRED);
         }
 
-        String newAccess = jwtService.generateToken(stored.getUser());
-        String newRaw = UUID.randomUUID().toString();
-
-        RefreshToken newRt = new RefreshToken();
-        newRt.setUser(stored.getUser());
-        newRt.setToken(newRaw);
-        newRt.setExpiresAt(OffsetDateTime.now().plusDays(refreshExpirationDays));
-        refreshTokenRepository.save(newRt);
-
-        OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
-        LoginResponse body = new LoginResponse(newAccess, accessExpiredAt, newRt.getExpiresAt());
-        return new AuthTokens(body, newRaw);
+        return openSession(user, stored.getFamilyId(), client);
     }
 
+    // Déconnecte l'utilisateur de tous ses appareils (choix « cette session seulement » : C4)
     @Transactional
     public void logout(User user) {
-        refreshTokenRepository.findByUserAndRevokedAtIsNull(user)
-            .forEach(rt -> rt.setRevokedAt(OffsetDateTime.now()));
+        userSessionRepository.findByUserAndRevokedAtIsNull(user)
+            .forEach(session -> session.setRevokedAt(OffsetDateTime.now()));
+    }
+
+    // Login et refresh hors connexion (contexte ROOT) : le tenant de la session est fixé ici
+    private AuthTokens openSession(User user, UUID familyId, ClientInfo client) {
+        String rawRefresh = SessionTokens.generate();
+
+        UserSession session = new UserSession();
+        session.setTenantId(user.getTenantId());
+        session.setUser(user);
+        session.setRefreshTokenHash(SessionTokens.hash(rawRefresh));
+        session.setFamilyId(familyId);
+        session.setUserAgent(truncate(client.userAgent(), UserSession.USER_AGENT_MAX_LENGTH));
+        session.setIp(client.ip());
+        session.setExpiresAt(OffsetDateTime.now().plusDays(refreshExpirationDays));
+        userSessionRepository.save(session);
+
+        String accessToken = jwtService.generateToken(user);
+        OffsetDateTime accessExpiredAt = OffsetDateTime.now().plusNanos(accessExpirationMs * 1_000_000L);
+        LoginResponse body = new LoginResponse(accessToken, accessExpiredAt, session.getExpiresAt());
+        return new AuthTokens(body, rawRefresh);
     }
 
     @Transactional
@@ -181,6 +196,11 @@ public class AuthService {
 
     public MeResponse me(User user) {
         return MeResponse.from(user);
+    }
+
+    // En-tête choisi par le client : tronqué à la taille de la colonne plutôt qu'un 500 au login
+    private static String truncate(String value, int maxLength) {
+        return value == null || value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
 }

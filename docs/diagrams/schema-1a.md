@@ -76,6 +76,7 @@ erDiagram
 
     user_sessions {
         UUID id PK
+        UUID tenant_id FK "V18"
         UUID user_id FK
         VARCHAR refresh_token_hash UK
         UUID family_id "révocation en chaîne"
@@ -90,6 +91,7 @@ erDiagram
     tenants ||--o{ users : "contient"
     users ||--o{ verification_tokens : "possède"
     users ||--o{ user_sessions : "possède"
+    tenants ||--o{ user_sessions : "contient"
 ```
 
 Contraintes et index :
@@ -99,7 +101,8 @@ Contraintes et index :
 - **Conversion :** `is_active = TRUE` donne `ACTIVE`, `is_active = FALSE` donne `DISABLED`, et tout utilisateur sans email devient `DISABLED`.
 - **Sessions :** index sur `(user_id, revoked_at)` et sur `family_id`.
 - **Rôles :** index inverse `(role_id, user_id)` sur `user_roles`, pour lister les utilisateurs d'un rôle.
-- **Anciennes sessions :** les lignes de `refresh_tokens` ne sont pas migrées. Les utilisateurs se reconnectent au déploiement, et la table est supprimée au Contract.
+- **Sessions et tenant :** `tenant_id` ajouté en V18, `NOT NULL` sans `DEFAULT` (table jamais remplie avant), clé étrangère vers `tenants` sans cascade, index sur `tenant_id`.
+- **Anciennes sessions :** les lignes de `refresh_tokens` ne sont pas migrées. Les utilisateurs se reconnectent au déploiement, et la table est supprimée au Contract. Si des sessions existent en production au déploiement de C3 : cohabitation temporaire (voir la checklist du lot).
 
 # Ressources métier
 

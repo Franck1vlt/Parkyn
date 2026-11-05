@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.OffsetDateTime;
 import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.Map;
@@ -33,9 +32,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import app.parkyn.dto.LoginRequest;
 import app.parkyn.dto.ResendVerificationRequest;
 import app.parkyn.dto.VerifyEmailRequest;
-import app.parkyn.model.RefreshToken;
 import app.parkyn.model.User;
-import app.parkyn.repository.RefreshTokenRepository;
 import app.parkyn.repository.UserRepository;
 import app.parkyn.security.JwtService;
 import tools.jackson.databind.ObjectMapper;
@@ -47,7 +44,6 @@ class AuthorizationMatrixTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository userRepository;
-    @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired JwtService jwtService;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -87,7 +83,6 @@ class AuthorizationMatrixTest {
     private static final String AGENT_EMAIL = "agent@parkyn.app";
     private static final String DRIVER_EMAIL = "driver@parkyn.app";
     private static final String LOGIN_PASSWORD = "Password123!";
-    private static final String REFRESH_TOKEN = UUID.randomUUID().toString();
     private static final String VERIFICATION_TOKEN = "x".repeat(43);
 
     @BeforeEach
@@ -101,12 +96,7 @@ class AuthorizationMatrixTest {
         tokens.put(Actor.ADMIN, jwtService.generateToken(admin));
         tokens.put(Actor.AGENT, jwtService.generateToken(agent));
         tokens.put(Actor.DRIVER, jwtService.generateToken(driver));
-        RefreshToken rt = new RefreshToken();
-        rt.setUser(admin);
-        rt.setToken(REFRESH_TOKEN);
-        rt.setExpiresAt(OffsetDateTime.now().plusDays(1));
-        refreshTokenRepository.saveAndFlush(rt);
-        refreshCookie = new Cookie("refresh_token", REFRESH_TOKEN);
+        refreshCookie = new Cookie("refresh_token", new TestSessions(jdbcTemplate).create(admin));
 
         jdbcTemplate.update("""
             INSERT INTO verification_tokens (user_id, token_hash, expires_at, created_at)
