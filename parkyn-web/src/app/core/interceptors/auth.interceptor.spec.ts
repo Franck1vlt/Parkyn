@@ -118,6 +118,33 @@ describe('AuthInterceptor', () => {
     expect(errors[0].status).toBe(409);
   });
 
+  // Sans token : pas d'en-tête Authorization et le 401 remonte sans refresh
+  // (comportement actuel ; D1 le changera pour retrouver la session après un rechargement)
+  it('sends no Authorization header and does not refresh without a token', () => {
+    localStorage.removeItem('parkyn_access_token');
+    const errors: any[] = [];
+    const url = '/api/v1/a';
+
+    const request = getRequest(url, undefined, (error) => errors.push(error));
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(`${environment.apiUrl}/auth/refresh`);
+    expect(errors.map((e) => e.status)).toEqual([401]);
+  });
+
+  // Un 401 au login (mauvais identifiants) ne déclenche jamais de refresh, même avec un ancien token
+  it('never refreshes on a 401 from the login', () => {
+    const errors: any[] = [];
+    const loginUrl = `${environment.apiUrl}/auth/login`;
+
+    http.post(loginUrl, {}).subscribe({ error: (error) => errors.push(error) });
+    httpMock.expectOne(loginUrl).flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(`${environment.apiUrl}/auth/refresh`);
+    expect(errors.map((e) => e.status)).toEqual([401]);
+  });
+
   // --- Helpers ---
   function getRequest(url: string, responses?: any[], onError?: (error: any) => void): TestRequest {
     http.get(url).subscribe({

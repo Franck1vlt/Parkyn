@@ -2,6 +2,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { catchError, map, of, switchMap, throwError } from 'rxjs';
+import { isPublicAuthEndpoint } from './public-endpoints';
 
 export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -13,9 +14,10 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
     });
     return next(authReq).pipe(
       catchError((error) => {
+        // Logout exclu tant que D1 n'a pas tranché « refresh puis rejeu du logout »
         if (
           error.status === 401 &&
-          !req.url.includes('/auth/refresh') &&
+          !isPublicAuthEndpoint(req.url) &&
           !req.url.includes('/auth/logout')
         ) {
           const currentToken = authService.getAccessToken();
