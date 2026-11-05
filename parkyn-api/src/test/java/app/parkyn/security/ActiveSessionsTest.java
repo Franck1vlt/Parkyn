@@ -310,7 +310,7 @@ public class ActiveSessionsTest {
     public void logoutWithCookieOnlyIsRefused() throws Exception {
         Device laptop = loginWith(EMAIL, "Laptop");
 
-        logout(new Device(laptop.cookie(), null, null)).andExpect(status().isForbidden());
+        logout(new Device(laptop.cookie(), null, null)).andExpect(status().isUnauthorized());
 
         assertEquals(1, activeSessionsInFamily(laptop.cookie()));
     }

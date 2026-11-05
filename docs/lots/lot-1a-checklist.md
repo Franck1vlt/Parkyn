@@ -25,7 +25,7 @@
 - [x] A2 Migrations Flyway V5 à V10 (`tenants`, `roles`, `permissions`, `role_permissions`, `user_roles`, `verification_tokens`, `user_sessions`, colonnes `tenant_id`, `status`, `created_by`, `updated_by`, emails normalisés)
 - [x] A3 Rôles et permissions (`hasRole` → `hasAuthority`, tests adaptés). La matrice est repassée à l'identique ; les 8 changements de comportement sont documentés dans la matrice
 - [x] A3+ Tenant : `@TenantId` d'Hibernate sur `User`, `Vehicle`, `Reservation`, `Notification` (filtre automatique de toutes les requêtes, `findById` compris, et tenant renseigné à l'insertion). `CurrentTenantResolver` : tenant de l'utilisateur connecté, contexte racine sans filtre hors connexion (connexion, inscription, traitement planifié), exception dans tout autre cas. Inscription rattachée au tenant par défaut, traitement planifié exécuté tenant par tenant (`TenantContext`). Autre tenant = `404`, comme un id inexistant. Preuves : `TenantIsolationTest`, `CurrentTenantResolverTest`
-- [ ] A3+ Portée `own` / `all` : `ReservationScope` (filtre dans la requête, 404 hors portée) et espace réservations du DRIVER (voir « Tests de portée »)
+- [x] A3+ Portée `own` / `all` : `ReservationScope` (filtre dans la requête, 404 hors portée) et espace réservations du DRIVER (voir « Tests de portée »)
 - [x] A4 Hachage Argon2id : `DelegatingPasswordEncoder` (Argon2id par défaut, hash sans préfixe = BCrypt), conversion à la connexion via `UserDetailsPasswordService`, paramètres OWASP configurables (`parkyn.security.argon2.*`), `PasswordHashingTest`
 
 ## Phase B : inscription et emails
@@ -133,8 +133,8 @@
 - [ ] `updateUserById` : vérifier qu'un nouvel email n'est pas déjà pris, avec `existsByEmailInAnyTenant` (409 au lieu de 500)
 - [ ] Ajouter un test du tableau de bord (`DashboardService`), absent de la suite
 - [ ] `DashboardService` : `@Transactional` sur une méthode privée, sans effet
-- [ ] Supprimer le dernier `System.out.println` (`UserDetailsServiceImpl` : email à chaque requête). Ceux de `JwtAuthFilter`, dont le token, sont retirés
-- [ ] Anonyme : renvoyer `401` plutôt que `403` (`authenticationEntryPoint`, phase C)
+- [x] Supprimer le dernier `System.out.println` (`UserDetailsServiceImpl` : email à chaque requête). Ceux de `JwtAuthFilter`, dont le token, sont retirés. Constaté le 2026-11-05 : plus aucun `System.out` dans `src/main`
+- [x] Anonyme : renvoyer `401` plutôt que `403`. Fait le 2026-11-05 : `authenticationEntryPoint` (`HttpStatusEntryPoint`) ; un utilisateur connecté sans permission et le refus CSRF restent en `403`. `AuthorizationMatrixTest` attend `401` pour l'anonyme refusé
 - [ ] Séparer tests unitaires et d'intégration (Surefire / Failsafe) avec la CI (E2)
 - [ ] Invitations de conducteurs dans le tenant de leur entreprise (lot 4, nouvel ADR)
 - [ ] Requêtes SQL natives : non filtrées par `@TenantId`. Toute nouvelle `nativeQuery` doit filtrer `tenant_id` elle-même ; seule exception voulue : `existsByEmailInAnyTenant` (emails uniques dans toute l'application). Row-Level Security PostgreSQL en défense en profondeur au lot 4
@@ -183,8 +183,8 @@
 - [ ] Frontend (audit des tests) : 14 specs générées par `ng generate` (`should create`) échouent depuis leur création, faute de providers (`HttpClient`, `ActivatedRoute`…) ; `app.spec.ts` attend encore « Hello, parkyn-web ». `npx ng test` complet est donc rouge, et peut planter (`Unhandled 'error' event`) quand Docker occupe la mémoire. Fournir les providers ou remplacer par de vrais tests
 - [ ] Frontend : `npx prettier --check src` signale presque tous les fichiers à cause des fins de ligne (`core.autocrlf=true` écrit en CRLF, Prettier attend LF). Choisir : `.gitattributes` (`* text=auto eol=lf`) ou `endOfLine: "auto"` dans la config Prettier. Hors fins de ligne, 3 fichiers de `core/` restent mal formatés (`header.component.ts`, `toast.component.spec.ts`…)
 - [ ] Tests API : avec la suite complète, Surefire signale « Surefire is going to kill self fork JVM. The exit has elapsed 30 seconds after System.exit(0) » (pas avec un seul test). Fermeture lente des nombreux contextes Spring en cache (pools Hikari, exécuteurs, Testcontainers), probablement aggravée par la mémoire (5,8 Go). Résultats non affectés. Si ça persiste : `jstack` sur le fork pendant l'attente
-- [ ] `JwtAuthFilter` : un JWT valide pour un utilisateur supprimé lève `UsernameNotFoundException` hors du `try` (à vérifier : `500` probable). Test : token signé correctement pour un email inconnu → `401`
-- [ ] Contrat des refus d'authentification hétérogène : `401` sans corps dans `JwtAuthFilter` (token invalide), `401` avec « Session expirée… » au refresh, `403` pour un appel anonyme (pas d'`AuthenticationEntryPoint`). Le front ne regarde que le statut. Unifier plus tard avec un `AuthenticationEntryPoint` commun
+- [x] `JwtAuthFilter` : un JWT valide pour un utilisateur supprimé levait `UsernameNotFoundException` hors du `try` (`500` confirmé par le test rouge). Corrigé le 2026-11-05 : même `401` qu'un token invalide (`JwtAuthFilterTest.validTokenOfUnknownUserIsUnauthorized`)
+- [ ] Contrat des refus d'authentification hétérogène : `401` sans corps dans `JwtAuthFilter` (token invalide ou compte inconnu) et dans le point d'entrée (anonyme), `401` avec « Session expirée… » au refresh. Le statut est désormais cohérent (`401` partout depuis le 2026-11-05), seul le corps diffère. Le front ne regarde que le statut. Unifier le corps plus tard si besoin
 - [ ] `jwt.refresh-expiration-days` et `jwt.expiration-ms` ne sont pas sous le préfixe `parkyn.*`. Renommer plus tard (variables d'environnement à suivre)
 - [x] Frontend sous Docker : le build de production gardait `environment.ts` (`http://localhost:8080`, port non publié depuis B0) faute de `fileReplacements` dans `angular.json`. Corrigé : `environment.prod.ts` (`/api/v1`, même origine, via nginx)
 
@@ -192,7 +192,7 @@
 
 - [x] DRIVER liste ses réservations : seulement les siennes
 - [x] DRIVER demande la réservation d'un autre : 404
-- [ ] AGENT liste : voit les deux DRIVER, pas l'autre tenant
+- [x] AGENT liste : voit les deux DRIVER, pas l'autre tenant (`ReservationScopeTest.agentSeesBothDriversButNotOtherTenant`, test de caractérisation vert d'emblée, vérifié par mutation : un tenant étranger replacé dans le tenant par défaut donne 4 réservations au lieu de 3)
 - [x] AGENT modifie la réservation d'un DRIVER : succès, `updated_by` renseigné
 - [x] Identifiant inexistant et identifiant d'autrui : réponses identiques
 - [x] DRIVER modifie sa réservation avant le début : succès ; après le début : refusé

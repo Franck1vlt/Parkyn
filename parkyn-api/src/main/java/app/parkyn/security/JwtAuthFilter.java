@@ -8,6 +8,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -57,7 +58,14 @@ public class JwtAuthFilter extends OncePerRequestFilter{
         }
 
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            UserDetails userDetails;
+            try {
+                userDetails = userDetailsService.loadUserByUsername(email);
+            } catch (UsernameNotFoundException e) {
+                // Compte supprimé ou email modifié depuis l'émission du token : même 401 qu'un token invalide
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
             boolean valid = jwtService.isTokenValid(token, userDetails);
             if (valid && userDetails.isEnabled()) {
                 User user = (User) userDetails;

@@ -94,7 +94,7 @@ participant BDD
         API-->>Navigateur: 204 + Set-Cookie refresh_token= #59; Max-Age=0
         Note right of Navigateur: Mêmes attributs et même Path :<br/>le navigateur supprime le cookie
     else Access token expiré ou absent
-        API-->>Angular: 401 ou 403, rien n'est révoqué
+        API-->>Angular: 401, rien n'est révoqué
         Note right of Angular: Phase D : refresh puis rejeu du logout<br/>(aujourd'hui /auth/logout est exclu du refresh)
     end
 

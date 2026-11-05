@@ -9,7 +9,8 @@
 | Valeur | Signification |
 | ------ | ------------- |
 | `OK`   | La sécurité laisse passer : statut ni 400, ni 401, ni 403 (un 404 sur un id inexistant compte comme OK) |
-| `403`  | Refusé par la sécurité, que l'appelant soit authentifié ou anonyme (voir « Écarts mesurés ») |
+| `403`  | Refusé par la sécurité à un utilisateur connecté (permission manquante) |
+| `401`  | Refusé par la sécurité à un anonyme (depuis le 2026-11-05 ; `403` avant, voir « Écarts mesurés ») |
 
 Résultat de la première exécution : 104 cas, tous conformes à cette matrice. Les lignes 27 à 31 ont été ajoutées ensuite (nouveaux endpoints).
 
@@ -21,39 +22,39 @@ Résultat de la première exécution : 104 cas, tous conformes à cette matrice.
 | 1                 | POST    | `/api/v1/auth/login`               | `LoginRequest`         | OK    | OK    | OK     | OK      | aucune (public) |
 | 2                 | POST    | `/api/v1/auth/refresh`             | cookie `refresh_token` | OK    | OK    | OK     | OK      | aucune (public) |
 | 3                 | POST    | `/api/v1/auth/register`            | `RegisterRequest`      | OK    | OK    | OK     | OK      | aucune (public) |
-| 4                 | POST    | `/api/v1/auth/logout`              | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
-| 5                 | GET     | `/api/v1/auth/me`                  | -                      | OK    | OK    | OK     | `403`      | `isAuthenticated()` |
+| 4                 | POST    | `/api/v1/auth/logout`              | -                      | OK    | OK    | OK     | `401`      | `isAuthenticated()` |
+| 5                 | GET     | `/api/v1/auth/me`                  | -                      | OK    | OK    | OK     | `401`      | `isAuthenticated()` |
 | 30                | POST    | `/api/v1/auth/verify-email`        | `VerifyEmailRequest`   | OK    | OK    | OK     | OK      | aucune (public) |
 | 31                | POST    | `/api/v1/auth/resend-verification` | `ResendVerificationRequest` | OK | OK  | OK     | OK      | aucune (public) |
 | **Dashboard**     |
-| 6                 | GET     | `/api/v1/dashboard`                | -                      | OK    | OK    | `403`     | `403`      | `dashboard:read:all` |
+| 6                 | GET     | `/api/v1/dashboard`                | -                      | OK    | OK    | `403`     | `401`      | `dashboard:read:all` |
 | **Notifications** |
-| 7                 | GET     | `/api/v1/notifications`            | -                      | OK    | OK    | OK     | `403`      | `notification:read:own` |
-| 8                 | PATCH   | `/api/v1/notifications/{id}/read`  | -                      | OK    | OK    | OK     | `403`      | `notification:read:own` |
-| 9                 | PATCH   | `/api/v1/notifications/read-all`   | -                      | OK    | OK    | OK     | `403`      | `notification:read:own` |
+| 7                 | GET     | `/api/v1/notifications`            | -                      | OK    | OK    | OK     | `401`      | `notification:read:own` |
+| 8                 | PATCH   | `/api/v1/notifications/{id}/read`  | -                      | OK    | OK    | OK     | `401`      | `notification:read:own` |
+| 9                 | PATCH   | `/api/v1/notifications/read-all`   | -                      | OK    | OK    | OK     | `401`      | `notification:read:own` |
 | **Réservations**  |
-| 10                | GET     | `/api/v1/reservations`             | -                      | OK    | OK    | OK     | `403`      | `reservation:read:all` ou `reservation:read:own` |
-| 11                | POST    | `/api/v1/reservations`             | `ReservationRequest`   | OK    | OK    | OK     | `403`      | `reservation:create:all` ou `reservation:create:own` |
-| 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | OK     | `403`      | `reservation:read:all` ou `reservation:read:own` |
-| 13                | POST    | `/api/v1/reservations/{id}/return` | `ReturnVehicleRequest` | OK    | OK    | `403`     | `403`      | `reservation:return:all` |
-| 27                | PATCH   | `/api/v1/reservations/{id}`        | `ReservationUpdateRequest` | OK | OK  | OK     | `403`      | `reservation:update:all` ou `reservation:update:own` |
-| 28                | POST    | `/api/v1/reservations/{id}/cancel` | -                      | OK    | OK    | OK     | `403`      | `reservation:cancel:all` ou `reservation:cancel:own` |
-| 29                | POST    | `/api/v1/reservations/{id}/handover` | `HandoverRequest`    | OK    | OK    | `403`  | `403`      | `reservation:handover:all` (V17) |
+| 10                | GET     | `/api/v1/reservations`             | -                      | OK    | OK    | OK     | `401`      | `reservation:read:all` ou `reservation:read:own` |
+| 11                | POST    | `/api/v1/reservations`             | `ReservationRequest`   | OK    | OK    | OK     | `401`      | `reservation:create:all` ou `reservation:create:own` |
+| 12                | GET     | `/api/v1/reservations/{id}`        | -                      | OK    | OK    | OK     | `401`      | `reservation:read:all` ou `reservation:read:own` |
+| 13                | POST    | `/api/v1/reservations/{id}/return` | `ReturnVehicleRequest` | OK    | OK    | `403`     | `401`      | `reservation:return:all` |
+| 27                | PATCH   | `/api/v1/reservations/{id}`        | `ReservationUpdateRequest` | OK | OK  | OK     | `401`      | `reservation:update:all` ou `reservation:update:own` |
+| 28                | POST    | `/api/v1/reservations/{id}/cancel` | -                      | OK    | OK    | OK     | `401`      | `reservation:cancel:all` ou `reservation:cancel:own` |
+| 29                | POST    | `/api/v1/reservations/{id}/handover` | `HandoverRequest`    | OK    | OK    | `403`  | `401`      | `reservation:handover:all` (V17) |
 | **Utilisateurs**  |
-| 14                | GET     | `/api/v1/users`                    | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
-| 15                | POST    | `/api/v1/users`                    | `UserRequest`          | OK    | OK    | `403`     | `403`      | `user:create` |
-| 16                | GET     | `/api/v1/users/{id}`               | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
-| 17                | PATCH   | `/api/v1/users/{id}`               | `UserUpdateRequest`    | OK    | OK    | `403`     | `403`      | `user:update` |
-| 18                | DELETE  | `/api/v1/users/{id}`               | -                      | OK    | OK    | `403`     | `403`      | `user:status:update` |
-| 19                | PATCH   | `/api/v1/users/{id}/reactivate`    | -                      | OK    | OK    | `403`     | `403`      | `user:status:update` |
-| 20                | GET     | `/api/v1/users/drivers`            | -                      | OK    | OK    | `403`     | `403`      | `user:read:all` |
+| 14                | GET     | `/api/v1/users`                    | -                      | OK    | OK    | `403`     | `401`      | `user:read:all` |
+| 15                | POST    | `/api/v1/users`                    | `UserRequest`          | OK    | OK    | `403`     | `401`      | `user:create` |
+| 16                | GET     | `/api/v1/users/{id}`               | -                      | OK    | OK    | `403`     | `401`      | `user:read:all` |
+| 17                | PATCH   | `/api/v1/users/{id}`               | `UserUpdateRequest`    | OK    | OK    | `403`     | `401`      | `user:update` |
+| 18                | DELETE  | `/api/v1/users/{id}`               | -                      | OK    | OK    | `403`     | `401`      | `user:status:update` |
+| 19                | PATCH   | `/api/v1/users/{id}/reactivate`    | -                      | OK    | OK    | `403`     | `401`      | `user:status:update` |
+| 20                | GET     | `/api/v1/users/drivers`            | -                      | OK    | OK    | `403`     | `401`      | `user:read:all` |
 | **Véhicules**     |
-| 21                | GET     | `/api/v1/vehicles`                 | -                      | OK    | OK    | OK     | `403`      | `vehicle:read` |
-| 22                | POST    | `/api/v1/vehicles`                 | `VehicleRequest`       | OK    | `403` | `403`     | `403`      | `vehicle:create` |
-| 23                | GET     | `/api/v1/vehicles/{id}`            | -                      | OK    | OK    | OK     | `403`      | `vehicle:read` |
-| 24                | PATCH   | `/api/v1/vehicles/{id}`            | `VehicleUpdateRequest` | OK    | OK    | `403`     | `403`      | `vehicle:update` |
-| 25                | DELETE  | `/api/v1/vehicles/{id}`            | -                      | OK    | `403` | `403`     | `403`      | `vehicle:delete` |
-| 26                | PATCH   | `/api/v1/vehicles/{id}/status`     | `VehicleStatusRequest` | OK    | OK    | `403`     | `403`      | `vehicle:status:update` |
+| 21                | GET     | `/api/v1/vehicles`                 | -                      | OK    | OK    | OK     | `401`      | `vehicle:read` |
+| 22                | POST    | `/api/v1/vehicles`                 | `VehicleRequest`       | OK    | `403` | `403`     | `401`      | `vehicle:create` |
+| 23                | GET     | `/api/v1/vehicles/{id}`            | -                      | OK    | OK    | OK     | `401`      | `vehicle:read` |
+| 24                | PATCH   | `/api/v1/vehicles/{id}`            | `VehicleUpdateRequest` | OK    | OK    | `403`     | `401`      | `vehicle:update` |
+| 25                | DELETE  | `/api/v1/vehicles/{id}`            | -                      | OK    | `403` | `403`     | `401`      | `vehicle:delete` |
+| 26                | PATCH   | `/api/v1/vehicles/{id}/status`     | `VehicleStatusRequest` | OK    | OK    | `403`     | `401`      | `vehicle:status:update` |
 
 **Colonne « Permission cible »** : la permission que l'endpoint exigera après A3.
 
@@ -86,6 +87,8 @@ Modifications volontaires de la matrice, décidées après la bascule A3. Chaque
 | 2026-11-05 | 1, 2, 4 (login, refresh, logout) | tous | OK | OK | Cases inchangées, stockage modifié (C3) : les sessions sont dans `user_sessions` (empreinte SHA-256, famille, tenant), `refresh_tokens` n'est plus utilisée. Refresh : rotation dans la même famille ; réutilisation d'un token révoqué depuis plus de 10 s : toute la famille est révoquée, même `401`. Logout : révoque toutes les sessions de l'utilisateur. La matrice crée la session de l'ADMIN par `TestSessions` (`UserSessionTest`) |
 | 2026-11-05 | 4 (`POST /auth/logout`) | tous | OK | OK | Case inchangée, comportement modifié (C4) : le logout ne révoque plus toutes les sessions de l'utilisateur, seulement la famille du cookie `refresh_token` (désormais envoyé sur `/api/v1/auth`), si elle lui appartient. Access token toujours exigé, anonyme toujours `403` (`ActiveSessionsTest`) |
 | 2026-11-05 | 32, 33, 34 (nouveaux endpoints) | tous | - | OK (anonyme `403`) | Sessions actives (C4) : `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions`, en `isAuthenticated()` (exception assumée, ADR-0002), limités au compte connecté. Famille inconnue, d'un autre utilisateur ou d'un autre tenant : `404` « Session introuvable ». Dans la matrice, la famille aléatoire donne `404`, compté comme accès accordé ; ces lignes passaient donc avant le code, les preuves sont dans `ActiveSessionsTest` |
+| 2026-11-05 | tous les endpoints authentifiés | Anonyme | `403` | `401` | `authenticationEntryPoint` (`HttpStatusEntryPoint`) : un appel sans authentification valide reçoit `401` ; un utilisateur connecté sans la permission garde `403`, le refus CSRF aussi. Concerne aussi le token d'un compte désactivé ou en attente (`AccountStatusTest`) et les URL hors `/api/v1` (`SecurityConfigTest`). Prépare la phase D : sans access token en mémoire (rechargement de la page), le `401` déclenche le refresh |
+| 2026-11-05 | tous les endpoints authentifiés | ADMIN, AGENT, DRIVER | - | - | Hors matrice : un access token valide dont l'email ne correspond plus à aucun compte (compte supprimé, email modifié) faisait remonter `UsernameNotFoundException` (`500`) ; il répond maintenant `401`, comme un token invalide (`JwtAuthFilterTest`) |
 
 Remarque : aujourd'hui, `NotificationService` ne crée de notifications que pour les ADMIN et les AGENT. Un DRIVER obtient donc une liste vide tant qu'aucune notification ne lui est destinée.
 
@@ -134,7 +137,7 @@ Première exécution de `AuthorizationMatrixTest` : 104 cas (26 endpoints × 4 a
 
 | Constat | Explication | Suite donnée |
 | --- | --- | --- |
-| Anonyme refusé avec `403`, jamais `401` | Prédiction confirmée : aucun `authenticationEntryPoint` configuré, Spring Security utilise `Http403ForbiddenEntryPoint` | Colonne Anonyme passée à `403`. La sémantique HTTP voudrait `401` : à traiter avec les cookies (phase C) |
+| Anonyme refusé avec `403`, jamais `401` | Prédiction confirmée : aucun `authenticationEntryPoint` configuré, Spring Security utilise `Http403ForbiddenEntryPoint` | Colonne Anonyme passée à `403`. La sémantique HTTP voudrait `401` : traité le 2026-11-05, colonne passée à `401` |
 | DRIVER sur `POST /reservations` : `400` au lieu de `403` | Corps de test invalide (`vehicleId` nul : `@MethodSource` est appelé avant `@BeforeEach`). La validation passe avant `@PreAuthorize` | Corps corrigé (UUID constant). Un `400` fait désormais échouer tout cas `OK` |
 | AGENT sur `POST /users` : `403` alors que l'endpoint lui est ouvert | `403` levé par la règle métier de `UserService.addUser` (« un AGENT ne crée que des DRIVER »), indiscernable d'un refus de sécurité | Corps de test avec `role = DRIVER` |
 | ADMIN et AGENT sur `PATCH /notifications/{id}/read` : erreur `500` | `NotificationService.markAsRead` levait une `RuntimeException` non traitée | Corrigé : `404`. La portée était déjà correcte (`findByIdAndUserId`) |

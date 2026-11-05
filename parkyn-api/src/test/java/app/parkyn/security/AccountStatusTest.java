@@ -121,12 +121,12 @@ public class AccountStatusTest {
 
         mockMvc.perform(get("/api/v1/auth/me")
             .header("Authorization", "Bearer " + token))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
 
         // Le refus vient du filtre : un endpoint métier est fermé lui aussi
         mockMvc.perform(get("/api/v1/users")
             .header("Authorization", "Bearer " + token))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
     }
 
     // Un compte en attente de vérification n'est pas actif : son token est refusé aussi
@@ -139,7 +139,7 @@ public class AccountStatusTest {
 
         mockMvc.perform(get("/api/v1/users")
             .header("Authorization", "Bearer " + token))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
     }
 
     // Le refresh token d'un compte désactivé ne donne plus de nouvel access token

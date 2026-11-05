@@ -44,5 +44,18 @@ class SecurityConfigTest {
                 .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isForbidden());
     }
+
+    // Sans token : 401, pour que le client tente un refresh (access token en mémoire perdu au rechargement)
+    @Test
+    void anonymousCallIsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void anonymousCallOutsideApiIsUnauthorized() throws Exception {
+        mockMvc.perform(get("/internal/test"))
+                .andExpect(status().isUnauthorized());
+    }
 }
 

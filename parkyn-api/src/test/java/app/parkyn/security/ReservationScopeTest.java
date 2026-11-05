@@ -1,5 +1,8 @@
 package app.parkyn.security;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,6 +184,33 @@ public class ReservationScopeTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(TEST_AGENT, PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(3));
+    }
+
+    // Agent liste les réservations : celles des deux DRIVER de son tenant, aucune de l'autre tenant
+    @Test
+    void agentSeesBothDriversButNotOtherTenant() throws Exception {
+        UUID otherTenant = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
+        jdbcTemplate.update("INSERT INTO tenants (id, name) VALUES (?, 'Autre entreprise')", otherTenant);
+        TestUsers otherUsers = new TestUsers(userRepository, jdbcTemplate, passwordEncoder).inTenant(otherTenant);
+        User otherDriver = otherUsers.createWithoutPassword("driver@autre.test", User.Role.DRIVER);
+        User otherAgent = otherUsers.createWithoutPassword("agent@autre.test", User.Role.AGENT);
+        UUID otherVehicle = jdbcTemplate.queryForObject(
+            "INSERT INTO vehicles (tenant_id, plate_number, brand, model, mileage_km, condition, status) "
+                + "VALUES (?, 'ZZ-999-ZZ', 'Renault', 'Clio', 1000, 'GOOD', 'AVAILABLE') RETURNING id",
+            UUID.class, otherTenant);
+        UUID otherReservation = jdbcTemplate.queryForObject(
+            "INSERT INTO reservations (tenant_id, vehicle_id, driver_id, agent_id, start_date, end_date, "
+                + "condition_before, mileage_start) VALUES (?, ?, ?, ?, ?, ?, 'GOOD', 1000) RETURNING id",
+            UUID.class, otherTenant, otherVehicle, otherDriver.getId(), otherAgent.getId(),
+            T0.plusDays(1), T0.plusDays(2));
+
+        mockMvc.perform(get("/api/v1/reservations")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + login(TEST_AGENT, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.totalElements").value(3))
+                .andExpect(jsonPath("$.content[*].driverId",
+                    containsInAnyOrder(driverAId, r2.getDriver().getId().toString(), r2.getDriver().getId().toString())))
+                .andExpect(jsonPath("$.content[*].id", not(hasItem(otherReservation.toString()))));
     }
 
     // Admin liste les réservations : il voit les trois sans en être ni l'agent ni le conducteur

@@ -187,7 +187,10 @@ class AuthorizationMatrixTest {
         MockHttpServletResponse res = mockMvc.perform(requestBuilder).andReturn().getResponse();
         int status = res.getStatus();
         
-        if (c.expected() == Expected.DENIED) {
+        // Anonyme refusé : 401 (s'authentifier peut suffire) ; utilisateur connecté refusé : 403
+        if (c.expected() == Expected.DENIED && c.actor() == Actor.ANONYMOUS) {
+            assertEquals(401, status, "Refus attendu pour un anonyme (401)");
+        } else if (c.expected() == Expected.DENIED) {
             assertEquals(403, status, "Refus attendu (403)");
         } else {
             assertTrue(
