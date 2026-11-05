@@ -30,7 +30,7 @@ participant BDD
         Note right of BDD: user_id<br/>refresh_token_hash<br/>expires_at<br/>created_at<br/>revoked_at = NULL
 
         API-->>Navigateur: Set-Cookie refresh_token
-        Note right of Navigateur: HttpOnly<br/>Secure<br/>SameSite=Strict<br/>Path = /api/v1/auth/refresh<br/>Max-Age = durée du refresh token
+        Note right of Navigateur: HttpOnly<br/>Secure<br/>SameSite=Strict<br/>Path = /api/v1/auth<br/>Max-Age = durée du refresh token
         API-->>Navigateur: Set-Cookie XSRF-TOKEN
         Note right of Navigateur: Lisible par JavaScript (pas HttpOnly)<br/>Secure, SameSite=Strict, Path = /<br/>Angular le recopie dans X-XSRF-TOKEN au refresh
 

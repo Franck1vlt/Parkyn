@@ -116,6 +116,10 @@ class AuthorizationMatrixTest {
             row(HttpMethod.POST, "/api/v1/auth/register", TestRequests.validRegisterRequest(), ALLOWED, ALLOWED, ALLOWED, ALLOWED),
             row(HttpMethod.POST, "/api/v1/auth/logout", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
             row(HttpMethod.GET, "/api/v1/auth/me", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
+            // Sessions actives (C4) : isAuthenticated(), comme /auth/me et /auth/logout. Famille inconnue : 404 (accès accordé)
+            row(HttpMethod.GET, "/api/v1/auth/sessions", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
+            row(HttpMethod.DELETE, "/api/v1/auth/sessions/" + RANDOM_ID, null, ALLOWED, ALLOWED, ALLOWED, DENIED),
+            row(HttpMethod.DELETE, "/api/v1/auth/sessions", null, ALLOWED, ALLOWED, ALLOWED, DENIED),
 
             // Endpoint de Dashboard
             row(HttpMethod.GET, "/api/v1/dashboard", null, ALLOWED, ALLOWED, DENIED, DENIED),

@@ -106,7 +106,7 @@ Set-Cookie: refresh_token=...;
 
 ## Décision
 
-Nous choisissons de conserver l'access token uniquement en mémoire côté Angular et de stocker le refresh token dans un cookie HttpOnly, Secure, avec un SameSite adapté et un Path limité à l'endpoint /api/v1/auth/refresh.
+Nous choisissons de conserver l'access token uniquement en mémoire côté Angular et de stocker le refresh token dans un cookie HttpOnly, Secure, avec un SameSite adapté et un Path limité à l'endpoint /api/v1/auth/refresh (élargi à /api/v1/auth en C4, voir « Mise en œuvre (C3 et C4) »).
 
 ## Conséquences
 
@@ -132,7 +132,7 @@ Nous choisissons de conserver l'access token uniquement en mémoire côté Angul
 ### Limites assumées
 
 - **`HttpOnly` ne protège pas contre XSS, il empêche seulement le JavaScript injecté de lire le refresh token.** Un script injecté peut toujours appeler l'API pendant que la page est ouverte, et lire l'access token en mémoire. Le gain : l'attaque est limitée à la durée de vie de l'access token (1 h) et à la session ouverte, au lieu d'une compromission durable (refresh token volé, 1 jour).
-- **`SameSite` traite un problème différent : l'envoi automatique du cookie par une requête forgée (CSRF).** Seul `/api/v1/auth/refresh` reçoit le cookie, et un attaquant ne peut pas lire sa réponse (CORS) : le risque résiduel est faible, mais il doit être testé.
+- **`SameSite` traite un problème différent : l'envoi automatique du cookie par une requête forgée (CSRF).** Seul `/api/v1/auth/refresh` reçoit le cookie (depuis C4 : tout `/api/v1/auth`, mais seul le refresh s'authentifie par lui), et un attaquant ne peut pas lire sa réponse (CORS) : le risque résiduel est faible, mais il doit être testé.
 - **`SameSite` raisonne en _site_, pas en origine.** Avec `Lax`, le cookie n'est envoyé que si le frontend et l'API sont sur le même site (`app.parkyn.fr` et `api.parkyn.fr`, ou `localhost` avec des ports différents). Sur deux domaines distincts, il faudrait `SameSite=None; Secure`, avec une protection CSRF explicite.
 - **Le `Path` doit correspondre à la vraie route.** L'API expose `/api/v1/auth/refresh`, pas `/auth/refresh`. Le logout doit aussi recevoir le cookie pour révoquer la session : à traiter (Path `/api/v1/auth` ou cookie effacé côté serveur).
 
@@ -140,7 +140,7 @@ On accepte donc une configuration plus complexe (cookies + CORS + CSRF) pour ré
 
 ## Mise en œuvre (C1, 2026-10-30)
 
-- **Cookie retenu :** `refresh_token`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth/refresh`, `Max-Age` égal à la durée du refresh token (`RefreshTokenCookie`).
+- **Cookie retenu :** `refresh_token`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth/refresh` (élargi à `/api/v1/auth` en C4), `Max-Age` égal à la durée du refresh token (`RefreshTokenCookie`).
 - **`Strict` plutôt que `Lax` :** le frontend et l'API sont servis par la même origine (`/` et `/api/` derrière nginx). Le cookie n'a jamais à partir depuis un autre site, même lors d'une navigation. À revoir si l'API passe sur un autre site.
 - **Logout :** le cookie n'est pas envoyé à `/api/v1/auth/logout` (Path restreint). Le logout révoque les refresh tokens à partir de l'utilisateur authentifié par l'access token, puis efface le cookie côté serveur (`Max-Age=0`, mêmes attributs). Limite : sans access token valide, rien n'est révoqué ; la révocation à partir du cookie est reportée à C4 (Path élargi à `/api/v1/auth` ou logout sous `/refresh`).
 - **Corps de la réponse :** le login et le refresh ne renvoient plus le refresh token, seulement l'access token et les dates d'expiration. Un refresh token envoyé dans un corps JSON est ignoré.
@@ -154,3 +154,14 @@ On accepte donc une configuration plus complexe (cookies + CORS + CSRF) pour ré
 - **Mise en œuvre Spring :** `csrf.spa()` avec un `CookieCsrfTokenRepository` personnalisé (attributs du cookie). Le token est chargé à la demande : `CsrfCookieFilter` le lit après `CsrfFilter` pour que le cookie soit posé dès la réponse au login.
 - **Limite :** l'intercepteur XSRF d'Angular n'ajoute l'en-tête que pour les URL relatives. Le front doit donc appeler l'API par la même origine (nginx en local et en production). `ng serve` avec `http://localhost:8080` ne fonctionne plus, comme déjà pour le cookie `refresh_token` : il faudra un proxy de développement (phase D).
 - **Rotation à usage unique :** à la même étape, la révocation de l'ancien refresh token est devenue atomique (`UPDATE … WHERE revoked_at IS NULL`). Avant, plusieurs refresh simultanés avec le même cookie réussissaient tous et créaient autant de sessions.
+
+## Mise en œuvre (C3 et C4, 2026-11-05)
+
+- **Stockage (C3) :** les sessions sont dans `user_sessions` (empreinte SHA-256 du token, famille, tenant). Rotation dans la même famille ; réutilisation d'un token révoqué depuis plus de 10 s : toute la famille est révoquée.
+- **`Path` élargi à `/api/v1/auth` (C4) :** le cookie accompagne aussi le logout et la liste des sessions, qui identifient ainsi l'appareil courant. Il part donc aussi vers `/login`, `/register`, `/me`… (même origine, `HttpOnly`, `SameSite=Strict`) : exposition un peu plus large, jugée acceptable. Un claim `sid` dans le JWT a été écarté : il ne permettait pas de désigner l'appareil sans access token.
+- **CSRF inchangé :** seul le refresh s'authentifie par le cookie. Logout et sessions exigent l'en-tête `Authorization`, qu'une requête forgée ne peut pas ajouter ; le cookie n'y sert qu'à désigner l'appareil, et seulement s'il appartient à l'utilisateur authentifié.
+- **Logout :** révoque seulement la famille du cookie (cet appareil). Sans cookie, ou avec le cookie d'un autre utilisateur : rien n'est révoqué, `204` et cookie effacé. La limite « access token expiré » est reportée au front (phase D) : refresh puis rejeu du logout.
+- **Ancien cookie (transition C4) :** un cookie émis avant C4 (`Path=/api/v1/auth/refresh`) est plus spécifique : le navigateur l'envoie en premier sur `/refresh`, il masquerait le nouveau et le refresh répondrait `401` en boucle. Login, refresh et logout l'effacent (`RefreshTokenCookie.clearLegacy()`, `Max-Age=0`). À retirer au Contract, après la durée de vie d'un refresh token.
+- **Access token : 15 min (C4).** Révoquer une session (logout, « déconnecter un appareil », refresh token réutilisé) coupe les refresh tokens immédiatement, mais **pas l'access token déjà émis** : `JwtAuthFilter` vérifie la signature, l'expiration et `isEnabled()`, pas la session. Le délai d'invalidation est donc au plus la durée de vie de l'access token, ramenée de 1 h à 15 min (`JWT_EXPIRATION_MS=900000`). Seule la désactivation d'un compte coupe tout de suite (`isEnabled()`). La rotation et la révocation des refresh tokens sont inchangées.
+- **Évolution future : vérification d'un `sid`.** Un claim `sid` (le `family_id`) vérifié à chaque requête (base ou cache) rendrait la révocation immédiate. Écarté pour l'instant (une lecture par requête) ; à reconsidérer si 15 min de délai devient inacceptable.
+- **Access token en mémoire (phase D) :** le front le stocke encore dans `localStorage`. Il doit passer en mémoire vive (variable du service Angular, perdue au rechargement puis récupérée par un refresh), conformément à la décision de cet ADR.

@@ -73,7 +73,7 @@ public class RefreshCookieTest {
             .andExpect(cookie().httpOnly("refresh_token", true))
             .andExpect(cookie().secure("refresh_token", true))
             .andExpect(cookie().sameSite("refresh_token", "Strict"))
-            .andExpect(cookie().path("refresh_token", "/api/v1/auth/refresh"))
+            .andExpect(cookie().path("refresh_token", "/api/v1/auth"))
             .andExpect(cookie().maxAge("refresh_token", (int) Duration.ofDays(refreshDays).toSeconds()));
     }
 
@@ -98,7 +98,7 @@ public class RefreshCookieTest {
                 .andExpect(jsonPath("$.access_token").exists())
             .andExpect(cookie().exists("refresh_token"))
             .andExpect(cookie().httpOnly("refresh_token", true))
-            .andExpect(cookie().path("refresh_token", "/api/v1/auth/refresh"))
+            .andExpect(cookie().path("refresh_token", "/api/v1/auth"))
             .andExpect(cookie().maxAge("refresh_token", (int) Duration.ofDays(refreshDays).toSeconds()))
             .andReturn();
 
@@ -183,13 +183,42 @@ public class RefreshCookieTest {
             .andExpect(cookie().exists("refresh_token"))
             .andExpect(cookie().value("refresh_token", ""))
             .andExpect(cookie().maxAge("refresh_token", 0))
-            .andExpect(cookie().path("refresh_token", "/api/v1/auth/refresh"))
+            .andExpect(cookie().path("refresh_token", "/api/v1/auth"))
             .andExpect(cookie().httpOnly("refresh_token", true))
             .andExpect(cookie().secure("refresh_token", true))
             .andExpect(cookie().sameSite("refresh_token", "Strict"));
     }
 
-    @Test 
+    // Transition C4 : un cookie émis avant C4 (Path=/api/v1/auth/refresh) serait envoyé en premier sur /refresh
+    // et masquerait le nouveau. Login, refresh et logout l'effacent (à retirer au Contract)
+    @Test
+    public void loginClearsLegacyRefreshCookie() throws Exception {
+        assertClearsLegacyCookie(login().andReturn());
+    }
+
+    @Test
+    public void refreshClearsLegacyRefreshCookie() throws Exception {
+        Cookie refreshCookie = login().andReturn().getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie);
+
+        assertClearsLegacyCookie(mockMvc.perform(post("/api/v1/auth/refresh")
+                .with(TestRequests.csrfToken())
+                .cookie(refreshCookie))
+            .andExpect(status().isOk())
+            .andReturn());
+    }
+
+    @Test
+    public void logoutClearsLegacyRefreshCookie() throws Exception {
+        String accessToken = JsonPath.read(login().andReturn().getResponse().getContentAsString(), "$.access_token");
+
+        assertClearsLegacyCookie(mockMvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isNoContent())
+            .andReturn());
+    }
+
+    @Test
     public void logoutRevokesRefreshToken() throws Exception {
         MvcResult loginResult = login().andReturn();
 
@@ -198,8 +227,10 @@ public class RefreshCookieTest {
         String accessToken = JsonPath.read(
             loginResult.getResponse().getContentAsString(), "$.access_token");
 
+        // Depuis C4, le cookie (Path /api/v1/auth) accompagne le logout : il désigne la session à révoquer
         mockMvc.perform(post("/api/v1/auth/logout")
-                .header("Authorization", "Bearer " + accessToken))
+                .header("Authorization", "Bearer " + accessToken)
+                .cookie(refreshCookie))
             .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
@@ -207,32 +238,6 @@ public class RefreshCookieTest {
                 .cookie(refreshCookie))
             .andExpect(status().isUnauthorized())
             .andExpect(content().string(SESSION_EXPIRED));
-    }
-
-    // Le logout déconnecte tous les appareils : une autre famille de sessions est aussi révoquée
-    @Test
-    public void logoutRevokesAllSessions() throws Exception {
-        User user = userRepository.findByEmail(EMAIL).orElseThrow();
-        Cookie otherDevice = new Cookie("refresh_token", testSessions.create(user));
-
-        MvcResult loginResult = login().andReturn();
-        Cookie refreshCookie = loginResult.getResponse().getCookie("refresh_token");
-        assertNotNull(refreshCookie);
-        String accessToken = JsonPath.read(
-            loginResult.getResponse().getContentAsString(), "$.access_token");
-        assertEquals(2, activeSessions(user));
-
-        mockMvc.perform(post("/api/v1/auth/logout")
-                .header("Authorization", "Bearer " + accessToken))
-            .andExpect(status().isNoContent());
-
-        assertEquals(0, activeSessions(user));
-        for (Cookie cookie : List.of(refreshCookie, otherDevice)) {
-            mockMvc.perform(post("/api/v1/auth/refresh")
-                    .with(TestRequests.csrfToken())
-                    .cookie(cookie))
-                .andExpect(status().isUnauthorized());
-        }
     }
 
     @Test
@@ -293,6 +298,14 @@ public class RefreshCookieTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"" + EMAIL + "\",\"password\":\"" + PASSWORD + "\"}"))
             .andExpect(status().isOk());
+    }
+
+    private void assertClearsLegacyCookie(MvcResult result) {
+        List<String> setCookies = result.getResponse().getHeaders("Set-Cookie");
+        assertTrue(setCookies.stream().anyMatch(header -> header.startsWith("refresh_token=;")
+                && header.contains("Path=/api/v1/auth/refresh")
+                && header.contains("Max-Age=0")),
+            () -> "Ancien cookie non effacé : " + setCookies);
     }
 
     private Integer activeSessions(User user) {

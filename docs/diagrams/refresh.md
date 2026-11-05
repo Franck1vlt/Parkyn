@@ -82,17 +82,56 @@ participant BDD
 
     Navigateur->>Angular: Clic « Déconnexion »
     Angular->>API: POST /api/v1/auth/logout + access token
-    Note right of Navigateur: Le cookie refresh_token n'est pas envoyé<br/>(Path = /api/v1/auth/refresh)
+    Note right of Navigateur: Le navigateur joint le cookie refresh_token<br/>(Path = /api/v1/auth depuis C4)
 
     alt Access token valide
-        API->>BDD: Révoque toutes les sessions de l'utilisateur (tous ses appareils)
+        API->>BDD: Cherche la session du cookie (empreinte)
+        alt Session de l'utilisateur authentifié
+            API->>BDD: Révoque sa famille (cet appareil seulement)
+        else Pas de cookie, ou cookie d'un autre utilisateur
+            Note right of API: Rien n'est révoqué
+        end
         API-->>Navigateur: 204 + Set-Cookie refresh_token= #59; Max-Age=0
         Note right of Navigateur: Mêmes attributs et même Path :<br/>le navigateur supprime le cookie
     else Access token expiré ou absent
         API-->>Angular: 401 ou 403, rien n'est révoqué
-        Note right of API: Limite connue, à traiter en C4<br/>(révocation à partir du cookie)
+        Note right of Angular: Phase D : refresh puis rejeu du logout<br/>(aujourd'hui /auth/logout est exclu du refresh)
     end
 
     Angular->>Angular: Efface la session locale (finalize, succès ou échec)
     Angular-->>Navigateur: Redirection vers /login
 ```
+
+# Séquence : sessions actives (C4)
+
+```mermaid
+sequenceDiagram
+actor Navigateur
+participant Angular
+participant API as API Spring
+participant BDD
+
+    Angular->>API: GET /api/v1/auth/sessions + access token
+    Note right of Navigateur: Cookie refresh_token joint :<br/>désigne l'appareil courant
+    API->>BDD: Sessions actives de l'utilisateur (une par famille) + date de connexion de chaque famille
+    API-->>Angular: 200 [id = family_id, user_agent, ip, signed_in_at, last_active_at, current]
+
+    alt Déconnecter un appareil
+        Angular->>API: DELETE /api/v1/auth/sessions/{id} + access token
+        API->>BDD: UPDATE … WHERE family_id = ? AND user_id = utilisateur AND revoked_at IS NULL
+        alt 0 ligne (inconnue, autre utilisateur, autre tenant, déjà révoquée)
+            API-->>Angular: 404 « Session introuvable »
+        else
+            API-->>Angular: 204
+        end
+    else Déconnecter les autres appareils
+        Angular->>API: DELETE /api/v1/auth/sessions + access token
+        API->>BDD: Révoque toutes les familles de l'utilisateur sauf celle du cookie (toutes sans cookie)
+        API-->>Angular: 204
+    end
+```
+
+- Accès : `isAuthenticated()`, comme `/auth/me` et `/auth/logout` : chacun gère ses propres sessions, quel que soit son rôle (exception assumée à la règle « une permission par endpoint », voir ADR-0002).
+- User agent et IP affichés : ceux du dernier refresh de l'appareil (chaque refresh crée la session suivante de la famille). `last_used_at` n'est pas utilisée.
+- Désactivation d'un compte (`DELETE /users/{id}` ou `PATCH` avec `active: false`) : toutes ses sessions sont révoquées immédiatement.
+- Délai d'invalidation : une session révoquée ne peut plus faire de refresh, mais son access token reste valide jusqu'à son expiration (15 min au plus). Seule la désactivation coupe tout de suite (`isEnabled()` dans `JwtAuthFilter`). Vérification d'un `sid` à chaque requête : évolution future (ADR-0001).

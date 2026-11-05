@@ -149,6 +149,10 @@ La permission dit _qui_ peut agir, pas _quand_. La condition « avant le début 
 - Le catalogue de permissions devient un contrat à maintenir avec soin.
 - **Traçabilité des modifications.** Puisque n'importe quel agent peut modifier la réservation d'un conducteur, chaque réservation enregistre `created_by` et `updated_by`, et chaque modification est écrite dans le journal d'audit. La responsabilité d'une modification doit rester retrouvable : c'est la contrepartie de la souplesse donnée aux agents.
 
+**Exception assumée : endpoints de la session de l'utilisateur**
+
+- `/auth/me`, `/auth/logout` et les sessions actives (`GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions`, C4) utilisent `isAuthenticated()` et non une permission. Gérer ses propres sessions est une fonction de sécurité : avec des rôles personnalisés (lot 4), un rôle sans `session:revoke:own` empêcherait un utilisateur de couper une session volée. Ces endpoints n'agissent que sur le compte connecté.
+
 **Limite connue**
 
 - Les règles de portée plus riches (« un conducteur voit les réservations de son équipe », « un agent voit seulement son agence ») ne sont pas couvertes par `own` et `all`. Si un client l'exige, il faudra un moteur de politiques (ReBAC ou ABAC, par exemple OpenFGA ou Cerbos). Inutile aujourd'hui.

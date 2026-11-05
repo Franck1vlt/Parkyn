@@ -1,11 +1,16 @@
 package app.parkyn.controller;
 
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +21,7 @@ import app.parkyn.dto.LoginResponse;
 import app.parkyn.dto.MeResponse;
 import app.parkyn.dto.RegisterRequest;
 import app.parkyn.dto.ResendVerificationRequest;
+import app.parkyn.dto.SessionResponse;
 import app.parkyn.dto.VerifyEmailRequest;
 import app.parkyn.model.User;
 import app.parkyn.security.ClientIpResolver;
@@ -24,6 +30,7 @@ import app.parkyn.security.RefreshTokenCookie;
 import app.parkyn.service.AuthService;
 import app.parkyn.service.AuthTokens;
 import app.parkyn.service.ClientInfo;
+import app.parkyn.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import app.parkyn.service.VerificationTokenService;
 import jakarta.validation.Valid;
@@ -39,6 +46,7 @@ public class AuthController {
     private final VerificationTokenService verificationTokenService;
     private final RefreshTokenCookie refreshTokenCookie;
     private final ClientIpResolver clientIpResolver;
+    private final SessionService sessionService;
 
     @PublicEndpoint 
     @PostMapping("/login") 
@@ -46,6 +54,7 @@ public class AuthController {
         AuthTokens tokens = authService.login(request, clientInfo(httpRequest));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.create(tokens.refreshToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.clearLegacy().toString())
                 .body(tokens.body());
     }
 
@@ -58,16 +67,46 @@ public class AuthController {
         AuthTokens tokens = authService.refresh(refreshToken, clientInfo(httpRequest));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.create(tokens.refreshToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.clearLegacy().toString())
                 .body(tokens.body());
     }
 
+    // Authentifié par l'access token ; le cookie désigne l'appareil à déconnecter
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
-        authService.logout(user);
+    public ResponseEntity<Void> logout(
+            @AuthenticationPrincipal User user,
+            @CookieValue(name = RefreshTokenCookie.NAME, required = false) String refreshToken) {
+        sessionService.logout(user, refreshToken);
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.clear().toString())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.clearLegacy().toString())
                 .build();
+    }
+
+    // Sessions actives (C4) : isAuthenticated() comme /me et /logout, chacun gère ses propres sessions
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/sessions")
+    public ResponseEntity<List<SessionResponse>> sessions(
+            @AuthenticationPrincipal User user,
+            @CookieValue(name = RefreshTokenCookie.NAME, required = false) String refreshToken) {
+        return ResponseEntity.ok(sessionService.list(user, refreshToken));
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/sessions/{id}")
+    public ResponseEntity<Void> revokeSession(@AuthenticationPrincipal User user, @PathVariable UUID id) {
+        sessionService.revoke(user, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/sessions")
+    public ResponseEntity<Void> revokeOtherSessions(
+            @AuthenticationPrincipal User user,
+            @CookieValue(name = RefreshTokenCookie.NAME, required = false) String refreshToken) {
+        sessionService.revokeOthers(user, refreshToken);
+        return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("isAuthenticated()")

@@ -15,7 +15,13 @@ import app.parkyn.model.UserSession;
 
 public interface UserSessionRepository extends JpaRepository<UserSession, UUID> {
     Optional<UserSession> findByRefreshTokenHash(String refreshTokenHash);
-    List<UserSession> findByUserAndRevokedAtIsNull(User user);
+
+    // Session active de chaque famille (une seule par famille après rotation), la plus récente d'abord
+    List<UserSession> findByUserAndRevokedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(User user, OffsetDateTime now);
+
+    // Date de connexion de chaque famille : création de sa première session. Lignes [family_id, min(created_at)]
+    @Query("select s.familyId, min(s.createdAt) from UserSession s where s.user = :user and s.familyId in :familyIds group by s.familyId")
+    List<Object[]> findFamilyStarts(@Param("user") User user, @Param("familyIds") List<UUID> familyIds);
 
     // Révocation atomique : renvoie 0 si une autre requête a déjà révoqué cette session
     @Modifying
@@ -26,4 +32,17 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     @Modifying
     @Query("update UserSession s set s.revokedAt = :now where s.familyId = :familyId and s.revokedAt is null")
     int revokeFamily(@Param("familyId") UUID familyId, @Param("now") OffsetDateTime now);
+
+    // Révocation par l'utilisateur : filtrée sur son compte, 0 = famille inconnue, d'un autre, déjà révoquée ou expirée
+    @Modifying
+    @Query("update UserSession s set s.revokedAt = :now where s.familyId = :familyId and s.user = :user and s.revokedAt is null and s.expiresAt > :now")
+    int revokeFamilyOfUser(@Param("familyId") UUID familyId, @Param("user") User user, @Param("now") OffsetDateTime now);
+
+    @Modifying
+    @Query("update UserSession s set s.revokedAt = :now where s.user = :user and s.revokedAt is null")
+    int revokeAllOfUser(@Param("user") User user, @Param("now") OffsetDateTime now);
+
+    @Modifying
+    @Query("update UserSession s set s.revokedAt = :now where s.user = :user and s.familyId <> :keptFamilyId and s.revokedAt is null")
+    int revokeAllOfUserExceptFamily(@Param("user") User user, @Param("keptFamilyId") UUID keptFamilyId, @Param("now") OffsetDateTime now);
 }

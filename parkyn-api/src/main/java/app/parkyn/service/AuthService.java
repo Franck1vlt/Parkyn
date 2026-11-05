@@ -108,13 +108,6 @@ public class AuthService {
         return openSession(user, stored.getFamilyId(), client);
     }
 
-    // Déconnecte l'utilisateur de tous ses appareils (choix « cette session seulement » : C4)
-    @Transactional
-    public void logout(User user) {
-        userSessionRepository.findByUserAndRevokedAtIsNull(user)
-            .forEach(session -> session.setRevokedAt(OffsetDateTime.now()));
-    }
-
     // Login et refresh hors connexion (contexte ROOT) : le tenant de la session est fixé ici
     private AuthTokens openSession(User user, UUID familyId, ClientInfo client) {
         String rawRefresh = SessionTokens.generate();

@@ -30,6 +30,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserAccessPolicy userAccessPolicy;
     private final RoleAssignmentService roleAssignmentService;
+    private final SessionService sessionService;
 
 
     @Transactional
@@ -89,6 +90,8 @@ public class UserService {
         if (request.password()  != null) user.setHashedPwd(passwordEncoder.encode(request.password()));
         if (request.role() != null) roleAssignmentService.assign(user, request.role());
         if (request.active()    != null) user.setActive(request.active());
+        // Compte désactivé : ses sessions sont révoquées tout de suite, sans attendre le prochain refresh
+        if (Boolean.FALSE.equals(request.active())) sessionService.revokeAll(user);
         return UserResponse.from(userRepository.saveAndFlush(user));
     }
 
@@ -99,6 +102,7 @@ public class UserService {
 
         user.setActive(false);
         userRepository.save(user);
+        sessionService.revokeAll(user);
     }
 
     @Transactional
