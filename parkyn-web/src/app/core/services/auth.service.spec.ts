@@ -1,0 +1,272 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { AuthService, CurrentUser, LoginResponse } from './auth.service';
+
+describe('AuthService', () => {
+  const API = `${environment.apiUrl}/auth`;
+  const ACCESS_KEY = 'parkyn_access_token';
+  const USER_KEY = 'parkyn_user';
+
+  const driver: CurrentUser = {
+    id: '1',
+    firstname: 'Jean',
+    lastname: 'Dupont',
+    email: 'jean@parkyn.app',
+    role: 'DRIVER',
+  };
+  const loginResponse = {
+    access_token: 'access-1',
+    refresh_token: 'refresh-1',
+  } as LoginResponse;
+
+  let httpMock: HttpTestingController;
+  let navigate: ReturnType<typeof vi.spyOn>;
+
+  // Le service lit le stockage à sa construction : on l'instancie après avoir préparé l'état voulu
+  function createService(): AuthService {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    return TestBed.inject(AuthService);
+  }
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
+
+  describe('login', () => {
+    // Envoie l'email et le mot de passe et conserve l'access token
+    it('posts the credentials and stores the access token', () => {
+      const auth = createService();
+      let result: LoginResponse | undefined;
+
+      auth.login('jean@parkyn.app', 'secret').subscribe((r) => (result = r));
+
+      const request = httpMock.expectOne(`${API}/login`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ email: 'jean@parkyn.app', password: 'secret' });
+      request.flush(loginResponse);
+
+      expect(result).toEqual(loginResponse);
+      expect(localStorage.getItem(ACCESS_KEY)).toBe('access-1');
+      expect(auth.isAuthenticated()).toBe(true);
+    });
+
+    // Un échec de connexion ne laisse aucune session
+    it('stores nothing when the login fails', () => {
+      const auth = createService();
+      let status: number | undefined;
+
+      auth.login('jean@parkyn.app', 'mauvais').subscribe({ error: (e) => (status = e.status) });
+      httpMock
+        .expectOne(`${API}/login`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      expect(status).toBe(401);
+      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(auth.isAuthenticated()).toBe(false);
+    });
+  });
+
+  describe('register', () => {
+    // Envoie les quatre champs de l'inscription
+    it('posts the registration fields', () => {
+      const auth = createService();
+
+      auth.register('Jean', 'Dupont', 'jean@parkyn.app', 'un-mot-de-passe').subscribe();
+
+      const request = httpMock.expectOne(`${API}/register`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({
+        firstname: 'Jean',
+        lastname: 'Dupont',
+        email: 'jean@parkyn.app',
+        password: 'un-mot-de-passe',
+      });
+      request.flush(null, { status: 202, statusText: 'Accepted' });
+    });
+  });
+
+  describe('refresh', () => {
+    // Remplace l'access token par celui de la réponse
+    it('stores the new access token', () => {
+      localStorage.setItem(ACCESS_KEY, 'old-token');
+      const auth = createService();
+
+      auth.refresh().subscribe();
+      httpMock
+        .expectOne(`${API}/refresh`)
+        .flush({ access_token: 'new-token', refresh_token: 'refresh-2' });
+
+      expect(auth.getAccessToken()).toBe('new-token');
+    });
+
+    // Plusieurs appels simultanés partagent une seule requête
+    it('shares one request between concurrent calls', () => {
+      const auth = createService();
+      const tokens: string[] = [];
+
+      auth.refresh().subscribe((r) => tokens.push(r.access_token));
+      auth.refresh().subscribe((r) => tokens.push(r.access_token));
+      auth.refresh().subscribe((r) => tokens.push(r.access_token));
+
+      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'shared', refresh_token: 'r' });
+
+      expect(tokens).toEqual(['shared', 'shared', 'shared']);
+    });
+
+    // Une fois terminé, un nouveau refresh repart sur une nouvelle requête
+    it('sends a new request once the previous refresh is done', () => {
+      const auth = createService();
+
+      auth.refresh().subscribe();
+      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'a', refresh_token: 'r' });
+
+      auth.refresh().subscribe();
+      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'b', refresh_token: 'r' });
+
+      expect(auth.getAccessToken()).toBe('b');
+    });
+
+    // Un refresh refusé déconnecte et transmet l'erreur d'origine
+    it('logs out and forwards the error when the refresh is refused', () => {
+      localStorage.setItem(ACCESS_KEY, 'old-token');
+      const auth = createService();
+      const statuses: number[] = [];
+
+      auth.refresh().subscribe({ error: (e) => statuses.push(e.status) });
+      httpMock
+        .expectOne(`${API}/refresh`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      expect(statuses).toEqual([401]);
+      const logout = httpMock.expectOne(`${API}/logout`);
+      logout.flush(null, { status: 204, statusText: 'No Content' });
+      expect(auth.getAccessToken()).toBeNull();
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    // Après un échec, un nouvel appel peut réessayer
+    it('allows a new attempt after a failure', () => {
+      const auth = createService();
+
+      auth.refresh().subscribe({ error: () => {} });
+      httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'x' });
+      httpMock.expectOne(`${API}/logout`).flush(null, { status: 204, statusText: 'No Content' });
+
+      auth.refresh().subscribe({ error: () => {} });
+      httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'x' });
+      httpMock.expectOne(`${API}/logout`).flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
+  describe('logout', () => {
+    // La requête part avant l'effacement : la session locale n'est effacée qu'à la réponse
+    it('keeps the session until the server answers, then clears it', () => {
+      localStorage.setItem(ACCESS_KEY, 'token');
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      const auth = createService();
+
+      auth.logout();
+
+      const request = httpMock.expectOne(`${API}/logout`);
+      expect(request.request.method).toBe('POST');
+      expect(auth.getAccessToken()).toBe('token');
+      expect(navigate).not.toHaveBeenCalled();
+
+      request.flush(null, { status: 204, statusText: 'No Content' });
+
+      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(localStorage.getItem(USER_KEY)).toBeNull();
+      expect(auth.currentUser).toBeNull();
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    // Même si le serveur refuse, l'utilisateur est déconnecté localement
+    it('clears the session even when the request fails', () => {
+      localStorage.setItem(ACCESS_KEY, 'token');
+      const auth = createService();
+
+      auth.logout();
+      httpMock
+        .expectOne(`${API}/logout`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      expect(auth.isAuthenticated()).toBe(false);
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+  });
+
+  describe('current user', () => {
+    // Recharge l'utilisateur mémorisé au démarrage
+    it('restores the stored user on startup', () => {
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      const auth = createService();
+
+      expect(auth.currentUser).toEqual(driver);
+      expect(auth.getEmail()).toBe('jean@parkyn.app');
+      expect(auth.getRole()).toBe('DRIVER');
+    });
+
+    // Sans utilisateur, aucun rôle ni email
+    it('has no role and no email when nobody is signed in', () => {
+      const auth = createService();
+
+      expect(auth.currentUser).toBeNull();
+      expect(auth.getRole()).toBeNull();
+      expect(auth.getEmail()).toBeNull();
+    });
+
+    // Charge le profil, le mémorise et le publie
+    it('loads, stores and publishes the user', () => {
+      const auth = createService();
+      const emitted: (CurrentUser | null)[] = [];
+      auth.currentUser$.subscribe((u) => emitted.push(u));
+
+      auth.currentUserDetails().subscribe();
+      const request = httpMock.expectOne(`${API}/me`);
+      expect(request.request.method).toBe('GET');
+      request.flush(driver);
+
+      expect(emitted).toEqual([null, driver]);
+      expect(JSON.parse(localStorage.getItem(USER_KEY)!)).toEqual(driver);
+      expect(auth.getRole()).toBe('DRIVER');
+    });
+  });
+
+  describe('hasRole', () => {
+    // Faux sans utilisateur
+    it('is false when nobody is signed in', () => {
+      const auth = createService();
+
+      expect(auth.hasRole('ADMIN', 'AGENT', 'DRIVER')).toBe(false);
+    });
+
+    // Vrai si le rôle figure parmi ceux demandés, faux sinon
+    it('matches only the roles asked for', () => {
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      const auth = createService();
+
+      expect(auth.hasRole('DRIVER')).toBe(true);
+      expect(auth.hasRole('ADMIN', 'DRIVER')).toBe(true);
+      expect(auth.hasRole('ADMIN', 'AGENT')).toBe(false);
+    });
+  });
+
+  describe('isAuthenticated', () => {
+    // Dépend uniquement de la présence d'un access token
+    it('follows the presence of an access token', () => {
+      const auth = createService();
+      expect(auth.isAuthenticated()).toBe(false);
+
+      localStorage.setItem(ACCESS_KEY, 'token');
+      expect(auth.isAuthenticated()).toBe(true);
+    });
+  });
+});

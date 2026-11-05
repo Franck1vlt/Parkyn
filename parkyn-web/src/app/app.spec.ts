@@ -1,23 +1,22 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideRouter([])],
     }).compileComponents();
   });
 
-  it('should create the app', () => {
+  // La coquille de l'application contient la zone de routage et les notifications
+  it('hosts the router outlet and the toast', () => {
     const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, parkyn-web');
+    expect(host.querySelector('router-outlet')).not.toBeNull();
+    expect(host.querySelector('app-toast')).not.toBeNull();
   });
 });
