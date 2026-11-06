@@ -1,0 +1,2 @@
+# Scripts shell toujours en LF : bash échoue sur les fins de ligne CRLF
+*.sh text eol=lf
