@@ -3,6 +3,7 @@ package app.parkyn.security;
 import java.io.IOException;
 import java.util.Arrays;
 
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -75,6 +76,9 @@ public class JwtAuthFilter extends OncePerRequestFilter{
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, permissionAuthorities);
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
+                // Pour les logs (vidés par RequestIdFilter) : identifiants seulement, jamais l'email
+                MDC.put(RequestIdFilter.TENANT_ID, String.valueOf(user.getTenantId()));
+                MDC.put(RequestIdFilter.USER_ID, String.valueOf(user.getId()));
             }
         }
 

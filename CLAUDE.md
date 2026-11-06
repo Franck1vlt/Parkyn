@@ -17,14 +17,14 @@ Projet solo, dépôt public. Priorité : code propre, outils open source courant
 
 - `parkyn-api/` : API Spring Boot (package `app.parkyn`)
   - `controller/`, `service/`, `repository/`, `model/`, `dto/`
-  - `security/` : `SecurityConfig`, `JwtAuthFilter`, `RateLimitFilter`, `RateLimiter`, `ClientIpResolver`, `@PublicEndpoint`
+  - `security/` : `SecurityConfig`, `JwtAuthFilter`, `RateLimitFilter`, `RequestIdFilter`, `RateLimiter`, `ClientIpResolver`, `@PublicEndpoint`
   - `security/authorization/` : politiques d'accès (`UserAccessPolicy`, `ReservationScope`)
   - `tenant/` : résolution du tenant courant (`TenantContext`, `CurrentTenantResolver`)
   - `email/` : envoi asynchrone, gabarits dans `src/main/resources/templates/email/`
   - `src/main/resources/db/migration/` : migrations Flyway (`V<n>__description.sql`)
 - `parkyn-web/` : application Angular (environnements dans `src/environments/`, remplacés via `fileReplacements`)
-- `nginx/nginx.conf` : point d'entrée unique sur le port 80 ; `/` vers le front, `/api/` vers l'API, transmet `X-Real-IP`
-- `docs/adr/` : décisions d'architecture (0001 cookies HttpOnly, 0002 RBAC à permissions, 0003 pas de Keycloak)
+- `nginx/nginx.conf` : point d'entrée unique sur le port 80 ; `/` vers le front, `/api/` vers l'API, transmet `X-Real-IP` et `X-Request-Id`
+- `docs/adr/` : décisions d'architecture (0001 cookies HttpOnly, 0002 RBAC à permissions, 0003 pas de Keycloak, 0004 corrélation des logs)
 - `docs/diagrams/` : séquences Mermaid (inscription, login, refresh, limitation de débit, schéma)
 - `docs/lots/lot-1a-checklist.md` : avancement du lot en cours et points notés pour plus tard
 - `docs/lots/matrice-caracterisation.md` : matrice d'autorisation et journal daté des changements
