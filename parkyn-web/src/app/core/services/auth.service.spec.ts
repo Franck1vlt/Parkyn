@@ -213,8 +213,8 @@ describe('AuthService', () => {
       expect(auth.getAccessToken()).toBe('b');
     });
 
-    // Un refresh refusé déconnecte et transmet l'erreur d'origine
-    it('logs out and forwards the error when the refresh is refused', () => {
+    // Refresh refusé : session effacée localement, erreur transmise, sans logout
+    it('clears the session and forwards the error when the refresh is refused', () => {
       const auth = createService();
       signIn(auth);
       const statuses: number[] = [];
@@ -223,9 +223,9 @@ describe('AuthService', () => {
       httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'Unauthorized' });
 
       expect(statuses).toEqual([401]);
-      const logout = httpMock.expectOne(`${API}/logout`);
-      logout.flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectNone(`${API}/logout`);
       expect(auth.getAccessToken()).toBeNull();
+      expect(navigate).toHaveBeenCalledTimes(1);
       expect(navigate).toHaveBeenCalledWith(['/login']);
     });
 
@@ -235,11 +235,11 @@ describe('AuthService', () => {
 
       auth.refresh().subscribe({ error: () => {} });
       httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'x' });
-      httpMock.expectOne(`${API}/logout`).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectNone(`${API}/logout`);
 
       auth.refresh().subscribe({ error: () => {} });
       httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'x' });
-      httpMock.expectOne(`${API}/logout`).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectNone(`${API}/logout`);
     });
   });
 
@@ -274,6 +274,17 @@ describe('AuthService', () => {
       httpMock.expectOne(`${API}/logout`).flush(null, { status: 401, statusText: 'Unauthorized' });
 
       expect(auth.isAuthenticated()).toBe(false);
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    // Sans session : rien à révoquer, redirection directe vers /login
+    it('redirects to login without calling the server when there is no session', () => {
+      const auth = createService();
+
+      auth.logout();
+
+      httpMock.expectNone(`${API}/logout`);
+      expect(navigate).toHaveBeenCalledTimes(1);
       expect(navigate).toHaveBeenCalledWith(['/login']);
     });
   });

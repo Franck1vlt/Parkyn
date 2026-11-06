@@ -59,7 +59,7 @@ participant BDD
         Angular->>API: Rejoue les requêtes en attente
         API-->>Angular: Réponses (une erreur du rejeu, 409 par exemple, remonte telle quelle)
     end
-    Note over Angular: Refresh refusé (401 ou 403) : un seul logout,<br/>chaque requête en attente reçoit son 401 d'origine
+    Note over Angular: Refresh refusé (401 ou 403) : session déjà morte côté serveur,<br/>effacement local + /login une seule fois, sans logout ;<br/>chaque requête en attente reçoit son 401 d'origine
 ```
 
 Tous les `401` ont le même corps (« Session expirée, veuillez vous reconnecter ») : le client ne distingue pas un token inconnu, révoqué, expiré ou un compte désactivé.
@@ -69,6 +69,8 @@ Tous les `401` ont le même corps (« Session expirée, veuillez vous reconnecte
 - **Fait (C1) :** le token est lu dans le cookie uniquement (cookie absent = même `401`, token dans le corps ignoré) ; rotation avec révocation de l'ancien token et nouveau `Set-Cookie` ; refus uniformes.
 - **Fait (C2) :** protection CSRF par double-submit (`403` sans en-tête ou avec une valeur fausse) ; révocation atomique de l'ancien token (`revokeIfActive`), un seul refresh réussit parmi des requêtes simultanées ; côté Angular, refresh partagé, rejeu sans refresh si le token a déjà changé, un seul logout en cas d'échec.
 - **Fait (C3) :** `user_sessions` (empreinte SHA-256 seulement, token de 256 bits), rotation dans la même famille, session expirée ou compte non actif révoqué en base avant le `401` (`noRollbackFor = SessionRejectedException.class`), révocation de toute la famille en cas de réutilisation au-delà de la période de grâce (10 s). `refresh_tokens` n'est plus utilisée.
+- **Fait (D1, étape 3) :** refresh refusé = effacement de la session locale et navigation vers `/login`, sans `POST /auth/logout` (il portait un token refusé). `/auth/logout` passe aussi par le refresh (voir la séquence du logout).
+- **Limite connue (401 tardif) :** une requête partie avec l'ancien token et revenue en `401` après l'échec du refresh relance un second refresh (refusé) et une seconde navigation vers `/login` (sans effet).
 - **Limite connue (grâce) :** si un voleur fait la rotation avant l'utilisateur et que celui-ci représente l'ancien token dans les 10 s, la famille n'est pas révoquée et le voleur garde son nouveau token. Grâce à retirer quand Angular aura un verrou entre onglets (phase D).
 
 # Séquence : logout
@@ -81,6 +83,9 @@ participant API as API Spring
 participant BDD
 
     Navigateur->>Angular: Clic « Déconnexion »
+    alt Pas de session locale (ni access token ni utilisateur)
+        Angular-->>Navigateur: Redirection vers /login, sans appel au serveur
+    end
     Angular->>API: POST /api/v1/auth/logout + access token
     Note right of Navigateur: Le navigateur joint le cookie refresh_token<br/>(Path = /api/v1/auth depuis C4)
 
@@ -95,11 +100,25 @@ participant BDD
         Note right of Navigateur: Mêmes attributs et même Path :<br/>le navigateur supprime le cookie
     else Access token expiré ou absent
         API-->>Angular: 401, rien n'est révoqué
-        Note right of Angular: Phase D : refresh puis rejeu du logout<br/>(aujourd'hui /auth/logout est exclu du refresh)
+        alt Le token a déjà changé depuis l'envoi du logout
+            Angular->>API: Rejoue le logout avec le token courant, sans refresh
+        else
+            Angular->>API: POST /api/v1/auth/refresh (partagé, voir la séquence du refresh)
+            alt Refresh accepté
+                API-->>Angular: 200 + nouvel access token
+                Angular->>API: Rejoue le logout avec le nouveau token
+                Note right of API: Même traitement que « Access token valide » :<br/>famille du cookie révoquée, cookie effacé
+            else Refresh refusé
+                API-->>Angular: 401
+                Angular->>Angular: Efface la session locale
+                Angular-->>Navigateur: Redirection vers /login (une seule fois)
+                Note right of Angular: Session déjà morte côté serveur :<br/>pas de nouveau logout, pas de boucle
+            end
+        end
     end
 
-    Angular->>Angular: Efface la session locale (finalize, succès ou échec)
-    Angular-->>Navigateur: Redirection vers /login
+    Angular->>Angular: finalize : efface la session locale si elle existe encore
+    Angular-->>Navigateur: Redirection vers /login (sauf si déjà faite)
 ```
 
 # Séquence : sessions actives (C4)

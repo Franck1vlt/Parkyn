@@ -80,8 +80,8 @@ describe('AuthInterceptor', () => {
     expect(responses).toHaveLength(1);
   });
 
-  // Déconnecte l'utilisateur si le rafraîchissement échoue
-  it('logs out once when the shared refresh fails', () => {
+  // Refresh refusé : session effacée une seule fois, sans logout inutile
+  it('clears the session once when the shared refresh fails', () => {
     signIn('old-token');
     const errors: any[] = [];
     const urls = ['/api/v1/a', '/api/v1/b', '/api/v1/c'];
@@ -98,12 +98,11 @@ describe('AuthInterceptor', () => {
     const refreshRequest = httpMock.expectOne(refreshUrl);
     refreshRequest.flush(null, { status: 401, statusText: 'Unauthorized' });
 
-    const logoutRequests = httpMock.match(logoutUrl);
-    expect(logoutRequests).toHaveLength(1);
-    expect(errors).toHaveLength(3);
-
-    logoutRequests[0].flush(null, { status: 401, statusText: 'Unauthorized' });
+    expect(errors.map((e) => e.status)).toEqual([401, 401, 401]);
+    httpMock.expectNone(logoutUrl);
+    httpMock.expectNone(refreshUrl);
     expect(auth.getAccessToken()).toBeNull();
+    expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
 
@@ -151,11 +150,89 @@ describe('AuthInterceptor', () => {
     expect(errors.map((e) => e.status)).toEqual([401]);
   });
 
+  // Logout avec token expiré : refresh puis rejeu du logout avec le nouveau token
+  it('replays the logout with a refreshed token after a 401', () => {
+    signIn('old-token');
+    loadProfile();
+    expect(auth.currentUser).not.toBeNull();
+    const logoutUrl = `${environment.apiUrl}/auth/logout`;
+    const refreshUrl = `${environment.apiUrl}/auth/refresh`;
+
+    auth.logout();
+    const firstLogout = httpMock.expectOne(logoutUrl);
+    expect(firstLogout.request.headers.get('Authorization')).toBe('Bearer old-token');
+    firstLogout.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectOne(refreshUrl).flush({ access_token: 'new-token' });
+    expect(navigate).not.toHaveBeenCalled();
+
+    const replayedLogout = httpMock.expectOne(logoutUrl);
+    expect(replayedLogout.request.headers.get('Authorization')).toBe('Bearer new-token');
+    replayedLogout.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(auth.getAccessToken()).toBeNull();
+    expect(auth.currentUser).toBeNull();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  // Refresh refusé pendant le logout : un seul logout, un seul refresh, session effacée une fois
+  it('clears the session once without looping when the refresh fails during logout', () => {
+    signIn('old-token');
+    loadProfile();
+    expect(auth.currentUser).not.toBeNull();
+    const logoutUrl = `${environment.apiUrl}/auth/logout`;
+    const refreshUrl = `${environment.apiUrl}/auth/refresh`;
+
+    auth.logout();
+    httpMock.expectOne(logoutUrl).flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne(refreshUrl).flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(httpMock.match(logoutUrl)).toHaveLength(0);
+    httpMock.expectNone(refreshUrl);
+    expect(auth.getAccessToken()).toBeNull();
+    expect(auth.currentUser).toBeNull();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  // Token déjà renouvelé pendant le logout : rejeu sans refresh
+  it('replays the logout without refreshing when the token already changed', () => {
+    signIn('old-token');
+    const logoutUrl = `${environment.apiUrl}/auth/logout`;
+
+    auth.logout();
+    const firstLogout = httpMock.expectOne(logoutUrl);
+    expect(firstLogout.request.headers.get('Authorization')).toBe('Bearer old-token');
+    signIn('new-token');
+    firstLogout.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(`${environment.apiUrl}/auth/refresh`);
+    const replayedLogout = httpMock.expectOne(logoutUrl);
+    expect(replayedLogout.request.headers.get('Authorization')).toBe('Bearer new-token');
+    replayedLogout.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
   // --- Helpers ---
   // Ouvre une session par un vrai login (token en mémoire)
   function signIn(token: string): void {
     auth.login('jean@parkyn.app', 'secret').subscribe();
     httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush({ access_token: token });
+  }
+
+  // Charge le profil pour que l'effacement de currentUser soit observable
+  function loadProfile(): void {
+    auth.currentUserDetails().subscribe();
+    httpMock.expectOne(`${environment.apiUrl}/auth/me`).flush({
+      id: '1',
+      firstname: 'Jean',
+      lastname: 'Dupont',
+      email: 'jean@parkyn.app',
+      role: 'DRIVER',
+    });
   }
 
   function getRequest(url: string, responses?: any[], onError?: (error: any) => void): TestRequest {

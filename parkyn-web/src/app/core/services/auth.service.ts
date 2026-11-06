@@ -73,8 +73,9 @@ export class AuthService {
     if (!this.refreshInFlight$) {
       this.refreshInFlight$ = this.http.post<LoginResponse>(`${this.API_URL}/refresh`, {}).pipe(
         tap((response) => this.storeToken(response)),
+        // Refresh refusé : la session est déjà morte côté serveur, pas de logout à envoyer
         catchError((error) => {
-          this.logout();
+          this.clearSession();
           return throwError(() => error);
         }),
         finalize(() => {
@@ -102,9 +103,19 @@ export class AuthService {
   }
 
   logout(): void {
+    // Sans session, rien à révoquer côté serveur
+    if (!this.hasSession()) {
+      this.router.navigate(['/login']);
+      return;
+    }
     this.http
       .post<void>(`${this.API_URL}/logout`, {})
-      .pipe(finalize(() => this.clearSession()))
+      // Un refresh refusé pendant le logout a déjà effacé la session et redirigé
+      .pipe(
+        finalize(() => {
+          if (this.hasSession()) this.clearSession();
+        }),
+      )
       .subscribe({ error: () => {} });
   }
 
@@ -151,6 +162,11 @@ export class AuthService {
     return stored ? JSON.parse(stored) : null;
   }
 
+  private hasSession(): boolean {
+    return this.accessToken() !== null || this.currentUserSubject.value !== null;
+  }
+
+  // Efface la session locale et redirige vers /login, sans condition
   private clearSession(): void {
     this.clearLocalSession();
     this.router.navigate(['/login']);

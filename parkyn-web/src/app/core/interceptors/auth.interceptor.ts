@@ -14,12 +14,7 @@ export const AuthInterceptor: HttpInterceptorFn = (req, next) => {
     });
     return next(authReq).pipe(
       catchError((error) => {
-        // Logout exclu tant que D1 n'a pas tranché « refresh puis rejeu du logout »
-        if (
-          error.status === 401 &&
-          !isPublicAuthEndpoint(req.url) &&
-          !req.url.includes('/auth/logout')
-        ) {
+        if (error.status === 401 && !isPublicAuthEndpoint(req.url)) {
           const currentToken = authService.getAccessToken();
           const token$ =
             currentToken && currentToken !== accessToken
