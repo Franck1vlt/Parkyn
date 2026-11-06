@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
@@ -15,6 +15,7 @@ import {
   throwError,
 } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { HANDLED_BY_SCREEN } from '../interceptors/error-handling';
 
 export type Role = 'ADMIN' | 'AGENT' | 'DRIVER';
 
@@ -59,8 +60,10 @@ export class AuthService {
   }
 
   login(email: String, password: String): Observable<LoginResponse> {
+    // L'écran de login affiche lui-même les erreurs 401/429 : pas de toast
+    const context = new HttpContext().set(HANDLED_BY_SCREEN, true);
     return this.http
-      .post<LoginResponse>(`${this.API_URL}/login`, { email, password })
+      .post<LoginResponse>(`${this.API_URL}/login`, { email, password }, { context })
       .pipe(tap((response) => this.storeToken(response)));
   }
 

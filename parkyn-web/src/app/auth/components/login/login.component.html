@@ -82,6 +82,12 @@
         </div>
       </div>
 
+      @if (errorMessage(); as message) {
+        <p role="alert" class="rounded-md bg-red-50 px-3 py-2 text-sm/6 text-red-700">
+          {{ message }}
+        </p>
+      }
+
       <div>
         <button
           type="submit"
