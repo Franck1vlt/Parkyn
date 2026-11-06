@@ -94,6 +94,53 @@ describe('AuthService', () => {
     });
   });
 
+  describe('restoreSession', () => {
+    // Cookie valide : refresh silencieux puis chargement du profil
+    it('restores the access token and the user from the refresh cookie', async () => {
+      const auth = createService();
+
+      const done = auth.restoreSession();
+      const refresh = httpMock.expectOne(`${API}/refresh`);
+      expect(refresh.request.body).toEqual({});
+      refresh.flush({ ...loginResponse, access_token: 'restored' });
+      httpMock.expectOne(`${API}/me`).flush(driver);
+      await done;
+
+      expect(auth.getAccessToken()).toBe('restored');
+      expect(auth.currentUser).toEqual(driver);
+    });
+
+    // Pas de session : démarre déconnecté, sans logout ni redirection (pages publiques)
+    it('starts signed out without logout nor redirect when the refresh is refused', async () => {
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      const auth = createService();
+
+      const done = auth.restoreSession();
+      httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'Unauthorized' });
+      await expect(done).resolves.toBeUndefined();
+
+      httpMock.expectNone(`${API}/logout`);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(auth.getAccessToken()).toBeNull();
+      expect(auth.currentUser).toBeNull();
+      expect(localStorage.getItem(USER_KEY)).toBeNull();
+    });
+
+    // Profil introuvable après le refresh : la session n'est pas gardée à moitié
+    it('drops the session when the profile cannot be loaded', async () => {
+      const auth = createService();
+
+      const done = auth.restoreSession();
+      httpMock.expectOne(`${API}/refresh`).flush(loginResponse);
+      httpMock.expectOne(`${API}/me`).flush(null, { status: 500, statusText: 'Server Error' });
+      await expect(done).resolves.toBeUndefined();
+
+      expect(auth.getAccessToken()).toBeNull();
+      expect(auth.currentUser).toBeNull();
+      expect(navigate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('register', () => {
     // Envoie les quatre champs de l'inscription
     it('posts the registration fields', () => {

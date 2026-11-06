@@ -5,8 +5,12 @@ import {
   BehaviorSubject,
   catchError,
   finalize,
+  firstValueFrom,
+  map,
   Observable,
+  of,
   shareReplay,
+  switchMap,
   tap,
   throwError,
 } from 'rxjs';
@@ -82,6 +86,21 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
+  // Au démarrage : retrouve la session depuis le cookie ; échec = déconnecté, sans logout ni redirection
+  restoreSession(): Promise<void> {
+    return firstValueFrom(
+      this.http.post<LoginResponse>(`${this.API_URL}/refresh`, {}).pipe(
+        tap((response) => this.storeToken(response)),
+        switchMap(() => this.currentUserDetails()),
+        map(() => undefined),
+        catchError(() => {
+          this.clearLocalSession();
+          return of(undefined);
+        }),
+      ),
+    );
+  }
+
   logout(): void {
     this.http
       .post<void>(`${this.API_URL}/logout`, {})
@@ -133,9 +152,13 @@ export class AuthService {
   }
 
   private clearSession(): void {
+    this.clearLocalSession();
+    this.router.navigate(['/login']);
+  }
+
+  private clearLocalSession(): void {
     this.accessToken.set(null);
     localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
-    this.router.navigate(['/login']);
   }
 }
