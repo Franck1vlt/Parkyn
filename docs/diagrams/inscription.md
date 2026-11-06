@@ -75,3 +75,15 @@ participant Email
     API-->>Angular: 202 Accepted (dans tous les cas)
     Angular-->>Navigateur: "Si un compte en attente existe, un email a été envoyé"
 ```
+
+## Erreurs de validation (400)
+
+Un corps invalide (`POST /auth/register`, comme tout endpoint `@Valid`) est refusé avant le service, avec le même `400` que l'adresse existe ou non (pas d'énumération de comptes) :
+
+```json
+{"errors":{"email":["doit être une adresse électronique syntaxiquement correcte"],"password":["la taille doit être comprise entre 12 et 128"]}}
+```
+
+- Clés : noms JSON des champs (`@JsonProperty`, sinon le nom Java : `firstname`, `lastname`, `email`, `password`) ; erreurs sans champ sous `_global`.
+- Messages en français (locale fixée à `fr`, indépendante du navigateur), triés par champ. `Content-Type: application/json`.
+- Les `400` de `verify-email` (lien invalide ou déjà utilisé) ne changent pas : texte brut, levés par le service.

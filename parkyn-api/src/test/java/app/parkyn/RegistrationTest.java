@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -291,6 +292,6 @@ public class RegistrationTest {
             .andExpect(status().isBadRequest())
             .andExpect(content().string(not(containsString("(?"))))
             .andExpect(content().string(not(containsString("\\p{"))))
-            .andExpect(content().string(containsString("caractères non autorisés")));
+            .andExpect(jsonPath("$.errors.firstname[0]").value("contient des caractères non autorisés"));
     }
 }
