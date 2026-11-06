@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-f=$(jq -r '.tool_input.file_path // empty')
+# Sans jq (absent de Git Bash) : extrait "file_path" et convertit les \\ Windows en /
+f=$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+f="${f//\\\\//}"
+f="${f//\\//}"
 case "$f" in
   */db/migration/*.sql)
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then

@@ -1,5 +1,5 @@
 ---
-description: "Relit les changements en cours (par rapport à main) avec le sous-agent reviewer"
+description: "Relit les changements en cours (par rapport à main) avec le sous-agent code-reviewer"
 argument-hint: "[consigne optionnelle]"
 allowed-tools: Bash(git status:*), Bash(git diff:*)
 ---
@@ -20,9 +20,9 @@ Diff complet :
 
 ## Tâche
 
-Utilise le sous-agent `reviewer` pour relire les changements ci-dessus.
+Utilise le sous-agent `code-reviewer` pour relire les changements ci-dessus.
 
-- Transmets-lui le diff complet et la liste des fichiers.
+- Transmets-lui le diff complet et la liste des fichiers. Précise qu'il s'agit d'un appel hors workflow /multi-agent-tdd-pipeline : pas d'étape 0.
 - Les fichiers nouveaux non suivis par git n'apparaissent pas dans le diff : demande-lui de les lire directement avec ses outils.
 - Consigne supplémentaire de l'utilisateur (peut être vide) : $ARGUMENTS
 
