@@ -103,7 +103,6 @@ export class NewReservationComponent {
     };
 
     console.log('=== PAYLOAD ENVOYÉ ===', payload);
-    console.log('Token JWT:', this.authService.getAccessToken());
     console.log('Rôle utilisateur:', this.authService.getRole());
 
     this.reservationsService

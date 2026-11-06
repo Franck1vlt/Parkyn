@@ -8,6 +8,7 @@ import { AuthService, CurrentUser, LoginResponse } from './auth.service';
 describe('AuthService', () => {
   const API = `${environment.apiUrl}/auth`;
   const ACCESS_KEY = 'parkyn_access_token';
+  const REFRESH_KEY = 'parkyn_refresh_token';
   const USER_KEY = 'parkyn_user';
 
   const driver: CurrentUser = {
@@ -19,7 +20,9 @@ describe('AuthService', () => {
   };
   const loginResponse = {
     access_token: 'access-1',
-    refresh_token: 'refresh-1',
+    expired_at: '2026-11-06T10:15:00Z',
+    refresh_expired_at: '2026-11-13T10:00:00Z',
+    token_type: 'Bearer',
   } as LoginResponse;
 
   let httpMock: HttpTestingController;
@@ -35,14 +38,20 @@ describe('AuthService', () => {
     return TestBed.inject(AuthService);
   }
 
+  // Ouvre une session par un vrai login
+  function signIn(auth: AuthService, accessToken = 'access-1'): void {
+    auth.login('jean@parkyn.app', 'secret').subscribe();
+    httpMock.expectOne(`${API}/login`).flush({ ...loginResponse, access_token: accessToken });
+  }
+
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
   });
 
   describe('login', () => {
-    // Envoie l'email et le mot de passe et conserve l'access token
-    it('posts the credentials and stores the access token', () => {
+    // Envoie l'email et le mot de passe et garde l'access token en mémoire, jamais dans localStorage
+    it('posts the credentials and keeps the access token in memory only', () => {
       const auth = createService();
       let result: LoginResponse | undefined;
 
@@ -54,22 +63,33 @@ describe('AuthService', () => {
       request.flush(loginResponse);
 
       expect(result).toEqual(loginResponse);
-      expect(localStorage.getItem(ACCESS_KEY)).toBe('access-1');
+      expect(auth.getAccessToken()).toBe('access-1');
       expect(auth.isAuthenticated()).toBe(true);
+      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(localStorage.getItem(REFRESH_KEY)).toBeNull();
     });
 
     // Un échec de connexion ne laisse aucune session
-    it('stores nothing when the login fails', () => {
+    it('keeps no session when the login fails', () => {
       const auth = createService();
       let status: number | undefined;
 
       auth.login('jean@parkyn.app', 'mauvais').subscribe({ error: (e) => (status = e.status) });
-      httpMock
-        .expectOne(`${API}/login`)
-        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock.expectOne(`${API}/login`).flush(null, { status: 401, statusText: 'Unauthorized' });
 
       expect(status).toBe(401);
-      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(auth.getAccessToken()).toBeNull();
+      expect(auth.isAuthenticated()).toBe(false);
+    });
+  });
+
+  describe('startup', () => {
+    // Un ancien token laissé dans localStorage n'ouvre pas de session
+    it('ignores an access token left in localStorage', () => {
+      localStorage.setItem(ACCESS_KEY, 'stale-token');
+      const auth = createService();
+
+      expect(auth.getAccessToken()).toBeNull();
       expect(auth.isAuthenticated()).toBe(false);
     });
   });
@@ -94,17 +114,29 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    // Remplace l'access token par celui de la réponse
-    it('stores the new access token', () => {
-      localStorage.setItem(ACCESS_KEY, 'old-token');
+    // Le refresh token voyage dans le cookie : le corps est vide
+    it('sends an empty body', () => {
       const auth = createService();
 
       auth.refresh().subscribe();
-      httpMock
-        .expectOne(`${API}/refresh`)
-        .flush({ access_token: 'new-token', refresh_token: 'refresh-2' });
+
+      const request = httpMock.expectOne(`${API}/refresh`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({});
+      request.flush(loginResponse);
+    });
+
+    // Remplace l'access token en mémoire, sans rien écrire dans localStorage
+    it('replaces the access token in memory', () => {
+      const auth = createService();
+      signIn(auth, 'old-token');
+
+      auth.refresh().subscribe();
+      httpMock.expectOne(`${API}/refresh`).flush({ ...loginResponse, access_token: 'new-token' });
 
       expect(auth.getAccessToken()).toBe('new-token');
+      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(localStorage.getItem(REFRESH_KEY)).toBeNull();
     });
 
     // Plusieurs appels simultanés partagent une seule requête
@@ -116,7 +148,7 @@ describe('AuthService', () => {
       auth.refresh().subscribe((r) => tokens.push(r.access_token));
       auth.refresh().subscribe((r) => tokens.push(r.access_token));
 
-      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'shared', refresh_token: 'r' });
+      httpMock.expectOne(`${API}/refresh`).flush({ ...loginResponse, access_token: 'shared' });
 
       expect(tokens).toEqual(['shared', 'shared', 'shared']);
     });
@@ -126,24 +158,22 @@ describe('AuthService', () => {
       const auth = createService();
 
       auth.refresh().subscribe();
-      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'a', refresh_token: 'r' });
+      httpMock.expectOne(`${API}/refresh`).flush({ ...loginResponse, access_token: 'a' });
 
       auth.refresh().subscribe();
-      httpMock.expectOne(`${API}/refresh`).flush({ access_token: 'b', refresh_token: 'r' });
+      httpMock.expectOne(`${API}/refresh`).flush({ ...loginResponse, access_token: 'b' });
 
       expect(auth.getAccessToken()).toBe('b');
     });
 
     // Un refresh refusé déconnecte et transmet l'erreur d'origine
     it('logs out and forwards the error when the refresh is refused', () => {
-      localStorage.setItem(ACCESS_KEY, 'old-token');
       const auth = createService();
+      signIn(auth);
       const statuses: number[] = [];
 
       auth.refresh().subscribe({ error: (e) => statuses.push(e.status) });
-      httpMock
-        .expectOne(`${API}/refresh`)
-        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock.expectOne(`${API}/refresh`).flush(null, { status: 401, statusText: 'Unauthorized' });
 
       expect(statuses).toEqual([401]);
       const logout = httpMock.expectOne(`${API}/logout`);
@@ -169,9 +199,9 @@ describe('AuthService', () => {
   describe('logout', () => {
     // La requête part avant l'effacement : la session locale n'est effacée qu'à la réponse
     it('keeps the session until the server answers, then clears it', () => {
-      localStorage.setItem(ACCESS_KEY, 'token');
       localStorage.setItem(USER_KEY, JSON.stringify(driver));
       const auth = createService();
+      signIn(auth, 'token');
 
       auth.logout();
 
@@ -182,7 +212,7 @@ describe('AuthService', () => {
 
       request.flush(null, { status: 204, statusText: 'No Content' });
 
-      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(auth.getAccessToken()).toBeNull();
       expect(localStorage.getItem(USER_KEY)).toBeNull();
       expect(auth.currentUser).toBeNull();
       expect(navigate).toHaveBeenCalledWith(['/login']);
@@ -190,13 +220,11 @@ describe('AuthService', () => {
 
     // Même si le serveur refuse, l'utilisateur est déconnecté localement
     it('clears the session even when the request fails', () => {
-      localStorage.setItem(ACCESS_KEY, 'token');
       const auth = createService();
+      signIn(auth);
 
       auth.logout();
-      httpMock
-        .expectOne(`${API}/logout`)
-        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock.expectOne(`${API}/logout`).flush(null, { status: 401, statusText: 'Unauthorized' });
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);
@@ -260,12 +288,12 @@ describe('AuthService', () => {
   });
 
   describe('isAuthenticated', () => {
-    // Dépend uniquement de la présence d'un access token
+    // Suit la présence d'un access token en mémoire
     it('follows the presence of an access token', () => {
       const auth = createService();
       expect(auth.isAuthenticated()).toBe(false);
 
-      localStorage.setItem(ACCESS_KEY, 'token');
+      signIn(auth);
       expect(auth.isAuthenticated()).toBe(true);
     });
   });

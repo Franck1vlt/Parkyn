@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   BehaviorSubject,
@@ -25,8 +25,7 @@ export interface CurrentUser {
 export interface LoginResponse {
   access_token: string;
   expired_at: string;
-  refresh_token: string;
-  refresh_token_expired_at: string;
+  refresh_expired_at: string;
   token_type: string;
 }
 
@@ -35,9 +34,9 @@ export interface LoginResponse {
 })
 export class AuthService {
   private readonly API_URL = `${environment.apiUrl}/auth`;
-  private readonly ACCESS_TOKEN_KEY = 'parkyn_access_token';
-  private readonly REFRESH_TOKEN_KEY = 'parkyn_refresh_token';
   private readonly USER_KEY = 'parkyn_user';
+  // Access token en mémoire vive : perdu au rechargement, restauré par le refresh (cookie HttpOnly)
+  private readonly accessToken = signal<string | null>(null);
   private refreshInFlight$: Observable<LoginResponse> | null = null;
 
   private currentUserSubject = new BehaviorSubject<CurrentUser | null>(this.getStoredUser());
@@ -68,20 +67,17 @@ export class AuthService {
 
   refresh(): Observable<LoginResponse> {
     if (!this.refreshInFlight$) {
-      const refreshToken = this.getRefreshToken();
-      this.refreshInFlight$ = this.http
-        .post<LoginResponse>(`${this.API_URL}/refresh`, { refreshToken })
-        .pipe(
-          tap((response) => this.storeToken(response)),
-          catchError((error) => {
-            this.logout();
-            return throwError(() => error);
-          }),
-          finalize(() => {
-            this.refreshInFlight$ = null;
-          }),
-          shareReplay(1),
-        );
+      this.refreshInFlight$ = this.http.post<LoginResponse>(`${this.API_URL}/refresh`, {}).pipe(
+        tap((response) => this.storeToken(response)),
+        catchError((error) => {
+          this.logout();
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          this.refreshInFlight$ = null;
+        }),
+        shareReplay(1),
+      );
     }
     return this.refreshInFlight$;
   }
@@ -103,11 +99,7 @@ export class AuthService {
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem(this.ACCESS_TOKEN_KEY);
-  }
-
-  getRefreshToken(): string | null {
-    return localStorage.getItem(this.REFRESH_TOKEN_KEY);
+    return this.accessToken();
   }
 
   isAuthenticated(): boolean {
@@ -132,8 +124,7 @@ export class AuthService {
   }
 
   private storeToken(response: LoginResponse): void {
-    localStorage.setItem(this.ACCESS_TOKEN_KEY, response.access_token);
-    localStorage.setItem(this.REFRESH_TOKEN_KEY, response.refresh_token);
+    this.accessToken.set(response.access_token);
   }
 
   private getStoredUser(): CurrentUser | null {
@@ -142,8 +133,7 @@ export class AuthService {
   }
 
   private clearSession(): void {
-    localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-    localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+    this.accessToken.set(null);
     localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
     this.router.navigate(['/login']);

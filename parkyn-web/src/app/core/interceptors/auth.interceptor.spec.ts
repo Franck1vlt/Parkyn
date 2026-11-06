@@ -6,6 +6,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 import { AuthInterceptor } from './auth.interceptor';
 import { environment } from '../../../environments/environment';
 
@@ -13,9 +14,9 @@ describe('AuthInterceptor', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
   let navigate: ReturnType<typeof vi.spyOn>;
+  let auth: AuthService;
 
   beforeEach(() => {
-    localStorage.setItem('parkyn_access_token', 'old-token');
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([AuthInterceptor])),
@@ -26,6 +27,7 @@ describe('AuthInterceptor', () => {
     http = TestBed.inject(HttpClient);
     httpMock = TestBed.inject(HttpTestingController);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    auth = TestBed.inject(AuthService);
   });
 
   afterEach(() => {
@@ -37,6 +39,7 @@ describe('AuthInterceptor', () => {
 
   // Partage une seule mise à jour du token entre plusieurs requêtes 401 simultanées
   it('shares a single refresh between concurrent 401s', () => {
+    signIn('old-token');
     const responses: any[] = [];
     const urls = ['/api/v1/a', '/api/v1/b', '/api/v1/c'];
 
@@ -59,13 +62,14 @@ describe('AuthInterceptor', () => {
 
   // Rejoue la requête sans rafraîchir le token si celui-ci a déjà changé
   it('replays without refreshing when the token already changed', () => {
+    signIn('old-token');
     const responses: any[] = [];
     const url = '/api/v1/a';
     const refreshUrl = `${environment.apiUrl}/auth/refresh`;
 
     const initialRequest = getRequest(url, responses);
     expect(initialRequest.request.headers.get('Authorization')).toBe('Bearer old-token');
-    localStorage.setItem('parkyn_access_token', 'new-token');
+    signIn('new-token');
     initialRequest.flush(null, { status: 401, statusText: 'Unauthorized' });
 
     httpMock.expectNone(refreshUrl);
@@ -78,6 +82,7 @@ describe('AuthInterceptor', () => {
 
   // Déconnecte l'utilisateur si le rafraîchissement échoue
   it('logs out once when the shared refresh fails', () => {
+    signIn('old-token');
     const errors: any[] = [];
     const urls = ['/api/v1/a', '/api/v1/b', '/api/v1/c'];
     const refreshUrl = `${environment.apiUrl}/auth/refresh`;
@@ -98,12 +103,13 @@ describe('AuthInterceptor', () => {
     expect(errors).toHaveLength(3);
 
     logoutRequests[0].flush(null, { status: 401, statusText: 'Unauthorized' });
-    expect(localStorage.getItem('parkyn_access_token')).toBeNull();
+    expect(auth.getAccessToken()).toBeNull();
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
 
   // Transmet l'erreur de la requête rejouée, pas le 401 d'origine
   it('forwards the replayed request error', () => {
+    signIn('old-token');
     const errors: any[] = [];
     const url = '/api/v1/a';
 
@@ -121,7 +127,6 @@ describe('AuthInterceptor', () => {
   // Sans token : pas d'en-tête Authorization et le 401 remonte sans refresh
   // (comportement actuel ; D1 le changera pour retrouver la session après un rechargement)
   it('sends no Authorization header and does not refresh without a token', () => {
-    localStorage.removeItem('parkyn_access_token');
     const errors: any[] = [];
     const url = '/api/v1/a';
 
@@ -135,6 +140,7 @@ describe('AuthInterceptor', () => {
 
   // Un 401 au login (mauvais identifiants) ne déclenche jamais de refresh, même avec un ancien token
   it('never refreshes on a 401 from the login', () => {
+    signIn('old-token');
     const errors: any[] = [];
     const loginUrl = `${environment.apiUrl}/auth/login`;
 
@@ -146,6 +152,12 @@ describe('AuthInterceptor', () => {
   });
 
   // --- Helpers ---
+  // Ouvre une session par un vrai login (token en mémoire)
+  function signIn(token: string): void {
+    auth.login('jean@parkyn.app', 'secret').subscribe();
+    httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush({ access_token: token });
+  }
+
   function getRequest(url: string, responses?: any[], onError?: (error: any) => void): TestRequest {
     http.get(url).subscribe({
       next: (response) => responses?.push(response),
