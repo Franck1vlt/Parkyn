@@ -38,12 +38,15 @@ export interface LoginResponse {
 })
 export class AuthService {
   private readonly API_URL = `${environment.apiUrl}/auth`;
+  private readonly ACCESS_TOKEN_KEY = 'parkyn_access_token';
+  private readonly REFRESH_TOKEN_KEY = 'parkyn_refresh_token';
   private readonly USER_KEY = 'parkyn_user';
   // Access token en mémoire vive : perdu au rechargement, restauré par le refresh (cookie HttpOnly)
   private readonly accessToken = signal<string | null>(null);
   private refreshInFlight$: Observable<LoginResponse> | null = null;
 
-  private currentUserSubject = new BehaviorSubject<CurrentUser | null>(this.getStoredUser());
+  // Utilisateur en mémoire vive : chargé uniquement par GET /auth/me
+  private currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
   currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(
@@ -52,6 +55,7 @@ export class AuthService {
   ) {
     this.http = http;
     this.router = router;
+    this.removeLegacyStorageKeys();
   }
 
   login(email: String, password: String): Observable<LoginResponse> {
@@ -120,12 +124,9 @@ export class AuthService {
   }
 
   currentUserDetails(): Observable<CurrentUser> {
-    return this.http.get<CurrentUser>(`${this.API_URL}/me`).pipe(
-      tap((user) => {
-        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-        this.currentUserSubject.next(user);
-      }),
-    );
+    return this.http
+      .get<CurrentUser>(`${this.API_URL}/me`)
+      .pipe(tap((user) => this.currentUserSubject.next(user)));
   }
 
   getAccessToken(): string | null {
@@ -157,9 +158,11 @@ export class AuthService {
     this.accessToken.set(response.access_token);
   }
 
-  private getStoredUser(): CurrentUser | null {
-    const stored = localStorage.getItem(this.USER_KEY);
-    return stored ? JSON.parse(stored) : null;
+  // Expand and Contract (transition) : à retirer quand plus aucun navigateur n'a ces anciennes clés
+  private removeLegacyStorageKeys(): void {
+    [this.ACCESS_TOKEN_KEY, this.REFRESH_TOKEN_KEY, this.USER_KEY].forEach((key) =>
+      localStorage.removeItem(key),
+    );
   }
 
   private hasSession(): boolean {
@@ -174,7 +177,6 @@ export class AuthService {
 
   private clearLocalSession(): void {
     this.accessToken.set(null);
-    localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
   }
 }

@@ -28,7 +28,7 @@ describe('AuthService', () => {
   let httpMock: HttpTestingController;
   let navigate: ReturnType<typeof vi.spyOn>;
 
-  // Le service lit le stockage à sa construction : on l'instancie après avoir préparé l'état voulu
+  // Le service purge l'ancien stockage à sa construction : on prépare l'état avant de l'instancier
   function createService(): AuthService {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -42,6 +42,12 @@ describe('AuthService', () => {
   function signIn(auth: AuthService, accessToken = 'access-1'): void {
     auth.login('jean@parkyn.app', 'secret').subscribe();
     httpMock.expectOne(`${API}/login`).flush({ ...loginResponse, access_token: accessToken });
+  }
+
+  // Charge le profil par /me, seule source de l'utilisateur
+  function loadProfile(auth: AuthService, user: CurrentUser = driver): void {
+    auth.currentUserDetails().subscribe();
+    httpMock.expectOne(`${API}/me`).flush(user);
   }
 
   afterEach(() => {
@@ -92,6 +98,32 @@ describe('AuthService', () => {
       expect(auth.getAccessToken()).toBeNull();
       expect(auth.isAuthenticated()).toBe(false);
     });
+
+    // Un ancien utilisateur laissé dans localStorage n'ouvre pas de session
+    it('ignores a user left in localStorage', () => {
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      const auth = createService();
+
+      expect(auth.currentUser).toBeNull();
+      expect(auth.getRole()).toBeNull();
+      expect(auth.getEmail()).toBeNull();
+      expect(auth.hasRole('DRIVER')).toBe(false);
+    });
+
+    // Supprime les trois anciennes clés au démarrage, sans toucher aux autres
+    it('removes the legacy keys and keeps the others', () => {
+      localStorage.setItem(ACCESS_KEY, 'stale-token');
+      localStorage.setItem(REFRESH_KEY, 'undefined');
+      localStorage.setItem(USER_KEY, JSON.stringify(driver));
+      localStorage.setItem('other_key', 'keep');
+
+      createService();
+
+      expect(localStorage.getItem(ACCESS_KEY)).toBeNull();
+      expect(localStorage.getItem(REFRESH_KEY)).toBeNull();
+      expect(localStorage.getItem(USER_KEY)).toBeNull();
+      expect(localStorage.getItem('other_key')).toBe('keep');
+    });
   });
 
   describe('restoreSession', () => {
@@ -108,11 +140,11 @@ describe('AuthService', () => {
 
       expect(auth.getAccessToken()).toBe('restored');
       expect(auth.currentUser).toEqual(driver);
+      expect(localStorage.length).toBe(0);
     });
 
     // Pas de session : démarre déconnecté, sans logout ni redirection (pages publiques)
     it('starts signed out without logout nor redirect when the refresh is refused', async () => {
-      localStorage.setItem(USER_KEY, JSON.stringify(driver));
       const auth = createService();
 
       const done = auth.restoreSession();
@@ -123,7 +155,6 @@ describe('AuthService', () => {
       expect(navigate).not.toHaveBeenCalled();
       expect(auth.getAccessToken()).toBeNull();
       expect(auth.currentUser).toBeNull();
-      expect(localStorage.getItem(USER_KEY)).toBeNull();
     });
 
     // Profil introuvable après le refresh : la session n'est pas gardée à moitié
@@ -246,21 +277,22 @@ describe('AuthService', () => {
   describe('logout', () => {
     // La requête part avant l'effacement : la session locale n'est effacée qu'à la réponse
     it('keeps the session until the server answers, then clears it', () => {
-      localStorage.setItem(USER_KEY, JSON.stringify(driver));
       const auth = createService();
       signIn(auth, 'token');
+      loadProfile(auth);
 
       auth.logout();
 
       const request = httpMock.expectOne(`${API}/logout`);
       expect(request.request.method).toBe('POST');
       expect(auth.getAccessToken()).toBe('token');
+      expect(auth.currentUser).toEqual(driver);
       expect(navigate).not.toHaveBeenCalled();
 
       request.flush(null, { status: 204, statusText: 'No Content' });
 
       expect(auth.getAccessToken()).toBeNull();
-      expect(localStorage.getItem(USER_KEY)).toBeNull();
+      expect(auth.getRole()).toBeNull();
       expect(auth.currentUser).toBeNull();
       expect(navigate).toHaveBeenCalledWith(['/login']);
     });
@@ -290,16 +322,6 @@ describe('AuthService', () => {
   });
 
   describe('current user', () => {
-    // Recharge l'utilisateur mémorisé au démarrage
-    it('restores the stored user on startup', () => {
-      localStorage.setItem(USER_KEY, JSON.stringify(driver));
-      const auth = createService();
-
-      expect(auth.currentUser).toEqual(driver);
-      expect(auth.getEmail()).toBe('jean@parkyn.app');
-      expect(auth.getRole()).toBe('DRIVER');
-    });
-
     // Sans utilisateur, aucun rôle ni email
     it('has no role and no email when nobody is signed in', () => {
       const auth = createService();
@@ -309,8 +331,8 @@ describe('AuthService', () => {
       expect(auth.getEmail()).toBeNull();
     });
 
-    // Charge le profil, le mémorise et le publie
-    it('loads, stores and publishes the user', () => {
+    // Charge le profil et le publie, sans rien écrire dans le stockage
+    it('loads and publishes the user without storing it', () => {
       const auth = createService();
       const emitted: (CurrentUser | null)[] = [];
       auth.currentUser$.subscribe((u) => emitted.push(u));
@@ -321,8 +343,9 @@ describe('AuthService', () => {
       request.flush(driver);
 
       expect(emitted).toEqual([null, driver]);
-      expect(JSON.parse(localStorage.getItem(USER_KEY)!)).toEqual(driver);
       expect(auth.getRole()).toBe('DRIVER');
+      expect(auth.getEmail()).toBe('jean@parkyn.app');
+      expect(localStorage.length).toBe(0);
     });
   });
 
@@ -336,8 +359,8 @@ describe('AuthService', () => {
 
     // Vrai si le rôle figure parmi ceux demandés, faux sinon
     it('matches only the roles asked for', () => {
-      localStorage.setItem(USER_KEY, JSON.stringify(driver));
       const auth = createService();
+      loadProfile(auth);
 
       expect(auth.hasRole('DRIVER')).toBe(true);
       expect(auth.hasRole('ADMIN', 'DRIVER')).toBe(true);

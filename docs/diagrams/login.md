@@ -45,4 +45,4 @@ participant BDD
 - **Fait (C1) :** cookie `refresh_token` posé au login avec ces attributs, corps sans refresh token.
 - **Fait (C2) :** cookie `XSRF-TOKEN` posé au login (`CsrfCookieFilter`). Le login lui-même n'est pas protégé par le CSRF : il exige un corps JSON (`415` sinon).
 - **Fait (C3) :** le login crée une `user_session` (empreinte SHA-256 du token, nouvelle famille, user agent, IP via `ClientIpResolver`, tenant de l'utilisateur).
-- **Pas encore fait :** Angular garde encore l'access token dans `localStorage` (phase D).
+- **Fait (D1) :** Angular garde l'access token dans un signal et l'utilisateur courant en mémoire (rechargé par `GET /auth/me` après le login et au démarrage) ; plus rien dans `localStorage`. Les anciennes clés `parkyn_access_token`, `parkyn_refresh_token` et `parkyn_user` sont supprimées une à une à la construction d'`AuthService`.
