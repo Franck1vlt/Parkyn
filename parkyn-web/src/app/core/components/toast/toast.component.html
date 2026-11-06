@@ -1,8 +1,73 @@
-@if (toastService.toast().visible) {
+@if (toastService.toasts().length > 0) {
   <div
-    class="fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium"
-    [class]="toastService.toast().type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+    data-testid="toast-zone"
+    class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 text-white text-sm font-medium"
   >
-    {{ toastService.toast().message }}
+    @if (isStack()) {
+      <div class="flex items-center gap-2 rounded-full bg-gray-800 px-3 py-1 shadow-lg">
+        <button
+          type="button"
+          class="flex items-center"
+          [attr.aria-label]="
+            toastService.expanded() ? 'Replier les notifications' : 'Déplier les notifications'
+          "
+          [attr.aria-expanded]="toastService.expanded()"
+          (click)="toastService.toggle()"
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            @if (toastService.expanded()) {
+              <path d="M6 9l6 6 6-6" />
+            } @else {
+              <path d="M6 15l6-6 6 6" />
+            }
+          </svg>
+        </button>
+        <span data-testid="toast-count">{{ toastService.toasts().length }}</span>
+        @if (toastService.pendingCount() > 0) {
+          <span data-testid="toast-pending">{{ pendingLabel() }}</span>
+        }
+      </div>
+    }
+    @for (toast of visibleToasts(); track toast.id) {
+      <div
+        class="flex items-start gap-3 rounded-lg px-4 py-3 shadow-lg"
+        [class.bg-red-500]="toast.type === 'error'"
+        [class.bg-green-500]="toast.type === 'success'"
+        [attr.role]="toast.type === 'error' ? 'alert' : 'status'"
+      >
+        <span>{{ toast.message }}</span>
+        @if (toast.count > 1) {
+          <span data-testid="toast-repeat">×{{ toast.count }}</span>
+        }
+        <button
+          type="button"
+          class="flex items-center"
+          aria-label="Fermer la notification"
+          (click)="toastService.dismiss(toast.id)"
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
+    }
   </div>
 }
