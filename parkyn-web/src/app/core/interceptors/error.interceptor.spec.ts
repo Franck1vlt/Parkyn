@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ToastService } from '../services/toast.service';
 import { ErrorInterceptor } from './error.interceptor';
-import { HANDLED_BY_SCREEN } from './error-handling';
+import { HANDLED_BY_SCREEN, HANDLED_STATUSES } from './error-handling';
 
 describe('ErrorInterceptor', () => {
   const url = '/api/v1/a';
@@ -154,5 +154,39 @@ describe('ErrorInterceptor', () => {
     expect(show).not.toHaveBeenCalled();
     expect(errors).toHaveLength(1);
     expect(errors[0].status).toBe(429);
+  });
+
+  // Statuts listés : l'écran affiche lui-même l'erreur, pas de toast
+  it.each([400, 410])('stays silent on a %i listed in HANDLED_STATUSES and rethrows it', (status) => {
+    const context = new HttpContext().set(HANDLED_STATUSES, [400, 410]);
+
+    const errors = failWith(status, { context });
+
+    expect(show).not.toHaveBeenCalled();
+    expect(errors).toHaveLength(1);
+    expect(errors[0].status).toBe(status);
+  });
+
+  // Un statut absent de la liste garde son toast habituel
+  it.each([
+    [500, 'Erreur serveur interne'],
+    [404, 'Ressource introuvable'],
+  ])('still toasts a status not listed in HANDLED_STATUSES (%i)', (status, message) => {
+    const context = new HttpContext().set(HANDLED_STATUSES, [400, 410]);
+
+    failWith(status, { context });
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenCalledWith(message);
+  });
+
+  // HANDLED_BY_SCREEN ne silence que le 429
+  it('still toasts a 400 flagged only with HANDLED_BY_SCREEN', () => {
+    const context = new HttpContext().set(HANDLED_BY_SCREEN, true);
+
+    failWith(400, { context });
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenCalledWith('Une erreur est survenue');
   });
 });

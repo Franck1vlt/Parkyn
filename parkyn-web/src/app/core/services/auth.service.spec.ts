@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { HANDLED_STATUSES } from '../interceptors/error-handling';
 import { AuthService, CurrentUser, LoginResponse } from './auth.service';
 
 describe('AuthService', () => {
@@ -188,6 +189,64 @@ describe('AuthService', () => {
         password: 'un-mot-de-passe',
       });
       request.flush(null, { status: 202, statusText: 'Accepted' });
+    });
+  });
+
+  describe('verifyEmail', () => {
+    // Le jeton voyage dans le corps, jamais dans l'URL, et aucune session n'est ouverte
+    it('posts the token in the body and not in the URL', () => {
+      const auth = createService();
+
+      auth.verifyEmail('abc').subscribe();
+
+      const request = httpMock.expectOne(`${API}/verify-email`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ token: 'abc' });
+      expect(request.request.urlWithParams).toBe(request.request.url);
+      request.flush(null, { status: 200, statusText: 'OK' });
+
+      expect(auth.getAccessToken()).toBeNull();
+      expect(auth.isAuthenticated()).toBe(false);
+      expect(auth.currentUser).toBeNull();
+      expect(localStorage.length).toBe(0);
+    });
+
+    // L'écran affiche lui-même les 400 et 410 : l'intercepteur doit les connaître
+    it('flags 400 and 410 as handled by the screen', () => {
+      const auth = createService();
+
+      auth.verifyEmail('abc').subscribe();
+
+      const request = httpMock.expectOne(`${API}/verify-email`);
+      expect(request.request.context.get(HANDLED_STATUSES)).toEqual([400, 410]);
+      request.flush(null, { status: 200, statusText: 'OK' });
+    });
+
+    // Succès sans corps : l'observable se termine
+    it('completes on a 200 without body', () => {
+      const auth = createService();
+      const emitted: unknown[] = [];
+      let completed = false;
+
+      auth.verifyEmail('abc').subscribe({
+        next: (v) => emitted.push(v),
+        complete: () => (completed = true),
+      });
+      httpMock.expectOne(`${API}/verify-email`).flush(null, { status: 200, statusText: 'OK' });
+
+      expect(completed).toBe(true);
+      expect(emitted.every((v) => v == null)).toBe(true);
+    });
+
+    // Le statut d'erreur arrive tel quel à l'appelant
+    it.each([400, 410])('rethrows %i to the caller', (status) => {
+      const auth = createService();
+      const statuses: number[] = [];
+
+      auth.verifyEmail('abc').subscribe({ error: (e) => statuses.push(e.status) });
+      httpMock.expectOne(`${API}/verify-email`).flush(null, { status, statusText: 'Error' });
+
+      expect(statuses).toEqual([status]);
     });
   });
 

@@ -1,0 +1,71 @@
+<div class="w-full flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+    <img src="img/parkyn.png" alt="Parkyn" class="mx-auto h-25 w-auto mt-6" />
+    <h2 class="text-center text-2xl/9 font-bold tracking-tight text-black">Parkyn</h2>
+  </div>
+
+  <div class="mt-10 space-y-6 text-center text-sm/6 sm:mx-auto sm:w-full sm:max-w-sm">
+    @switch (state()) {
+      @case ('loading') {
+        <p data-testid="verify-loading" role="status" class="text-gray-600">
+          Vérification de votre adresse email en cours…
+        </p>
+      }
+      @case ('success') {
+        <div data-testid="verify-success" role="status" class="space-y-4">
+          <p class="rounded-md bg-green-50 px-3 py-2 text-green-700">
+            Votre adresse email est vérifiée. Vous pouvez vous connecter.
+          </p>
+          <a
+            data-testid="login-link"
+            routerLink="/login"
+            class="font-semibold text-orange-400 underline hover:text-orange-300"
+            >Se connecter</a
+          >
+        </div>
+      }
+      @case ('invalid') {
+        <div data-testid="verify-invalid" role="alert" class="space-y-4">
+          <p class="rounded-md bg-red-50 px-3 py-2 text-red-700">
+            Le lien de vérification est invalide ou a déjà été utilisé.
+          </p>
+          <a
+            data-testid="login-link"
+            routerLink="/login"
+            class="font-semibold text-orange-400 underline hover:text-orange-300"
+            >Se connecter</a
+          >
+        </div>
+      }
+      @case ('expired') {
+        <div data-testid="verify-expired" role="alert" class="space-y-4">
+          <p class="rounded-md bg-red-50 px-3 py-2 text-red-700">
+            Le lien de vérification a expiré.
+          </p>
+          <!-- Temporaire : remplacé par le renvoi du lien à l'étape 3 -->
+          <a
+            data-testid="register-link"
+            routerLink="/register"
+            class="font-semibold text-orange-400 underline hover:text-orange-300"
+            >Recommencer l'inscription</a
+          >
+        </div>
+      }
+      @case ('error') {
+        <div data-testid="verify-error" role="alert" class="space-y-4">
+          <p class="rounded-md bg-red-50 px-3 py-2 text-red-700">
+            Une erreur est survenue, réessayez.
+          </p>
+          <button
+            data-testid="retry-button"
+            type="button"
+            (click)="retry()"
+            class="flex w-full justify-center rounded-md bg-orange-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-orange-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+          >
+            Réessayer
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

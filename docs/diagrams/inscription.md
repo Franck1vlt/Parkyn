@@ -50,7 +50,7 @@ participant Email
         Angular-->>Navigateur: Lien déjà utilisé
     else Token expiré
         API-->>Angular: 410 Gone
-        Angular-->>Navigateur: Lien expiré → proposer un nouvel envoi
+        Angular-->>Navigateur: Lien expiré → "Recommencer l'inscription" (temporaire, renvoi du lien à venir)
     else Token valide
         Note over API,BDD: Une seule transaction
         API->>BDD: status = ACTIVE

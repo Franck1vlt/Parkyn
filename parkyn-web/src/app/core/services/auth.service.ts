@@ -15,7 +15,7 @@ import {
   throwError,
 } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { HANDLED_BY_SCREEN } from '../interceptors/error-handling';
+import { HANDLED_BY_SCREEN, HANDLED_STATUSES } from '../interceptors/error-handling';
 
 export type Role = 'ADMIN' | 'AGENT' | 'DRIVER';
 
@@ -74,6 +74,12 @@ export class AuthService {
       email,
       password,
     });
+  }
+
+  verifyEmail(token: string): Observable<void> {
+    // L'écran de vérification affiche lui-même les erreurs 400/410 : pas de toast
+    const context = new HttpContext().set(HANDLED_STATUSES, [400, 410]);
+    return this.http.post<void>(`${this.API_URL}/verify-email`, { token }, { context });
   }
 
   refresh(): Observable<LoginResponse> {
