@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { HANDLED_STATUSES } from '../interceptors/error-handling';
+import { HANDLED_BY_SCREEN, HANDLED_STATUSES } from '../interceptors/error-handling';
 import { AuthService, CurrentUser, LoginResponse } from './auth.service';
 
 describe('AuthService', () => {
@@ -188,6 +188,28 @@ describe('AuthService', () => {
         email: 'jean@parkyn.app',
         password: 'un-mot-de-passe',
       });
+      request.flush(null, { status: 202, statusText: 'Accepted' });
+    });
+
+    // C1 : l'écran d'inscription affiche lui-même les erreurs 429
+    it('flags the request as handled by the screen', () => {
+      const auth = createService();
+
+      auth.register('Jean', 'Dupont', 'jean@parkyn.app', 'un-mot-de-passe').subscribe();
+
+      const request = httpMock.expectOne(`${API}/register`);
+      expect(request.request.context.get(HANDLED_BY_SCREEN)).toBe(true);
+      request.flush(null, { status: 202, statusText: 'Accepted' });
+    });
+
+    // C2 : l'écran d'inscription affiche lui-même les erreurs 400
+    it('flags 400 as handled by the screen', () => {
+      const auth = createService();
+
+      auth.register('Jean', 'Dupont', 'jean@parkyn.app', 'un-mot-de-passe').subscribe();
+
+      const request = httpMock.expectOne(`${API}/register`);
+      expect(request.request.context.get(HANDLED_STATUSES)).toEqual([400]);
       request.flush(null, { status: 202, statusText: 'Accepted' });
     });
   });

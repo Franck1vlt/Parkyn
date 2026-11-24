@@ -8,7 +8,9 @@ participant API as API Spring
 participant BDD
 participant Email
 
-    Navigateur->>Angular: Saisit email + mot de passe
+    Navigateur->>Angular: Saisit prénom, nom, email, mot de passe
+    Angular->>Angular: Validation locale (champs, mots de passe identiques)
+    Note right of Angular: Formulaire invalide → bouton grisé,<br/>messages par champ après blur
     Angular->>API: POST /api/v1/auth/register
     API->>BDD: Vérifie si email déjà utilisé
 
@@ -32,8 +34,18 @@ participant Email
         API->>Email: Envoie email de vérification
     end
 
-    API-->>Angular: 202 Accepted
-    Angular-->>Navigateur: "Vérifiez votre boîte mail"
+    alt 202 Accepted
+        API-->>Angular: 202 Accepted
+        Angular-->>Navigateur: Même page : "Vérifiez votre boîte mail" + adresse, lien "Se connecter"
+    else 400 de validation
+        API-->>Angular: 400 {"errors":{...}}
+        Angular-->>Navigateur: Message sous chaque champ ; alerte unique pour _global ou clé inconnue
+    else 429 Too Many Requests
+        API-->>Angular: 429
+        Angular-->>Navigateur: Message en ligne
+    else Réseau coupé (0) ou 5xx
+        Angular-->>Navigateur: Toast global
+    end
 
     Email-->>Navigateur: Email + lien de vérification
     Navigateur->>Angular: Clique sur le lien

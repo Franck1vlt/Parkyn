@@ -68,12 +68,13 @@ export class AuthService {
   }
 
   register(firstname: string, lastname: string, email: string, password: string): Observable<void> {
-    return this.http.post<void>(`${this.API_URL}/register`, {
-      firstname,
-      lastname,
-      email,
-      password,
-    });
+    // L'écran d'inscription affiche lui-même les erreurs 400 et 429 : pas de toast
+    const context = new HttpContext().set(HANDLED_BY_SCREEN, true).set(HANDLED_STATUSES, [400]);
+    return this.http.post<void>(
+      `${this.API_URL}/register`,
+      { firstname, lastname, email, password },
+      { context },
+    );
   }
 
   verifyEmail(token: string): Observable<void> {
