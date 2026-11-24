@@ -272,6 +272,38 @@ describe('AuthService', () => {
     });
   });
 
+  describe('resendVerification', () => {
+    // L'email voyage dans le corps, jamais dans l'URL, et aucune session n'est ouverte
+    it('posts the email in the body and opens no session', () => {
+      const auth = createService();
+
+      auth.resendVerification('jean@parkyn.app').subscribe();
+
+      const request = httpMock.expectOne(`${API}/resend-verification`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ email: 'jean@parkyn.app' });
+      expect(request.request.urlWithParams).toBe(request.request.url);
+      request.flush(null, { status: 202, statusText: 'Accepted' });
+
+      expect(auth.getAccessToken()).toBeNull();
+      expect(auth.isAuthenticated()).toBe(false);
+      expect(auth.currentUser).toBeNull();
+      expect(localStorage.length).toBe(0);
+    });
+
+    // L'écran affiche lui-même les 400 et 429 : l'intercepteur doit les connaître
+    it('flags the request as handled by the screen for 400 and 429', () => {
+      const auth = createService();
+
+      auth.resendVerification('jean@parkyn.app').subscribe();
+
+      const request = httpMock.expectOne(`${API}/resend-verification`);
+      expect(request.request.context.get(HANDLED_BY_SCREEN)).toBe(true);
+      expect(request.request.context.get(HANDLED_STATUSES)).toEqual([400]);
+      request.flush(null, { status: 202, statusText: 'Accepted' });
+    });
+  });
+
   describe('refresh', () => {
     // Le refresh token voyage dans le cookie : le corps est vide
     it('sends an empty body', () => {

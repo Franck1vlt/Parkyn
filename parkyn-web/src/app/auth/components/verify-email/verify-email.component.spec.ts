@@ -29,7 +29,6 @@ describe('VerifyEmailComponent', () => {
         provideRouter([
           { path: 'verify-email', component: VerifyEmailComponent },
           { path: 'login', component: LoginStubComponent },
-          { path: 'register', component: LoginStubComponent },
         ]),
         { provide: AuthService, useValue: auth },
       ],
@@ -98,7 +97,7 @@ describe('VerifyEmailComponent', () => {
     expect(text('verify-loading')).toContain(LOADING);
     expect(host.querySelector('[role="alert"]')).toBeNull();
     expect(byId('login-link')).toBeNull();
-    expect(byId('register-link')).toBeNull();
+    expect(byId('resend-link')).toBeNull();
     expect(byId('retry-button')).toBeNull();
   });
 
@@ -122,6 +121,7 @@ describe('VerifyEmailComponent', () => {
     expectSingleState('alert', 'verify-invalid');
     expect(text('verify-invalid')).toContain(INVALID);
     expect(byId('login-link')?.getAttribute('href')).toBe('/login');
+    expect(byId('resend-link')).toBeNull();
     expect(byId('retry-button')).toBeNull();
   });
 
@@ -132,7 +132,8 @@ describe('VerifyEmailComponent', () => {
 
     expectSingleState('alert', 'verify-expired');
     expect(text('verify-expired')).toContain(EXPIRED);
-    expect(byId('register-link')?.getAttribute('href')).toBe('/register');
+    expect(byId('resend-link')?.getAttribute('href')).toBe('/resend-verification');
+    expect(byId('register-link')).toBeNull();
     expect(byId('retry-button')).toBeNull();
     expect(byId('login-link')).toBeNull();
   });
@@ -151,7 +152,7 @@ describe('VerifyEmailComponent', () => {
     expect(text('verify-error')).toContain(GENERIC);
     expect(byId('retry-button')).not.toBeNull();
     expect(byId('login-link')).toBeNull();
-    expect(byId('register-link')).toBeNull();
+    expect(byId('resend-link')).toBeNull();
   });
 
   // Réessayer renvoie le même jeton, même si l'URL n'en porte plus

@@ -80,6 +80,30 @@ describe('LoginComponent', () => {
     expect(input.type).toBe('text');
   });
 
+  // --- Lien de renvoi de la vérification ---
+
+  function resendLink(): HTMLElement {
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      '[data-testid="resend-link"]',
+    );
+    expect(link).not.toBeNull();
+    return link as HTMLElement;
+  }
+
+  // Cas 27
+  it('offers a resend verification link', () => {
+    expect(resendLink().textContent?.trim()).toBe("Je n'ai pas reçu l'email de vérification");
+    expect(resendLink().getAttribute('href')).toBe('/resend-verification');
+  });
+
+  // Cas 28 : pas de pré-remplissage, le lien reste statique
+  it('does not carry the typed email in the link', () => {
+    fill('jean@parkyn.app', 'secret');
+    fixture.detectChanges();
+
+    expect(resendLink().getAttribute('href')).toBe('/resend-verification');
+  });
+
   // --- Messages d'erreur en ligne ---
 
   function httpError(status: number, headers: Record<string, string> = {}) {

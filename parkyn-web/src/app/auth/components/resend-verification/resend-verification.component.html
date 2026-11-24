@@ -1,0 +1,85 @@
+<div class="w-full flex min-h-screen flex-col justify-center items-center px-6 py-12 lg:px-8">
+  <div class="max-w-3xl mx-auto w-full">
+    <div class="mb-0 flex justify-center">
+      <img src="img/parkyn.png" alt="Logo Parkyn" class="w-24 h-auto" />
+    </div>
+    <h2 class="text-2xl font-bold text-gray-800 mb-8 flex items-center justify-center">
+      Renvoyer le lien de vérification
+    </h2>
+
+    @if (sent()) {
+      <div
+        data-testid="resend-success"
+        role="status"
+        class="mx-auto max-w-lg rounded-lg border border-green-200 bg-green-50 p-6 text-center"
+      >
+        <h3 class="mb-2 text-lg font-semibold text-green-800">Vérifiez votre boîte mail</h3>
+        <p class="mb-4 text-sm text-green-700">
+          Si un compte non vérifié existe avec l'adresse
+          <strong data-testid="success-email">{{ successEmail() }}</strong
+          >, un nouvel email vient d'être envoyé.
+        </p>
+        <a
+          routerLink="/login"
+          data-testid="login-link"
+          class="text-sm font-medium text-orange-600 hover:text-orange-700"
+          >Retour à la connexion</a
+        >
+      </div>
+    } @else {
+      <form [formGroup]="resendForm" (ngSubmit)="onSubmit()" class="mx-auto max-w-sm space-y-4">
+        @if (alertMessages().length) {
+          <div
+            role="alert"
+            data-testid="form-error"
+            class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            @for (message of alertMessages(); track $index) {
+              <p>{{ message }}</p>
+            }
+          </div>
+        }
+
+        <div>
+          @let emailErrors = emailMessages();
+          <label for="email" class="block mb-1.5 text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            id="email"
+            formControlName="email"
+            autocomplete="email"
+            [attr.aria-invalid]="emailErrors.length > 0"
+            [attr.aria-describedby]="emailErrors.length ? 'email-error' : null"
+            class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            placeholder="john.doe@parkyn.app"
+          />
+          @if (emailErrors.length) {
+            <div id="email-error" class="mt-1">
+              @for (message of emailErrors; track $index) {
+                <p class="text-sm text-red-600">{{ message }}</p>
+              }
+            </div>
+          }
+        </div>
+
+        <button
+          type="submit"
+          data-testid="submit-button"
+          [disabled]="resendForm.invalid || isSubmitting()"
+          class="w-full bg-orange-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-orange-300 disabled:cursor-not-allowed"
+        >
+          {{ isSubmitting() ? 'Envoi…' : 'Renvoyer le lien' }}
+        </button>
+
+        <p class="text-center">
+          <a
+            routerLink="/login"
+            data-testid="login-link"
+            class="text-sm font-medium text-orange-600 hover:text-orange-700"
+            >Retour à la connexion</a
+          >
+        </p>
+      </form>
+    }
+  </div>
+</div>

@@ -62,7 +62,7 @@ participant Email
         Angular-->>Navigateur: Lien déjà utilisé
     else Token expiré
         API-->>Angular: 410 Gone
-        Angular-->>Navigateur: Lien expiré → "Recommencer l'inscription" (temporaire, renvoi du lien à venir)
+        Angular-->>Navigateur: Lien expiré → "Renvoyer le lien de vérification" (vers /resend-verification)
     else Token valide
         Note over API,BDD: Une seule transaction
         API->>BDD: status = ACTIVE
@@ -71,8 +71,10 @@ participant Email
         Angular-->>Navigateur: Email vérifié → compte activé
     end
 
-    Note over Navigateur,Email: Lien expiré ou email perdu
-    Navigateur->>Angular: Demande un nouveau lien (email)
+    Note over Navigateur,Email: Lien expiré (410) ou email perdu
+    Navigateur->>Angular: Clique "Renvoyer le lien de vérification" (410) ou "Je n'ai pas reçu l'email de vérification" (login)
+    Angular-->>Navigateur: Page /resend-verification (un champ email, bouton grisé tant qu'invalide)
+    Navigateur->>Angular: Saisit son email
     Angular->>API: POST /api/v1/auth/resend-verification + email
     API->>BDD: Recherche le compte (email normalisé)
 
@@ -84,8 +86,18 @@ participant Email
         Note right of API: Rien n'est fait
     end
 
-    API-->>Angular: 202 Accepted (dans tous les cas)
-    Angular-->>Navigateur: "Si un compte en attente existe, un email a été envoyé"
+    alt 202 Accepted (dans tous les cas côté API)
+        API-->>Angular: 202 Accepted
+        Angular-->>Navigateur: Même page : "Vérifiez votre boîte mail" + "Si un compte non vérifié existe avec l'adresse X, un nouvel email vient d'être envoyé." (identique, compte existant ou non), lien "Retour à la connexion"
+    else 400 de validation
+        API-->>Angular: 400 {"errors":{...}}
+        Angular-->>Navigateur: Message sous le champ ; alerte unique pour _global, clé inconnue ou 400 illisible
+    else 429 Too Many Requests
+        API-->>Angular: 429
+        Angular-->>Navigateur: Message en ligne (Retry-After)
+    else Réseau coupé (0) ou 5xx
+        Angular-->>Navigateur: Toast global
+    end
 ```
 
 ## Erreurs de validation (400)

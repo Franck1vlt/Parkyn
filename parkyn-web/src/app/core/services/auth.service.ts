@@ -83,6 +83,12 @@ export class AuthService {
     return this.http.post<void>(`${this.API_URL}/verify-email`, { token }, { context });
   }
 
+  resendVerification(email: string): Observable<void> {
+    // L'écran de renvoi affiche lui-même les erreurs 400 et 429 : pas de toast
+    const context = new HttpContext().set(HANDLED_BY_SCREEN, true).set(HANDLED_STATUSES, [400]);
+    return this.http.post<void>(`${this.API_URL}/resend-verification`, { email }, { context });
+  }
+
   refresh(): Observable<LoginResponse> {
     if (!this.refreshInFlight$) {
       this.refreshInFlight$ = this.http.post<LoginResponse>(`${this.API_URL}/refresh`, {}).pipe(
