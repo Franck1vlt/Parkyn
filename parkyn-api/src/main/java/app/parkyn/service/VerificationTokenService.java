@@ -68,7 +68,8 @@ public class VerificationTokenService {
     // Vérifie et consomme le jeton s'il est valide
     @Transactional 
     public void verify(String token) {
-        VerificationToken verificationToken = repository.findByTokenHash(sha256Hex(token))
+        // Retire les blancs autour du jeton (copier-coller) avant de le hasher
+        VerificationToken verificationToken = repository.findByTokenHash(sha256Hex(token.strip()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Invalid verification token"));
 

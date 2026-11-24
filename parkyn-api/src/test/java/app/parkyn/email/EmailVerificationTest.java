@@ -214,6 +214,48 @@ public class EmailVerificationTest {
         assertEquals("ACTIVE", accountStatus, "Le statut du compte doit être ACTIVE après la vérification");
     }
 
+    // Test qui vérifie que des espaces autour du token sont ignorés
+    @Test
+    public void tokenSurroundedBySpacesActivatesAccount() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        String token = tokenFrom(verificationLink(EMAIL));
+        verify("  " + token + "  ").andExpect(status().isOk());
+
+        String accountStatus = jdbcTemplate.queryForObject(
+            "SELECT status FROM users WHERE email = ?",
+            String.class,
+            EMAIL);
+        assertEquals("ACTIVE", accountStatus, "Le statut du compte doit être ACTIVE malgré les espaces autour du token");
+    }
+
+    // Test qui vérifie que tabulations et retours à la ligne autour du token sont ignorés
+    @Test
+    public void tokenSurroundedByTabsAndNewlinesActivatesAccount() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RegisterRequest("Test", "User", EMAIL, PASSWORD))))
+            .andExpect(status().isAccepted());
+
+        String token = tokenFrom(verificationLink(EMAIL));
+        verify("\t" + token + "\n").andExpect(status().isOk());
+
+        String accountStatus = jdbcTemplate.queryForObject(
+            "SELECT status FROM users WHERE email = ?",
+            String.class,
+            EMAIL);
+        assertEquals("ACTIVE", accountStatus, "Le statut du compte doit être ACTIVE malgré tabulation et retour à la ligne");
+    }
+
+    // Test de non-régression : un token fait uniquement d'espaces est rejeté
+    @Test
+    public void spacesOnlyTokenIsRejected() throws Exception {
+        verify("   ").andExpect(status().isBadRequest());
+    }
+
     // Test qui vérifie qu'un token consommé ne peut pas être réutilisé
     @Test 
     public void validTokenIsConsumed() throws Exception {

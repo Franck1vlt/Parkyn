@@ -50,7 +50,7 @@ participant Email
     Email-->>Navigateur: Email + lien de vérification
     Navigateur->>Angular: Clique sur le lien
     Angular->>API: POST /api/v1/auth/verify-email + token
-    API->>API: Hash le token reçu
+    API->>API: Retire les blancs autour du token (strip), puis le hashe
     API->>BDD: Recherche verification_token
     BDD-->>API: Token + user_id + expires_at + consumed_at
 
