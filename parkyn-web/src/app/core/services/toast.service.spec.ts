@@ -15,8 +15,8 @@ describe('ToastService', () => {
   const messages = () => service.toasts().map((t) => t.message);
   const byMessage = (message: string) => service.toasts().find((t) => t.message === message);
   // Affiche n messages distincts "m0", "m1"...
-  const showMany = (n: number, prefix = 'm') => {
-    for (let i = 0; i < n; i++) service.show(`${prefix}${i}`);
+  const showMany = (n: number) => {
+    for (let i = 0; i < n; i++) service.show(`m${i}`);
   };
 
   describe('show', () => {
@@ -107,7 +107,6 @@ describe('ToastService', () => {
         expect.objectContaining({ message: 'A', count: 2 }),
         expect.objectContaining({ message: 'B', count: 1 }),
       ]);
-      expect(service.pendingCount()).toBe(0);
     });
 
     // Les timers restent en pause malgré le doublon
@@ -141,24 +140,6 @@ describe('ToastService', () => {
 
       vi.advanceTimersByTime(1);
       expect(service.toasts()).toEqual([]);
-    });
-
-    // Doublon d'un toast en attente : fusionne dans le toast en attente
-    it('merges a duplicate of a pending toast into it', () => {
-      service.show('A');
-      service.show('B');
-      service.toggle();
-      service.show('C');
-
-      service.show('C');
-      expect(service.pendingCount()).toBe(1);
-
-      service.toggle();
-      expect(service.toasts()).toEqual([
-        expect.objectContaining({ message: 'A', count: 1 }),
-        expect.objectContaining({ message: 'B', count: 1 }),
-        expect.objectContaining({ message: 'C', count: 2 }),
-      ]);
     });
   });
 
@@ -197,29 +178,32 @@ describe('ToastService', () => {
       expect(service.toasts()).toEqual([]);
     });
 
-    // Un toast arrivant pendant le dépliage est mis en attente
-    it('puts a toast arriving while expanded on hold', () => {
+    // Un toast arrivant pendant le dépliage est ajouté tout de suite à la fin de la pile
+    it('adds a toast arriving while expanded immediately', () => {
       service.show('A');
       service.show('B');
       service.toggle();
 
       service.show('C');
 
-      expect(messages()).toEqual(['A', 'B']);
-      expect(service.pendingCount()).toBe(1);
+      expect(messages()).toEqual(['A', 'B', 'C']);
+      expect(service.expanded()).toBe(true);
     });
 
-    // Au repli, le toast en attente rejoint la pile avec un timer plein
-    it('adds the pending toast on collapse with a full timer', () => {
+    // Le toast arrivé déplié reste en pause, puis repart avec une durée pleine au repli
+    it('keeps a toast arrived while expanded paused, then gives it a full timer on collapse', () => {
       service.show('A', 'success');
       service.show('B', 'success');
       service.toggle();
       service.show('C');
-      vi.advanceTimersByTime(5_000);
+      expect(messages()).toEqual(['A', 'B', 'C']);
+
+      vi.advanceTimersByTime(60_000);
+      expect(messages()).toEqual(['A', 'B', 'C']);
+      expect(service.expanded()).toBe(true);
 
       service.toggle();
 
-      expect(service.pendingCount()).toBe(0);
       expect(messages()).toEqual(['A', 'B', 'C']);
 
       vi.advanceTimersByTime(10_000);
@@ -265,12 +249,10 @@ describe('ToastService', () => {
     it('ignores an unknown id', () => {
       service.show('A');
       const before = service.toasts();
-      const pendingBefore = service.pendingCount();
 
       service.dismiss(987_654);
 
       expect(service.toasts()).toEqual(before);
-      expect(service.pendingCount()).toBe(pendingBefore);
     });
 
     // Fermeture à 3 toasts pendant le dépliage : reste déplié, timers en pause, temps restant gardé
@@ -308,7 +290,7 @@ describe('ToastService', () => {
       expect(service.toasts()).toEqual([]);
     });
 
-    // Fermeture qui laisse 1 toast affiché : repli auto, jonction, temps restant conservé
+    // Fermeture qui laisse 1 toast affiché : repli auto, temps restant conservé
     it('collapses when a dismissal leaves one displayed toast', () => {
       service.show('A');
       vi.advanceTimersByTime(5_000);
@@ -316,22 +298,38 @@ describe('ToastService', () => {
       vi.advanceTimersByTime(5_000);
       service.toggle();
       vi.advanceTimersByTime(60_000);
-      service.show('C');
 
       service.dismiss(byMessage('A')!.id);
 
       expect(service.expanded()).toBe(false);
-      expect(service.pendingCount()).toBe(0);
-      expect(messages()).toEqual(['B', 'C']);
+      expect(messages()).toEqual(['B']);
 
-      // B avait 25 s restantes, C démarre à 30 s
+      // B avait 25 s restantes
       vi.advanceTimersByTime(24_999);
-      expect(messages()).toEqual(['B', 'C']);
+      expect(messages()).toEqual(['B']);
 
       vi.advanceTimersByTime(1);
-      expect(messages()).toEqual(['C']);
+      expect(service.toasts()).toEqual([]);
+    });
 
-      vi.advanceTimersByTime(4_999);
+    // Un toast arrivé déplié reste déplié après une fermeture, puis repart à durée pleine au repli
+    it('stays expanded then collapses with a full timer when a dismissal leaves a toast arrived while expanded', () => {
+      service.show('A');
+      service.show('B');
+      service.toggle();
+      service.show('C');
+
+      service.dismiss(byMessage('A')!.id);
+
+      expect(messages()).toEqual(['B', 'C']);
+      expect(service.expanded()).toBe(true);
+
+      service.dismiss(byMessage('B')!.id);
+
+      expect(messages()).toEqual(['C']);
+      expect(service.expanded()).toBe(false);
+
+      vi.advanceTimersByTime(29_999);
       expect(messages()).toEqual(['C']);
 
       vi.advanceTimersByTime(1);
@@ -360,42 +358,29 @@ describe('ToastService', () => {
       expect(vi.getTimerCount()).toBe(10);
     });
 
-    // Plafond avec en-attente : le plus ancien AFFICHÉ sort
-    it('evicts the oldest displayed toast when pending ones count in the cap', () => {
+    // Plafond en déplié : le plus ancien sort, le nouveau n'est jamais évincé
+    it('evicts the oldest toast when the expanded stack exceeds 10', () => {
       showMany(8);
       service.toggle();
       service.show('p1');
       service.show('p2');
-      expect(service.toasts()).toHaveLength(8);
-      expect(service.pendingCount()).toBe(2);
+      expect(service.toasts()).toHaveLength(10);
 
       service.show('p3');
 
-      expect(messages()).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7']);
-      expect(service.pendingCount()).toBe(3);
-    });
+      expect(messages()).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'p1', 'p2', 'p3']);
+      expect(service.expanded()).toBe(true);
 
-    // Plafond laissant 1 toast affiché : repli auto et jonction des en-attente
-    it('collapses and merges pending toasts when the cap leaves one displayed', () => {
-      showMany(2);
+      // Au repli, tout expire à 30 s sans timer orphelin
       service.toggle();
-      showMany(8, 'p');
-      expect(service.pendingCount()).toBe(8);
+      expect(vi.getTimerCount()).toBe(10);
 
-      service.show('last');
-
-      expect(service.expanded()).toBe(false);
-      expect(service.pendingCount()).toBe(0);
-      expect(service.toasts()).toHaveLength(10);
-      expect(messages()[0]).toBe('m1');
-      expect(messages()[9]).toBe('last');
-
-      // Les timers sont démarrés pour tous
       vi.advanceTimersByTime(29_999);
       expect(service.toasts()).toHaveLength(10);
 
       vi.advanceTimersByTime(1);
       expect(service.toasts()).toEqual([]);
+      expect(vi.getTimerCount()).toBe(0);
     });
 
     // Un doublon au plafond ne fait sortir personne
@@ -408,6 +393,177 @@ describe('ToastService', () => {
       expect(messages()).toEqual(before);
       expect(service.toasts()).toHaveLength(10);
       expect(byMessage('m0')?.count).toBe(2);
+    });
+  });
+
+  describe('request id', () => {
+    // S1 : l'identifiant de requête est conservé sur le toast
+    it('stores the request id on the toast', () => {
+      service.show('A', 'error', 'abc12345');
+
+      expect(service.toasts()).toEqual([
+        expect.objectContaining({ message: 'A', requestId: 'abc12345' }),
+      ]);
+    });
+
+    // S2 : un doublon replié garde le dernier identifiant
+    it('keeps the latest request id when a duplicate arrives', () => {
+      service.show('A', 'error', 'aaaaaaaa');
+      service.show('A', 'error', 'bbbbbbbb');
+
+      expect(service.toasts()).toEqual([
+        expect.objectContaining({ message: 'A', count: 2, requestId: 'bbbbbbbb' }),
+      ]);
+    });
+
+    // S3 : un doublon sans identifiant n'écrase pas l'ancien
+    it.each([
+      ['no id', undefined],
+      ['an empty id', ''],
+    ])('keeps the previous request id when the duplicate has %s', (_label, requestId) => {
+      service.show('A', 'error', 'aaaaaaaa');
+      service.show('A', 'error', requestId);
+
+      expect(service.toasts()).toEqual([
+        expect.objectContaining({ message: 'A', count: 2, requestId: 'aaaaaaaa' }),
+      ]);
+    });
+
+    // S4 : pile dépliée, le doublon met à jour l'identifiant du toast affiché
+    it('updates the request id of a displayed toast when expanded', () => {
+      service.show('A', 'error', 'aaaaaaaa');
+      service.show('B');
+      service.toggle();
+
+      service.show('A', 'error', 'bbbbbbbb');
+
+      expect(byMessage('A')).toEqual(expect.objectContaining({ count: 2, requestId: 'bbbbbbbb' }));
+    });
+
+    // S5 : le doublon d'un toast arrivé déplié fusionne tout de suite avec le dernier identifiant
+    it('updates the request id of a toast arrived while expanded', () => {
+      service.show('A');
+      service.show('B');
+      service.toggle();
+      service.show('C', 'error', 'cccccccc');
+
+      service.show('C', 'error', 'dddddddd');
+
+      expect(byMessage('C')).toEqual(expect.objectContaining({ count: 2, requestId: 'dddddddd' }));
+    });
+  });
+
+  describe('confirmation', () => {
+    // S6 : la confirmation est exposée sans toucher à la pile
+    it('exposes the confirmation without touching the stack', () => {
+      service.show('A');
+      const toastsBefore = service.toasts();
+
+      service.showConfirmation('Référence copiée');
+
+      expect(service.confirmation()).toBe('Référence copiée');
+      expect(service.toasts()).toEqual(toastsBefore);
+      expect(service.expanded()).toBe(false);
+    });
+
+    // S7 : elle disparaît à 2 s pile
+    it('clears the confirmation at exactly 2 seconds', () => {
+      service.showConfirmation('Référence copiée');
+      expect(service.confirmation()).toBe('Référence copiée');
+
+      vi.advanceTimersByTime(1_999);
+      expect(service.confirmation()).toBe('Référence copiée');
+
+      vi.advanceTimersByTime(1);
+      expect(service.confirmation()).toBeNull();
+    });
+
+    // S8 : un second appel relance le délai de 2 s
+    it('restarts the 2 second delay on a repeated confirmation', () => {
+      service.showConfirmation('Référence copiée');
+      expect(service.confirmation()).toBe('Référence copiée');
+      vi.advanceTimersByTime(1_000);
+
+      service.showConfirmation('Référence copiée');
+
+      vi.advanceTimersByTime(1_999);
+      expect(service.confirmation()).toBe('Référence copiée');
+
+      vi.advanceTimersByTime(1);
+      expect(service.confirmation()).toBeNull();
+    });
+
+    // S9 : elle expire seule alors que la pile dépliée reste en pause
+    it('expires on its own while the expanded stack stays paused', () => {
+      service.show('A');
+      service.show('B');
+      service.toggle();
+      service.show('C');
+
+      expect(messages()).toEqual(['A', 'B', 'C']);
+
+      service.showConfirmation('Référence copiée');
+      expect(service.confirmation()).toBe('Référence copiée');
+      expect(messages()).toEqual(['A', 'B', 'C']);
+      vi.advanceTimersByTime(2_000);
+      expect(service.confirmation()).toBeNull();
+
+      vi.advanceTimersByTime(60_000);
+      expect(messages()).toEqual(['A', 'B', 'C']);
+      expect(service.expanded()).toBe(true);
+
+      // Un toggle() pendant l'affichage replie la pile sans interrompre la confirmation
+      service.showConfirmation('Référence copiée');
+      service.toggle();
+      expect(service.confirmation()).toBe('Référence copiée');
+      expect(service.expanded()).toBe(false);
+      expect(messages()).toEqual(['A', 'B', 'C']);
+
+      vi.advanceTimersByTime(2_000);
+      expect(service.confirmation()).toBeNull();
+    });
+
+    // S10 : le timer d'un toast d'erreur n'est pas modifié
+    it('does not change the timer of an error toast', () => {
+      service.show('A');
+      const timersBefore = vi.getTimerCount();
+      vi.advanceTimersByTime(10_000);
+
+      service.showConfirmation('Référence copiée');
+      expect(service.confirmation()).toBe('Référence copiée');
+      expect(vi.getTimerCount()).toBe(timersBefore + 1);
+
+      vi.advanceTimersByTime(2_000);
+      expect(service.confirmation()).toBeNull();
+      expect(vi.getTimerCount()).toBe(timersBefore);
+
+      vi.advanceTimersByTime(17_999);
+      expect(messages()).toEqual(['A']);
+
+      vi.advanceTimersByTime(1);
+      expect(service.toasts()).toEqual([]);
+    });
+
+    // S11 : la confirmation ne compte pas dans le plafond de 10
+    it('does not count the confirmation in the cap of 10', () => {
+      showMany(10);
+      const before = messages();
+
+      service.showConfirmation('Référence copiée');
+
+      expect(service.confirmation()).toBe('Référence copiée');
+      expect(messages()).toEqual(before);
+      expect(service.toasts()).toHaveLength(10);
+    });
+
+    // S12 : la destruction du service nettoie le timer de confirmation
+    it('clears the confirmation timer on destroy', () => {
+      service.showConfirmation('Référence copiée');
+      expect(service.confirmation()).toBe('Référence copiée');
+
+      TestBed.resetTestingModule();
+
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 });

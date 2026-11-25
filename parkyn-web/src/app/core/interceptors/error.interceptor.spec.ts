@@ -1,4 +1,10 @@
-import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpContext,
+  HttpHeaders,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ToastService } from '../services/toast.service';
@@ -157,15 +163,18 @@ describe('ErrorInterceptor', () => {
   });
 
   // Statuts listés : l'écran affiche lui-même l'erreur, pas de toast
-  it.each([400, 410])('stays silent on a %i listed in HANDLED_STATUSES and rethrows it', (status) => {
-    const context = new HttpContext().set(HANDLED_STATUSES, [400, 410]);
+  it.each([400, 410])(
+    'stays silent on a %i listed in HANDLED_STATUSES and rethrows it',
+    (status) => {
+      const context = new HttpContext().set(HANDLED_STATUSES, [400, 410]);
 
-    const errors = failWith(status, { context });
+      const errors = failWith(status, { context });
 
-    expect(show).not.toHaveBeenCalled();
-    expect(errors).toHaveLength(1);
-    expect(errors[0].status).toBe(status);
-  });
+      expect(show).not.toHaveBeenCalled();
+      expect(errors).toHaveLength(1);
+      expect(errors[0].status).toBe(status);
+    },
+  );
 
   // Un statut absent de la liste garde son toast habituel
   it.each([
@@ -188,5 +197,83 @@ describe('ErrorInterceptor', () => {
 
     expect(show).toHaveBeenCalledTimes(1);
     expect(show).toHaveBeenCalledWith('Une erreur est survenue');
+  });
+
+  describe('request id', () => {
+    const serverError = 'Erreur serveur interne';
+
+    // I1 : l'identifiant de requête est transmis au toast avec le message du statut
+    it.each([
+      [400, 'Une erreur est survenue'],
+      [403, 'Accès refusé'],
+      [404, 'Ressource introuvable'],
+      [422, 'Opération non autorisée'],
+      [500, serverError],
+    ])('passes the request id to the toast on a %i', (status, message) => {
+      failWith(status, { headers: { 'X-Request-Id': 'abc12345' } });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show).toHaveBeenCalledWith(message, 'error', 'abc12345');
+    });
+
+    // I2 : formats d'identifiant acceptés
+    it.each([
+      ['8 characters', 'abc12345'],
+      ['64 characters', 'a'.repeat(64)],
+      ['a dashed UUID', '123e4567-e89b-12d3-a456-426614174000'],
+    ])('accepts a request id of %s', (_label, id) => {
+      failWith(500, { headers: { 'X-Request-Id': id } });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show).toHaveBeenCalledWith(serverError, 'error', id);
+    });
+
+    // I3 : les blancs autour de l'en-tête sont retirés
+    it('trims the X-Request-Id header', () => {
+      failWith(500, { headers: { 'X-Request-Id': ' abc12345 ' } });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show).toHaveBeenCalledWith(serverError, 'error', 'abc12345');
+    });
+
+    // I4 : un identifiant absent ou invalide n'est jamais transmis
+    it.each([
+      ['absent', undefined],
+      ['empty', ''],
+      ['blank', '   '],
+      ['7 characters', 'abc1234'],
+      ['65 characters', 'a'.repeat(65)],
+      ['containing a space', 'abc 12345'],
+      ['containing an underscore', 'abc_12345'],
+      ['an HTML fragment', '<b>abc1234</b>'],
+      ['made of accented letters', 'éééééééé'],
+    ])('calls show with the message only when the id is %s', (_label, id) => {
+      failWith(500, { headers: id === undefined ? undefined : { 'X-Request-Id': id } });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.calls[0]).toEqual([serverError]);
+      expect(show.mock.calls[0]).toHaveLength(1);
+    });
+
+    // I5 : jamais d'identifiant sur un 429
+    it('never passes a request id on a 429', () => {
+      failWith(429, { headers: { 'Retry-After': '30', 'X-Request-Id': 'abc12345' } });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.calls[0]).toEqual(['Trop de tentatives, réessayez dans 30 secondes']);
+      expect(show.mock.calls[0]).toHaveLength(1);
+    });
+
+    // I6 : jamais d'identifiant sur une erreur réseau
+    it('never passes a request id on a network error', () => {
+      http.get(url).subscribe({ error: () => undefined });
+      httpMock.expectOne(url).error(new ProgressEvent('error'), {
+        headers: new HttpHeaders({ 'X-Request-Id': 'abc12345' }),
+      });
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.calls[0]).toEqual(['Serveur injoignable']);
+      expect(show.mock.calls[0]).toHaveLength(1);
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, Signal, signal } from '@angular/core';
 
 export type ToastType = 'error' | 'success';
 
@@ -7,24 +7,28 @@ export interface ToastItem {
   message: string;
   type: ToastType;
   count: number;
+  requestId?: string;
 }
 
 const DURATION_MS: Record<ToastType, number> = { error: 30_000, success: 10_000 };
 const MAX_TOASTS = 10;
+const CONFIRMATION_DURATION_MS = 2_000;
 
 @Injectable({
   providedIn: 'root',
 })
 export class ToastService {
   private readonly displayed = signal<readonly ToastItem[]>([]);
-  private readonly pending = signal<readonly ToastItem[]>([]);
   private readonly isExpanded = signal(false);
+  private readonly confirmationMessage = signal<string | null>(null);
 
   readonly toasts = this.displayed.asReadonly();
-  readonly pendingCount = computed(() => this.pending().length);
   readonly expanded = this.isExpanded.asReadonly();
+  readonly confirmation: Signal<string | null> = this.confirmationMessage.asReadonly();
 
   private nextId = 1;
+  // Timer de la confirmation, hors des maps de la pile
+  private confirmationTimer: ReturnType<typeof setTimeout> | undefined;
   // Un timer par toast affiché, avec son heure de fin pour calculer le temps restant
   private readonly timers = new Map<
     number,
@@ -39,34 +43,41 @@ export class ToastService {
       this.timers.forEach((timer) => clearTimeout(timer.handle));
       this.timers.clear();
       this.remaining.clear();
+      if (this.confirmationTimer !== undefined) clearTimeout(this.confirmationTimer);
     });
   }
 
-  show(message: string, type: ToastType = 'error') {
+  show(message: string, type: ToastType = 'error', requestId?: string) {
     const shown = this.displayed().find((t) => t.message === message && t.type === type);
     if (shown) {
-      this.displayed.update((list) => this.withCountPlusOne(list, shown.id));
+      this.displayed.update((list) => this.withCountPlusOne(list, shown.id, requestId));
       // Replié : timer remis à zéro ; déplié : durée pleine à la reprise
       if (this.isExpanded()) this.remaining.set(shown.id, DURATION_MS[type]);
       else this.startTimer(shown.id, DURATION_MS[type]);
       return;
     }
 
-    const waiting = this.pending().find((t) => t.message === message && t.type === type);
-    if (waiting) {
-      this.pending.update((list) => this.withCountPlusOne(list, waiting.id));
-      return;
-    }
-
-    const item: ToastItem = { id: this.nextId++, message, type, count: 1 };
-    if (this.isExpanded()) {
-      this.pending.update((list) => [...list, item]);
-    } else {
-      this.displayed.update((list) => [...list, item]);
-      this.startTimer(item.id, DURATION_MS[type]);
-    }
+    const item: ToastItem = {
+      id: this.nextId++,
+      message,
+      type,
+      count: 1,
+      ...(requestId ? { requestId } : {}),
+    };
+    this.displayed.update((list) => [...list, item]);
+    // Déplié : le timer reste en pause, il démarre au repli
+    if (!this.isExpanded()) this.startTimer(item.id, DURATION_MS[type]);
     this.enforceCap();
-    this.collapseIfAlone();
+  }
+
+  // Confirmation éphémère, séparée de la pile (ni plafond, ni timers de la pile)
+  showConfirmation(message: string): void {
+    if (this.confirmationTimer !== undefined) clearTimeout(this.confirmationTimer);
+    this.confirmationMessage.set(message);
+    this.confirmationTimer = setTimeout(() => {
+      this.confirmationMessage.set(null);
+      this.confirmationTimer = undefined;
+    }, CONFIRMATION_DURATION_MS);
   }
 
   dismiss(id: number): void {
@@ -86,16 +97,20 @@ export class ToastService {
     }
   }
 
-  private withCountPlusOne(list: readonly ToastItem[], id: number): ToastItem[] {
-    return list.map((t) => (t.id === id ? { ...t, count: t.count + 1 } : t));
+  // Compteur +1 ; l'identifiant n'est remplacé que s'il n'est pas vide
+  private withCountPlusOne(
+    list: readonly ToastItem[],
+    id: number,
+    requestId?: string,
+  ): ToastItem[] {
+    return list.map((t) =>
+      t.id === id ? { ...t, count: t.count + 1, ...(requestId ? { requestId } : {}) } : t,
+    );
   }
 
-  // Plafond : le plus ancien toast affiché sort (affichés + en attente <= 10)
+  // Plafond : le plus ancien toast affiché sort (10 au maximum)
   private enforceCap(): void {
-    while (
-      this.displayed().length + this.pending().length > MAX_TOASTS &&
-      this.displayed().length > 0
-    ) {
+    while (this.displayed().length > MAX_TOASTS) {
       const oldest = this.displayed()[0];
       this.clearTimer(oldest.id);
       this.remaining.delete(oldest.id);
@@ -109,11 +124,8 @@ export class ToastService {
   }
 
   private collapse(): void {
-    const waiting = this.pending();
-    this.pending.set([]);
-    this.displayed.update((list) => [...list, ...waiting]);
     this.isExpanded.set(false);
-    // Reprise : temps restant pour les anciens, durée pleine pour les arrivés en attente
+    // Reprise : temps restant s'il est connu, durée pleine pour les arrivés dépliés
     for (const t of this.displayed()) {
       this.startTimer(t.id, this.remaining.get(t.id) ?? DURATION_MS[t.type]);
     }
