@@ -90,13 +90,13 @@ describe('LoginComponent', () => {
     return link as HTMLElement;
   }
 
-  // Cas 27
+  // Le lien « email de vérification non reçu » pointe vers la page de renvoi
   it('offers a resend verification link', () => {
     expect(resendLink().textContent?.trim()).toBe("Je n'ai pas reçu l'email de vérification");
     expect(resendLink().getAttribute('href')).toBe('/resend-verification');
   });
 
-  // Cas 28 : pas de pré-remplissage, le lien reste statique
+  // Le lien reste statique : l'email saisi n'y est pas repris
   it('does not carry the typed email in the link', () => {
     fill('jean@parkyn.app', 'secret');
     fixture.detectChanges();
@@ -184,7 +184,7 @@ describe('LoginComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/']);
   });
 
-  // Garde-fou : un 500 est géré par le toast global, pas par l'écran
+  // Un 500 est géré par le toast global : aucune alerte en ligne
   it('shows no inline alert on a 500', () => {
     auth.login.mockReturnValue(httpError(500));
 

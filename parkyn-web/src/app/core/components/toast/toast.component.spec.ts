@@ -44,13 +44,13 @@ describe('ToastComponent', () => {
     fixture.detectChanges();
   };
 
-  // C1 : rien n'est affiché tant qu'aucun message n'est publié
+  // Rien n'est affiché tant qu'aucun message n'est publié
   it('shows nothing by default', () => {
     expect(zone()).toBeNull();
     expect(host().textContent?.trim()).toBe('');
   });
 
-  // C2 : une erreur est rouge, role alert, sans élément de pile
+  // Une erreur a le style d'erreur et le role alert, sans élément de pile
   it('shows a single error as a red alert without stack controls', () => {
     show('Accès refusé');
 
@@ -62,7 +62,7 @@ describe('ToastComponent', () => {
     expect(byTestId('toast-repeat')).toBeNull();
   });
 
-  // C3 : un succès est vert, role status
+  // Un succès est vert, role status
   it('shows a success as a green status', () => {
     show('Enregistré', 'success');
 
@@ -72,7 +72,7 @@ describe('ToastComponent', () => {
     expect(host().querySelector('[role="alert"]')).toBeNull();
   });
 
-  // C4 : la croix d'un toast seul retire la zone
+  // La croix d'un toast seul retire la zone
   it('removes the zone when closing a single toast', () => {
     show('Accès refusé');
 
@@ -85,7 +85,7 @@ describe('ToastComponent', () => {
     expect(zone()).toBeNull();
   });
 
-  // C5 : une erreur disparaît à 30 s
+  // Une erreur disparaît à 30 s
   it('removes an error after 30 seconds', () => {
     show('Accès refusé');
 
@@ -97,7 +97,7 @@ describe('ToastComponent', () => {
     expect(zone()).toBeNull();
   });
 
-  // C6 : deux toasts repliés montrent le dernier, le compteur et le chevron
+  // Deux toasts repliés montrent le dernier, le compteur et le chevron
   it('shows only the last toast with count and chevron when collapsed', () => {
     show('First');
     show('Second');
@@ -112,7 +112,7 @@ describe('ToastComponent', () => {
     expect(chevron?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  // C7 : le clic sur le chevron déplie la liste complète
+  // Le clic sur le chevron déplie la liste complète
   it('shows all toasts when the chevron is clicked', () => {
     show('First');
     show('Second');
@@ -125,7 +125,7 @@ describe('ToastComponent', () => {
     expect(byLabel(collapseLabel)?.getAttribute('aria-expanded')).toBe('true');
   });
 
-  // C8 : un second clic revient au repli
+  // Un second clic revient au repli
   it('collapses again on a second click', () => {
     show('First');
     show('Second');
@@ -138,7 +138,7 @@ describe('ToastComponent', () => {
     expect(byLabel(expandLabel)?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  // C9 : la croix d'une pile repliée ferme le dernier toast seulement
+  // La croix d'une pile repliée ferme le dernier toast seulement
   it('closes only the last toast of a collapsed stack', () => {
     show('First');
     show('Second');
@@ -151,7 +151,7 @@ describe('ToastComponent', () => {
     expect(byLabel(collapseLabel)).toBeNull();
   });
 
-  // C10 : un toast arrivé pendant le dépliage est visible tout de suite, à la fin de la pile
+  // Un toast arrivé pendant le dépliage est visible tout de suite, à la fin de la pile
   it('shows a toast arriving while expanded at the top at once', () => {
     show('First');
     show('Second');
@@ -176,7 +176,7 @@ describe('ToastComponent', () => {
     expect(host().textContent).not.toContain('First');
   });
 
-  // C11 : le compteur ×2 apparaît sur un doublon seulement
+  // Le compteur ×2 apparaît sur un doublon seulement
   it('shows the repeat badge only on a duplicate', () => {
     show('Accès refusé');
     expect(byTestId('toast-repeat')).toBeNull();
@@ -186,7 +186,7 @@ describe('ToastComponent', () => {
     expect(byTestId('toast-repeat')?.textContent?.trim()).toBe('×2');
   });
 
-  // C12 : fermer un toast d'une pile dépliée à 2 la replie
+  // Fermer un toast d'une pile dépliée à 2 la replie
   it('collapses an expanded stack when a close leaves one toast', () => {
     show('First');
     show('Second');
@@ -202,7 +202,7 @@ describe('ToastComponent', () => {
     expect(closeButtons()).toHaveLength(1);
   });
 
-  // C13 : quand tout a expiré, la zone disparaît du DOM
+  // Quand tout a expiré, la zone disparaît du DOM
   it('removes the zone when all toasts have expired', () => {
     show('First');
     show('Second');
@@ -266,7 +266,7 @@ describe('ToastComponent', () => {
     const precedes = (first: Element, second: Element) =>
       Boolean(second.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_PRECEDING);
 
-    // C14 : une erreur avec identifiant affiche sa référence
+    // Une erreur avec identifiant affiche sa référence
     it('shows the reference on an error toast', () => {
       stubClipboard(resolvedWrite());
 
@@ -275,7 +275,7 @@ describe('ToastComponent', () => {
       expect(byTestId('toast-reference')?.textContent).toContain('Référence : abc12345');
     });
 
-    // C15 : sans identifiant, ni référence ni icône
+    // Sans identifiant, ni référence ni icône
     it.each([
       ['absent', undefined],
       ['empty', ''],
@@ -288,7 +288,7 @@ describe('ToastComponent', () => {
       expect(byTestId('toast-copy')).toBeNull();
     });
 
-    // C16 : un succès n'affiche jamais de référence
+    // Un succès n'affiche jamais de référence
     it('shows no reference on a success toast', () => {
       stubClipboard(resolvedWrite());
 
@@ -298,7 +298,7 @@ describe('ToastComponent', () => {
       expect(byTestId('toast-copy')).toBeNull();
     });
 
-    // C17 : l'icône copier est un vrai bouton accessible
+    // L'icône copier est un vrai bouton accessible
     it('shows an accessible copy button when the clipboard is available', () => {
       stubClipboard(resolvedWrite());
 
@@ -311,7 +311,7 @@ describe('ToastComponent', () => {
       expect(button?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
     });
 
-    // C18 : sans presse-papiers, la référence reste affichée sans icône
+    // Sans presse-papiers, la référence reste affichée sans icône
     it('hides the copy icon without clipboard support', () => {
       stubClipboard();
 
@@ -321,7 +321,7 @@ describe('ToastComponent', () => {
       expect(byTestId('toast-copy')).toBeNull();
     });
 
-    // C19 : pile dépliée, chaque toast a sa propre référence
+    // Pile dépliée, chaque toast a sa propre référence
     it('shows each toast own reference when expanded', () => {
       stubClipboard(resolvedWrite());
       show('First', 'error', 'aaaaaaaa');
@@ -341,7 +341,7 @@ describe('ToastComponent', () => {
       expect(second.textContent).not.toContain('aaaaaaaa');
     });
 
-    // C20 : on copie l'identifiant nu et on attend l'écriture avant de confirmer
+    // On copie l'identifiant nu et on attend l'écriture avant de confirmer
     it('copies the bare id and waits for the write before confirming', async () => {
       let resolve!: () => void;
       const pendingWrite = new Promise<void>((res) => (resolve = res));
@@ -357,7 +357,7 @@ describe('ToastComponent', () => {
       resolve();
     });
 
-    // C21 : après l'écriture, un toast vert confirme la copie
+    // Après l'écriture, un toast vert confirme la copie
     it('shows a green confirmation toast after the copy', async () => {
       stubClipboard(resolvedWrite());
       show('Accès refusé', 'error', 'abc12345');
@@ -374,7 +374,7 @@ describe('ToastComponent', () => {
       expect(closeButtons()).toHaveLength(1);
     });
 
-    // C22 : la confirmation est rendue au-dessus du toast d'erreur
+    // La confirmation est rendue au-dessus du toast d'erreur
     it('renders the confirmation above the error toast', async () => {
       stubClipboard(resolvedWrite());
       show('Accès refusé', 'error', 'abc12345');
@@ -387,7 +387,7 @@ describe('ToastComponent', () => {
       expect(zone()?.firstElementChild).toBe(green);
     });
 
-    // C23 : la copie ne touche pas au timer de l'erreur
+    // La copie ne touche pas au timer de l'erreur
     it('leaves the error timer untouched by a copy', async () => {
       const writeText = resolvedWrite();
       stubClipboard(writeText);
@@ -404,7 +404,7 @@ describe('ToastComponent', () => {
       expect(alerts()).toHaveLength(0);
     });
 
-    // C24 : la confirmation disparaît à 2 s, l'erreur et la zone restent
+    // La confirmation disparaît à 2 s, l'erreur et la zone restent
     it('removes the confirmation after 2 seconds', async () => {
       stubClipboard(resolvedWrite());
       show('Accès refusé', 'error', 'abc12345');
@@ -419,7 +419,7 @@ describe('ToastComponent', () => {
       expect(zone()).not.toBeNull();
     });
 
-    // C25 : pile repliée, la confirmation passe au-dessus puis l'état revient
+    // Pile repliée, la confirmation passe au-dessus puis l'état revient
     it('shows the confirmation above a collapsed stack and restores it', async () => {
       stubClipboard(resolvedWrite());
       show('First', 'error', 'aaaaaaaa');
@@ -443,7 +443,7 @@ describe('ToastComponent', () => {
       expect(snapshot()).toEqual(before);
     });
 
-    // C26 : pile dépliée, la confirmation apparaît tout en haut, à l'instant
+    // Pile dépliée, la confirmation apparaît tout en haut, à l'instant
     it('shows the confirmation at the top of an expanded stack at once', async () => {
       stubClipboard(resolvedWrite());
       show('First', 'error', 'aaaaaaaa');
@@ -469,7 +469,7 @@ describe('ToastComponent', () => {
       expect(alerts()).toHaveLength(2);
     });
 
-    // C27 : la confirmation ne touche pas au toast arrivé pendant le dépliage
+    // La confirmation ne touche pas au toast arrivé pendant le dépliage
     it('leaves a toast arrived while expanded untouched by the confirmation', async () => {
       stubClipboard(resolvedWrite());
       show('First', 'error', 'aaaaaaaa');
@@ -494,7 +494,7 @@ describe('ToastComponent', () => {
       expect(host().textContent).not.toContain('First');
     });
 
-    // C28 : des clics rapprochés ne dupliquent pas la confirmation
+    // Des clics rapprochés ne dupliquent pas la confirmation
     it('does not duplicate the confirmation on rapid clicks', async () => {
       const writeText = resolvedWrite();
       stubClipboard(writeText);
@@ -515,7 +515,7 @@ describe('ToastComponent', () => {
       expect(confirmationToast()).toBeNull();
     });
 
-    // C29 : une écriture rejetée ne produit rien
+    // Une écriture rejetée ne produit rien
     it('does nothing when the write is rejected', async () => {
       const writeText = vi.fn().mockRejectedValue(new Error('denied'));
       stubClipboard(writeText);
@@ -562,7 +562,7 @@ describe('ToastComponent', () => {
       expect(alerts()).toHaveLength(0);
     });
 
-    // C32 : un writeText qui lève une exception synchrone est aussi silencieux
+    // Un writeText qui lève une exception synchrone est aussi silencieux
     it('does nothing when the write throws synchronously', async () => {
       const writeText = vi.fn(() => {
         throw new Error('denied');
@@ -595,7 +595,7 @@ describe('ToastComponent', () => {
       expect(alerts()).toHaveLength(0);
     });
 
-    // C30 : la confirmation survit à l'expiration de son erreur
+    // La confirmation survit à l'expiration de son erreur
     it('keeps the confirmation when its error toast expires first', async () => {
       stubClipboard(resolvedWrite());
       show('Accès refusé', 'error', 'abc12345');
@@ -615,7 +615,7 @@ describe('ToastComponent', () => {
       expect(zone()).toBeNull();
     });
 
-    // C31 : on copie l'identifiant du toast dont l'icône a été cliquée
+    // On copie l'identifiant du toast dont l'icône a été cliquée
     it('copies the id of the toast whose icon was clicked', async () => {
       const writeText = resolvedWrite();
       stubClipboard(writeText);

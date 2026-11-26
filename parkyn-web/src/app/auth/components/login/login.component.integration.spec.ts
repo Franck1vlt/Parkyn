@@ -65,7 +65,7 @@ describe('LoginComponent with the real AuthService and ErrorInterceptor', () => 
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Prouve que le composant pose bien le jeton HANDLED_BY_SCREEN
+  // Le composant marque la requête gérée par l'écran : le 429 reste en ligne, sans toast
   it('shows the inline countdown and no toast on a 429', () => {
     failLogin(429, { 'Retry-After': '30' });
 
@@ -73,7 +73,7 @@ describe('LoginComponent with the real AuthService and ErrorInterceptor', () => 
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Garde-fou : un 500 reste un toast global, sans alerte en ligne
+  // Un 500 reste un toast global, sans alerte en ligne
   it('shows the server error toast and no inline alert on a 500', () => {
     failLogin(500);
 

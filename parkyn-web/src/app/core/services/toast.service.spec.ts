@@ -245,7 +245,7 @@ describe('ToastService', () => {
       expect(service.toasts()).toEqual([]);
     });
 
-    // Un id inconnu ne change rien (vert dès le départ avec le stub)
+    // Un id inconnu ne change rien
     it('ignores an unknown id', () => {
       service.show('A');
       const before = service.toasts();
@@ -338,7 +338,7 @@ describe('ToastService', () => {
   });
 
   describe('toggle', () => {
-    // Moins de 2 toasts : toggle est sans effet (vert dès le départ avec le stub)
+    // Moins de 2 toasts : toggle est sans effet
     it('does nothing with fewer than 2 toasts', () => {
       service.toggle();
       expect(service.expanded()).toBe(false);
@@ -397,7 +397,7 @@ describe('ToastService', () => {
   });
 
   describe('request id', () => {
-    // S1 : l'identifiant de requête est conservé sur le toast
+    // L'identifiant de requête est conservé sur le toast
     it('stores the request id on the toast', () => {
       service.show('A', 'error', 'abc12345');
 
@@ -406,7 +406,7 @@ describe('ToastService', () => {
       ]);
     });
 
-    // S2 : un doublon replié garde le dernier identifiant
+    // Un doublon replié garde le dernier identifiant
     it('keeps the latest request id when a duplicate arrives', () => {
       service.show('A', 'error', 'aaaaaaaa');
       service.show('A', 'error', 'bbbbbbbb');
@@ -416,7 +416,7 @@ describe('ToastService', () => {
       ]);
     });
 
-    // S3 : un doublon sans identifiant n'écrase pas l'ancien
+    // Un doublon sans identifiant n'écrase pas l'ancien
     it.each([
       ['no id', undefined],
       ['an empty id', ''],
@@ -429,7 +429,7 @@ describe('ToastService', () => {
       ]);
     });
 
-    // S4 : pile dépliée, le doublon met à jour l'identifiant du toast affiché
+    // Pile dépliée, le doublon met à jour l'identifiant du toast affiché
     it('updates the request id of a displayed toast when expanded', () => {
       service.show('A', 'error', 'aaaaaaaa');
       service.show('B');
@@ -440,7 +440,7 @@ describe('ToastService', () => {
       expect(byMessage('A')).toEqual(expect.objectContaining({ count: 2, requestId: 'bbbbbbbb' }));
     });
 
-    // S5 : le doublon d'un toast arrivé déplié fusionne tout de suite avec le dernier identifiant
+    // Le doublon d'un toast arrivé déplié fusionne tout de suite avec le dernier identifiant
     it('updates the request id of a toast arrived while expanded', () => {
       service.show('A');
       service.show('B');
@@ -454,7 +454,7 @@ describe('ToastService', () => {
   });
 
   describe('confirmation', () => {
-    // S6 : la confirmation est exposée sans toucher à la pile
+    // La confirmation est exposée sans toucher à la pile
     it('exposes the confirmation without touching the stack', () => {
       service.show('A');
       const toastsBefore = service.toasts();
@@ -466,7 +466,7 @@ describe('ToastService', () => {
       expect(service.expanded()).toBe(false);
     });
 
-    // S7 : elle disparaît à 2 s pile
+    // La confirmation disparaît à 2 s pile
     it('clears the confirmation at exactly 2 seconds', () => {
       service.showConfirmation('Référence copiée');
       expect(service.confirmation()).toBe('Référence copiée');
@@ -478,7 +478,7 @@ describe('ToastService', () => {
       expect(service.confirmation()).toBeNull();
     });
 
-    // S8 : un second appel relance le délai de 2 s
+    // Un second appel relance le délai de 2 s
     it('restarts the 2 second delay on a repeated confirmation', () => {
       service.showConfirmation('Référence copiée');
       expect(service.confirmation()).toBe('Référence copiée');
@@ -493,7 +493,7 @@ describe('ToastService', () => {
       expect(service.confirmation()).toBeNull();
     });
 
-    // S9 : elle expire seule alors que la pile dépliée reste en pause
+    // La confirmation expire seule alors que la pile dépliée reste en pause
     it('expires on its own while the expanded stack stays paused', () => {
       service.show('A');
       service.show('B');
@@ -523,7 +523,7 @@ describe('ToastService', () => {
       expect(service.confirmation()).toBeNull();
     });
 
-    // S10 : le timer d'un toast d'erreur n'est pas modifié
+    // Le timer d'un toast d'erreur n'est pas modifié
     it('does not change the timer of an error toast', () => {
       service.show('A');
       const timersBefore = vi.getTimerCount();
@@ -544,7 +544,7 @@ describe('ToastService', () => {
       expect(service.toasts()).toEqual([]);
     });
 
-    // S11 : la confirmation ne compte pas dans le plafond de 10
+    // La confirmation ne compte pas dans le plafond de 10
     it('does not count the confirmation in the cap of 10', () => {
       showMany(10);
       const before = messages();
@@ -556,7 +556,7 @@ describe('ToastService', () => {
       expect(service.toasts()).toHaveLength(10);
     });
 
-    // S12 : la destruction du service nettoie le timer de confirmation
+    // La destruction du service nettoie le timer de confirmation
     it('clears the confirmation timer on destroy', () => {
       service.showConfirmation('Référence copiée');
       expect(service.confirmation()).toBe('Référence copiée');

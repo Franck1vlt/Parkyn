@@ -76,7 +76,7 @@ describe('ResendVerificationComponent with the real AuthService and ErrorInterce
     return el as HTMLButtonElement;
   }
 
-  // Cas 23 : 202, corps exact, succès neutre, aucun toast
+  // Un 202 affiche le succès neutre, sans toast, après un POST avec l'email en corps
   it('posts the email and shows the success without toast on a 202', () => {
     fillAndSubmit();
 
@@ -95,7 +95,7 @@ describe('ResendVerificationComponent with the real AuthService and ErrorInterce
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Cas 24 : prouve que HANDLED_STATUSES contient 400
+  // Le 400 est déclaré géré : l'intercepteur ne l'affiche pas en toast
   it('shows the field error and no toast on a 400', () => {
     fillAndSubmit();
 
@@ -105,7 +105,7 @@ describe('ResendVerificationComponent with the real AuthService and ErrorInterce
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Cas 25 : prouve que le service pose HANDLED_BY_SCREEN
+  // Le service marque la requête gérée par l'écran : le 429 reste en ligne, sans toast
   it('shows the inline countdown and no toast on a 429', () => {
     fillAndSubmit();
 
@@ -116,7 +116,7 @@ describe('ResendVerificationComponent with the real AuthService and ErrorInterce
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Cas 26 : un 500 reste un toast global, formulaire réutilisable
+  // Un 500 reste un toast global et le formulaire reste utilisable
   it('keeps the server error toast and the form on a 500', () => {
     fillAndSubmit();
 

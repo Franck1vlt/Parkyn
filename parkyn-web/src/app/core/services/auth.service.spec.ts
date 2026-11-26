@@ -191,7 +191,7 @@ describe('AuthService', () => {
       request.flush(null, { status: 202, statusText: 'Accepted' });
     });
 
-    // C1 : l'écran d'inscription affiche lui-même les erreurs 429
+    // L'écran d'inscription affiche lui-même les erreurs 429
     it('flags the request as handled by the screen', () => {
       const auth = createService();
 
@@ -202,7 +202,7 @@ describe('AuthService', () => {
       request.flush(null, { status: 202, statusText: 'Accepted' });
     });
 
-    // C2 : l'écran d'inscription affiche lui-même les erreurs 400
+    // L'écran d'inscription affiche lui-même les erreurs 400
     it('flags 400 as handled by the screen', () => {
       const auth = createService();
 

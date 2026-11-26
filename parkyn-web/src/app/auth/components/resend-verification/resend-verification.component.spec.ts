@@ -73,14 +73,14 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     submitAndRender();
   }
 
-  // Présence attendue : le rouge est une assertion et non un TypeError
+  // Exige la présence de l'élément : échoue sur une assertion claire plutôt que sur un TypeError
   function byTestId(id: string): HTMLElement {
     const el = host().querySelector<HTMLElement>(`[data-testid="${id}"]`);
     expect(el).not.toBeNull();
     return el as HTMLElement;
   }
 
-  // Absence attendue
+  // Renvoie null si l'élément est absent
   function maybeTestId(id: string): HTMLElement | null {
     return host().querySelector<HTMLElement>(`[data-testid="${id}"]`);
   }
@@ -107,7 +107,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- Structure ---
 
-  // Cas 4 : titre et champ email étiqueté
+  // Titre et champ email avec son label
   it('renders the title and a labelled email field', () => {
     const title = host().querySelector('h2');
     expect(title?.textContent?.trim()).toBe('Renvoyer le lien de vérification');
@@ -118,12 +118,12 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(input().getAttribute('autocomplete')).toBe('email');
   });
 
-  // Cas 5
+  // Le bouton est désactivé tant que le formulaire est vide
   it('disables the submit button while the form is empty', () => {
     expect(submitButton().disabled).toBe(true);
   });
 
-  // Cas 6
+  // Le bouton est activé dès que l'email est valide
   it('enables the submit button with a valid email', () => {
     fill('jean@parkyn.app');
     fixture.detectChanges();
@@ -133,7 +133,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- Validation locale ---
 
-  // Cas 7
+  // Un email vide, invalide ou trop long affiche son message sans appeler le service
   it.each([
     ['an empty email', '', "L'adresse email est obligatoire."],
     ['an invalid email', 'pas-un-email', "L'adresse email n'est pas valide."],
@@ -151,7 +151,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(input().getAttribute('aria-describedby')).toBe('email-error');
   });
 
-  // Cas 8
+  // Le message « obligatoire » n'apparaît qu'après la perte du focus
   it('shows the required message only after blur', () => {
     expect(emailErrors()).toEqual([]);
 
@@ -166,7 +166,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(emailErrors()).toEqual(["L'adresse email est obligatoire."]);
   });
 
-  // Cas 9
+  // Un email de 254 caractères (limite maximale) est accepté
   it('accepts an email of 254 characters', () => {
     auth.resendVerification.mockReturnValue(of(undefined));
     const email = emailOfLength(254);
@@ -181,7 +181,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- Soumission ---
 
-  // Cas 10 : pas de trim ni de minuscules côté front
+  // L'email est envoyé tel que saisi : la normalisation est faite côté API
   it('calls resendVerification once with the email as typed', () => {
     auth.resendVerification.mockReturnValue(of(undefined));
 
@@ -191,7 +191,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(auth.resendVerification).toHaveBeenCalledWith('Jean@Parkyn.app');
   });
 
-  // Cas 11
+  // Une double soumission pendant l'envoi n'appelle le service qu'une fois
   it('calls the service only once when submitted twice while pending', () => {
     auth.resendVerification.mockReturnValue(new Subject<void>());
     fill('jean@parkyn.app');
@@ -202,7 +202,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(auth.resendVerification).toHaveBeenCalledTimes(1);
   });
 
-  // Cas 12
+  // Pendant l'envoi, le bouton est désactivé et affiche « Envoi… »
   it('disables the button and shows the pending label while sending', () => {
     auth.resendVerification.mockReturnValue(new Subject<void>());
     expect(submitButton().textContent?.trim()).toBe('Renvoyer le lien');
@@ -215,7 +215,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- Succès ---
 
-  // Cas 13
+  // Le succès affiche un message neutre qui rappelle l'adresse saisie
   it('shows the neutral success status with the typed address', () => {
     auth.resendVerification.mockReturnValue(of(undefined));
 
@@ -232,7 +232,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(alerts()).toHaveLength(0);
   });
 
-  // Cas 14
+  // Après le succès, le formulaire disparaît et seul le lien de connexion reste
   it('replaces the form by the status and offers only the login link', () => {
     auth.resendVerification.mockReturnValue(of(undefined));
 
@@ -246,7 +246,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(byTestId('login-link').getAttribute('href')).toBe('/login');
   });
 
-  // Cas 15
+  // Le formulaire propose un lien de retour à la connexion
   it('offers a back to login link on the form', () => {
     const link = byTestId('login-link');
 
@@ -256,7 +256,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- 400 du serveur ---
 
-  // Cas 16
+  // Une erreur serveur sur l'email s'affiche sous le champ, sans alerte en haut
   it('shows a server email error under the field only', () => {
     auth.resendVerification.mockReturnValue(httpError(400, { errors: { email: ['m'] } }));
 
@@ -268,7 +268,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(host().querySelector('form')).not.toBeNull();
   });
 
-  // Cas 17
+  // Une erreur globale ou sur une clé inconnue s'affiche dans l'alerte unique du haut
   it.each([
     ['a _global message', { _global: ['erreur globale'] }, 'erreur globale'],
     ['the message of an unknown key', { inconnu: ['clé inconnue'] }, 'clé inconnue'],
@@ -283,7 +283,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(emailErrors()).toEqual([]);
   });
 
-  // Cas 18
+  // Un 400 sans détail exploitable affiche l'alerte générique
   it.each([
     ['null', null],
     ['an empty object', {}],
@@ -297,7 +297,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(emailErrors()).toEqual([]);
   });
 
-  // Cas 19
+  // Modifier l'email efface l'erreur serveur affichée sous le champ
   it('clears the server email error when the email changes', () => {
     auth.resendVerification.mockReturnValue(httpError(400, { errors: { email: ['mail refusé'] } }));
     fillAndSubmit();
@@ -309,7 +309,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(emailErrors()).toEqual([]);
   });
 
-  // Cas 20
+  // Soumettre à nouveau efface les erreurs précédentes
   it('clears the alert when submitting again', () => {
     auth.resendVerification.mockReturnValueOnce(
       httpError(400, { errors: { email: ['m'], _global: ['erreur globale'] } }),
@@ -328,7 +328,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
 
   // --- 429, 0, 5xx ---
 
-  // Cas 21
+  // Un 429 s'affiche dans l'écran (avec ou sans délai) et le formulaire reste utilisable
   it.each([
     [{ 'Retry-After': '30' }, 'Trop de tentatives, réessayez dans 30 secondes'],
     [{}, 'Trop de tentatives, réessayez plus tard'],
@@ -342,7 +342,7 @@ describe('ResendVerificationComponent with a mocked AuthService', () => {
     expect(submitButton().disabled).toBe(false);
   });
 
-  // Cas 22
+  // Un statut 0 ou 500 n'affiche rien dans l'écran (toast global) et le formulaire reste
   it.each([0, 500])('shows no inline message on a %i and keeps the form', (status) => {
     auth.resendVerification.mockReturnValue(httpError(status));
 

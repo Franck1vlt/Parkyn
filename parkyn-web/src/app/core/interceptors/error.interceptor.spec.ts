@@ -202,7 +202,7 @@ describe('ErrorInterceptor', () => {
   describe('request id', () => {
     const serverError = 'Erreur serveur interne';
 
-    // I1 : l'identifiant de requête est transmis au toast avec le message du statut
+    // L'identifiant de requête est transmis au toast avec le message du statut
     it.each([
       [400, 'Une erreur est survenue'],
       [403, 'Accès refusé'],
@@ -216,7 +216,7 @@ describe('ErrorInterceptor', () => {
       expect(show).toHaveBeenCalledWith(message, 'error', 'abc12345');
     });
 
-    // I2 : formats d'identifiant acceptés
+    // Formats d'identifiant acceptés
     it.each([
       ['8 characters', 'abc12345'],
       ['64 characters', 'a'.repeat(64)],
@@ -228,7 +228,7 @@ describe('ErrorInterceptor', () => {
       expect(show).toHaveBeenCalledWith(serverError, 'error', id);
     });
 
-    // I3 : les blancs autour de l'en-tête sont retirés
+    // Les blancs autour de l'en-tête sont retirés
     it('trims the X-Request-Id header', () => {
       failWith(500, { headers: { 'X-Request-Id': ' abc12345 ' } });
 
@@ -236,7 +236,7 @@ describe('ErrorInterceptor', () => {
       expect(show).toHaveBeenCalledWith(serverError, 'error', 'abc12345');
     });
 
-    // I4 : un identifiant absent ou invalide n'est jamais transmis
+    // Un identifiant absent ou invalide n'est jamais transmis
     it.each([
       ['absent', undefined],
       ['empty', ''],
@@ -255,7 +255,7 @@ describe('ErrorInterceptor', () => {
       expect(show.mock.calls[0]).toHaveLength(1);
     });
 
-    // I5 : jamais d'identifiant sur un 429
+    // Jamais d'identifiant sur un 429
     it('never passes a request id on a 429', () => {
       failWith(429, { headers: { 'Retry-After': '30', 'X-Request-Id': 'abc12345' } });
 
@@ -264,7 +264,7 @@ describe('ErrorInterceptor', () => {
       expect(show.mock.calls[0]).toHaveLength(1);
     });
 
-    // I6 : jamais d'identifiant sur une erreur réseau
+    // Jamais d'identifiant sur une erreur réseau
     it('never passes a request id on a network error', () => {
       http.get(url).subscribe({ error: () => undefined });
       httpMock.expectOne(url).error(new ProgressEvent('error'), {

@@ -3,7 +3,7 @@ import { nameFormat, notBlank, passwordMatch } from './register-validators';
 
 describe('register validators', () => {
   describe('notBlank', () => {
-    // B1 : vide, espaces seuls et null sont refusés
+    // Vide, espaces seuls et null sont refusés
     it.each([
       ['empty', ''],
       ['spaces only', '   '],
@@ -12,14 +12,14 @@ describe('register validators', () => {
       expect(notBlank(new FormControl(value))).toEqual({ blank: true });
     });
 
-    // B1 : une valeur réelle passe
+    // Une valeur non vide est acceptée
     it('accepts a real value', () => {
       expect(notBlank(new FormControl('a'))).toBeNull();
     });
   });
 
   describe('nameFormat', () => {
-    // B2 : garde-fou contre une expression trop stricte
+    // Tirets, apostrophes, accents, espaces et alphabets non latins sont acceptés
     it.each(['Jean-Pierre', "O'Brien", 'O’Brien', 'Éloïse', 'Anne Marie', '李', 'Zoë'])(
       'accepts the name %s',
       (name) => {
@@ -27,7 +27,7 @@ describe('register validators', () => {
       },
     );
 
-    // B3 : chiffres, ponctuation seule, symboles et emoji sont refusés
+    // Chiffres, ponctuation seule, symboles et emoji sont refusés
     it.each(['Jean3', '1234', '-', "'", ' - ', 'Jean_', 'Jean.', 'J@n', 'Jean😀'])(
       'rejects the name %s',
       (name) => {
@@ -35,7 +35,7 @@ describe('register validators', () => {
       },
     );
 
-    // B4 : la valeur vide est laissée à required
+    // La valeur vide est laissée à required
     it.each([
       ['empty', ''],
       ['null', null],
@@ -52,19 +52,19 @@ describe('register validators', () => {
       });
     }
 
-    // B5 : identiques
+    // Deux mots de passe identiques sont acceptés
     it('accepts identical passwords', () => {
       expect(passwordMatch(group('un-mot-de-passe', 'un-mot-de-passe'))).toBeNull();
     });
 
-    // B5 : différents
+    // Deux mots de passe différents donnent l'erreur passwordMismatch
     it('flags different passwords', () => {
       expect(passwordMatch(group('un-mot-de-passe', 'un-autre-mot'))).toEqual({
         passwordMismatch: true,
       });
     });
 
-    // B6 : deux champs vides, c'est required qui parle
+    // Deux champs vides : l'erreur est laissée à required
     it('accepts two empty fields', () => {
       expect(passwordMatch(group('', ''))).toBeNull();
     });
