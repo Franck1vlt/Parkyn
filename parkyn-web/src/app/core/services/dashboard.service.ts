@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
@@ -34,7 +34,7 @@ export class DashboardService {
 
   constructor(private http: HttpClient) {}
 
-  getDashboard(): Observable<DashboardResponse> {
-    return this.http.get<DashboardResponse>(this.API_URL);
+  getDashboard(context?: HttpContext): Observable<DashboardResponse> {
+    return this.http.get<DashboardResponse>(this.API_URL, { context });
   }
 }

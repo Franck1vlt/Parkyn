@@ -1,7 +1,12 @@
 import { HttpContext, HttpErrorResponse } from '@angular/common/http';
 import { HANDLED_STATUSES } from '../interceptors/error-handling';
 
-export type HttpAction = 'load-vehicles' | 'delete-vehicle';
+export type HttpAction =
+  | 'load-vehicles'
+  | 'delete-vehicle'
+  | 'load-users'
+  | 'load-reservations'
+  | 'load-dashboard';
 
 const GENERIC_MESSAGE = 'Une erreur est survenue';
 
@@ -9,6 +14,15 @@ const GENERIC_MESSAGE = 'Une erreur est survenue';
 const MESSAGES: Record<HttpAction, Readonly<Record<number, string>>> = {
   'load-vehicles': {
     403: "Vous n'avez pas accès à la liste des véhicules.",
+  },
+  'load-reservations': {
+    403: "Vous n'avez pas accès à la liste des réservations.",
+  },
+  'load-dashboard': {
+    403: "Vous n'avez pas accès au tableau de bord.",
+  },
+  'load-users': {
+    403: "Vous n'avez pas accès à la liste des utilisateurs.",
   },
   'delete-vehicle': {
     403: "Vous n'avez pas le droit de supprimer ce véhicule.",

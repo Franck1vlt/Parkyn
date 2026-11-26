@@ -29,12 +29,24 @@
               <td class="py-3 text-gray-500">{{ r.endDate | date: 'dd/MM/yyyy' }}</td>
             </tr>
           } @empty {
-            <tr>
-              <td colspan="5" class="py-6 text-center text-gray-300 text-sm">Aucune réservation</td>
-            </tr>
+            @if (!loadFailed()) {
+              <tr>
+                <td colspan="5" class="py-6 text-center text-gray-300 text-sm">
+                  Aucune réservation
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
+      @if (loadFailed()) {
+        <p
+          data-testid="dashboard-reservations-error"
+          class="text-center text-gray-400 text-sm py-4"
+        >
+          Impossible de charger la liste. Rechargez la page.
+        </p>
+      }
     </div>
 
     <!-- Véhicules en maintenance -->
@@ -56,7 +68,16 @@
             </span>
           </div>
         } @empty {
-          <p class="text-center text-gray-300 text-sm py-4">Aucun véhicule</p>
+          @if (loadFailed()) {
+            <p
+              data-testid="dashboard-maintenance-error"
+              class="text-center text-gray-400 text-sm py-4"
+            >
+              Impossible de charger la liste. Rechargez la page.
+            </p>
+          } @else {
+            <p class="text-center text-gray-300 text-sm py-4">Aucun véhicule</p>
+          }
         }
       </div>
     </div>
@@ -81,7 +102,13 @@
             </div>
           </div>
         } @empty {
-          <p class="text-center text-gray-300 text-sm py-4">Aucun conducteur</p>
+          @if (loadFailed()) {
+            <p data-testid="dashboard-drivers-error" class="text-center text-gray-400 text-sm py-4">
+              Impossible de charger la liste. Rechargez la page.
+            </p>
+          } @else {
+            <p class="text-center text-gray-300 text-sm py-4">Aucun conducteur</p>
+          }
         }
       </div>
     </div>
@@ -113,12 +140,19 @@
                 </td>
               </tr>
             } @empty {
-              <tr>
-                <td colspan="2" class="py-6 text-center text-gray-300 text-sm">Aucune donnée</td>
-              </tr>
+              @if (!loadFailed()) {
+                <tr>
+                  <td colspan="2" class="py-6 text-center text-gray-300 text-sm">Aucune donnée</td>
+                </tr>
+              }
             }
           </tbody>
         </table>
+        @if (loadFailed()) {
+          <p data-testid="dashboard-agents-error" class="text-center text-gray-400 text-sm py-4">
+            Impossible de charger la liste. Rechargez la page.
+          </p>
+        }
       </div>
     }
 
@@ -129,41 +163,49 @@
           <span class="w-1 h-5 bg-orange-600 rounded-full"></span>
           <h2 class="text-base font-semibold text-gray-800">Mes statistiques</h2>
         </div>
-        <div class="grid grid-cols-2 gap-4 mb-5">
-          <div class="bg-orange-50 rounded-lg p-4">
-            <p class="text-3xl font-bold text-orange-700">
-              {{ dashboard()?.myStats?.totalReservations }}
-            </p>
-            <p class="text-sm text-gray-500 mt-1">Total réservations</p>
+        @if (loadFailed()) {
+          <p data-testid="dashboard-stats-error" class="text-center text-gray-400 text-sm py-4">
+            Impossible de charger les statistiques. Rechargez la page.
+          </p>
+        } @else {
+          <div class="grid grid-cols-2 gap-4 mb-5">
+            <div class="bg-orange-50 rounded-lg p-4">
+              <p class="text-3xl font-bold text-orange-700">
+                {{ dashboard()?.myStats?.totalReservations }}
+              </p>
+              <p class="text-sm text-gray-500 mt-1">Total réservations</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <p class="text-3xl font-bold text-gray-700">
+                {{ dashboard()?.myStats?.activeReservations }}
+              </p>
+              <p class="text-sm text-gray-500 mt-1">En cours</p>
+            </div>
           </div>
-          <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-3xl font-bold text-gray-700">
-              {{ dashboard()?.myStats?.activeReservations }}
+          <div class="border-t border-gray-100 pt-4">
+            <p class="text-xs text-gray-400 mb-2 uppercase tracking-wide">
+              Ce mois vs mois dernier
             </p>
-            <p class="text-sm text-gray-500 mt-1">En cours</p>
-          </div>
-        </div>
-        <div class="border-t border-gray-100 pt-4">
-          <p class="text-xs text-gray-400 mb-2 uppercase tracking-wide">Ce mois vs mois dernier</p>
-          <div class="flex items-center gap-3">
-            <span class="text-2xl font-bold text-gray-800">{{
-              dashboard()?.myStats?.thisMonthReservations
-            }}</span>
-            @if (getTrend(); as trend) {
-              <span
-                [class]="
-                  'flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ' +
-                  (trend.up ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500')
-                "
+            <div class="flex items-center gap-3">
+              <span class="text-2xl font-bold text-gray-800">{{
+                dashboard()?.myStats?.thisMonthReservations
+              }}</span>
+              @if (getTrend(); as trend) {
+                <span
+                  [class]="
+                    'flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ' +
+                    (trend.up ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500')
+                  "
+                >
+                  {{ trend.up ? '▲' : '▼' }} {{ trend.percent }}%
+                </span>
+              }
+              <span class="text-sm text-gray-400"
+                >vs {{ dashboard()?.myStats?.lastMonthReservations }} le mois dernier</span
               >
-                {{ trend.up ? '▲' : '▼' }} {{ trend.percent }}%
-              </span>
-            }
-            <span class="text-sm text-gray-400"
-              >vs {{ dashboard()?.myStats?.lastMonthReservations }} le mois dernier</span
-            >
+            </div>
           </div>
-        </div>
+        }
       </div>
     }
 

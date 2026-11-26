@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Role } from './auth.service';
 import { Page } from '../models/page.model';
@@ -41,10 +41,15 @@ export class UsersService {
 
   constructor(private http: HttpClient) {}
 
-  getUsers(page = 0, size = 10, role?: string): Observable<Page<UserResponse>> {
+  getUsers(
+    page = 0,
+    size = 10,
+    role?: string,
+    context?: HttpContext,
+  ): Observable<Page<UserResponse>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (role) params = params.set('role', role);
-    return this.http.get<Page<UserResponse>>(this.API_URL, { params });
+    return this.http.get<Page<UserResponse>>(this.API_URL, { params, context });
   }
 
   addUser(request: UserRequest): Observable<UserResponse> {
@@ -63,8 +68,8 @@ export class UsersService {
     return this.http.delete<void>(`${this.API_URL}/${id}`);
   }
 
-  getDrivers(): Observable<Page<UserResponse>> {
-    return this.http.get<Page<UserResponse>>(`${this.API_URL}/drivers`);
+  getDrivers(context?: HttpContext): Observable<Page<UserResponse>> {
+    return this.http.get<Page<UserResponse>>(`${this.API_URL}/drivers`, { context });
   }
 
   searchAgents(query: string): Observable<Page<UserResponse>> {

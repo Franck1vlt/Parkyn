@@ -1,4 +1,12 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, OnInit, Output, signal } from '@angular/core';
+import { finalize } from 'rxjs';
+import {
+  describeHttpError,
+  httpErrorContext,
+  isHandledHttpError,
+} from '../../../../core/errors/http-error-messages';
+import { ToastService } from '../../../../core/services/toast.service';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import { UserResponse, UsersService } from '../../../../core/services/users.service';
 import { Page } from '../../../../core/models/page.model';
@@ -17,11 +25,13 @@ export class UsersComponent implements OnInit {
   currentPage = signal(0);
   selectedRole = signal<string | null>(null);
   isLoading = signal(false);
+  loadFailed = signal(false);
   @Output() onDelete = new EventEmitter<string>();
 
   constructor(
     private usersService: UsersService,
     private auth: AuthService,
+    private toastService: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -31,14 +41,30 @@ export class UsersComponent implements OnInit {
   loadUsers() {
     this.isLoading.set(true);
 
+    const context = httpErrorContext('load-users');
     const request$ = this.auth.hasRole('ADMIN')
-      ? this.usersService.getUsers(this.currentPage(), 10, this.selectedRole() || undefined)
-      : this.usersService.getDrivers();
+      ? this.usersService.getUsers(
+          this.currentPage(),
+          10,
+          this.selectedRole() || undefined,
+          context,
+        )
+      : this.usersService.getDrivers(context);
 
-    request$.subscribe({
-      next: (page) => this.page.set(page),
-      error: (err) => console.error('Failed to load users', err),
-      complete: () => this.isLoading.set(false),
+    request$.pipe(finalize(() => this.isLoading.set(false))).subscribe({
+      next: (page) => {
+        this.page.set(page);
+        this.loadFailed.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        // Page effacée : pas de faux compteur à 0
+        this.page.set(undefined);
+        this.currentPage.set(0);
+        this.loadFailed.set(true);
+        if (isHandledHttpError(err, 'load-users')) {
+          this.toastService.show(describeHttpError(err, 'load-users'));
+        }
+      },
     });
   }
 

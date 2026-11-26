@@ -1,4 +1,12 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, OnInit, Output, signal } from '@angular/core';
+import { finalize } from 'rxjs';
+import {
+  describeHttpError,
+  httpErrorContext,
+  isHandledHttpError,
+} from '../../../../core/errors/http-error-messages';
+import { ToastService } from '../../../../core/services/toast.service';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import { RouterLink } from '@angular/router';
 import {
@@ -21,35 +29,53 @@ export class ReservationsComponent implements OnInit {
   currentPage = signal(0);
   selectedStatus = signal<string | null>(null);
   isLoading = signal(false);
+  loadFailed = signal(false);
   vehicleNames = signal(new Map<string, string>());
   @Output() onDelete = new EventEmitter<string>();
 
   constructor(
     private reservationsService: ReservationsService,
     private vehicleService: VehicleService,
+    private toastService: ToastService,
   ) {}
 
   ngOnInit(): void {
     this.load();
-    this.vehicleService.getVehicles().subscribe((vehicles) => {
-      this.vehicleNames.set(
-        new Map(vehicles.content.map((v) => [v.id, `${v.brand} ${v.model} (${v.plateNumber})`])),
-      );
+    this.vehicleService.getVehicles().subscribe({
+      next: (vehicles) => {
+        this.vehicleNames.set(
+          new Map(vehicles.content.map((v) => [v.id, `${v.brand} ${v.model} (${v.plateNumber})`])),
+        );
+      },
+      // Appel secondaire : s'il échoue, la liste reste affichée
+      error: () => {},
     });
   }
 
   load() {
     this.isLoading.set(true);
     this.reservationsService
-      .getReservations(this.currentPage(), 10, this.selectedStatus() || undefined)
+      .getReservations(
+        this.currentPage(),
+        10,
+        this.selectedStatus() || undefined,
+        httpErrorContext('load-reservations'),
+      )
+      .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (page) => {
-          console.log('Première réservation :', page.content[0]);
-          console.log('API response:', page);
           this.page.set(page);
+          this.loadFailed.set(false);
         },
-        error: (err) => console.error('Failed to load reservations', err),
-        complete: () => this.isLoading.set(false),
+        error: (err: HttpErrorResponse) => {
+          // Page effacée : pas de faux compteur à 0
+          this.page.set(null);
+          this.currentPage.set(0);
+          this.loadFailed.set(true);
+          if (isHandledHttpError(err, 'load-reservations')) {
+            this.toastService.show(describeHttpError(err, 'load-reservations'));
+          }
+        },
       });
   }
 
