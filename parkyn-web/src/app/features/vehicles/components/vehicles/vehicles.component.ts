@@ -1,4 +1,12 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
+import { finalize } from 'rxjs';
+import {
+  describeHttpError,
+  httpErrorContext,
+  isHandledHttpError,
+} from '../../../../core/errors/http-error-messages';
+import { ToastService } from '../../../../core/services/toast.service';
 import { HeaderComponent } from '../../../../core/components/header/header.component';
 import { Page } from '../../../../core/models/page.model';
 import {
@@ -21,8 +29,12 @@ export class VehiclesComponent implements OnInit {
   currentPage = signal(0);
   selectedStatus = signal<string | null>(null);
   isLoading = signal(false);
+  loadFailed = signal(false);
 
-  constructor(private vehiclesService: VehicleService) {}
+  constructor(
+    private vehiclesService: VehicleService,
+    private toastService: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.loadVehicles();
@@ -31,13 +43,27 @@ export class VehiclesComponent implements OnInit {
   loadVehicles() {
     this.isLoading.set(true);
     this.vehiclesService
-      .getVehicles(this.currentPage(), 10, this.selectedStatus() || undefined)
+      .getVehicles(
+        this.currentPage(),
+        10,
+        this.selectedStatus() || undefined,
+        httpErrorContext('load-vehicles'),
+      )
+      .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (page) => {
           this.page.set(page);
+          this.loadFailed.set(false);
         },
-        error: (err) => console.error('Failed to load vehicles', err),
-        complete: () => this.isLoading.set(false),
+        error: (err: HttpErrorResponse) => {
+          // Page effacée : pas de faux compteur à 0
+          this.page.set(undefined);
+          this.currentPage.set(0);
+          this.loadFailed.set(true);
+          if (isHandledHttpError(err, 'load-vehicles')) {
+            this.toastService.show(describeHttpError(err, 'load-vehicles'));
+          }
+        },
       });
   }
 
@@ -74,9 +100,15 @@ export class VehiclesComponent implements OnInit {
   }
 
   deleteVehicle(id: string) {
-    this.vehiclesService.deleteVehicleById(id).subscribe({
+    this.vehiclesService.deleteVehicleById(id, httpErrorContext('delete-vehicle')).subscribe({
       next: () => this.loadVehicles(),
-      error: (err) => console.error('Erreur suppression', err),
+      error: (err: HttpErrorResponse) => {
+        // Les autres statuts restent à l'intercepteur
+        if (!isHandledHttpError(err, 'delete-vehicle')) return;
+        this.toastService.show(describeHttpError(err, 'delete-vehicle'));
+        // Véhicule disparu : on rafraîchit la liste
+        if (err.status === 404) this.loadVehicles();
+      },
     });
   }
 }

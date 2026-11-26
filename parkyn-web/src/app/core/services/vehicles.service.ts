@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Page } from '../models/page.model';
 
@@ -55,12 +55,13 @@ export class VehicleService {
     page: number = 0,
     size: number = 10,
     status?: string,
+    context?: HttpContext,
   ): Observable<Page<VehicleResponse>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (status) {
       params = params.set('status', status);
     }
-    return this.http.get<Page<VehicleResponse>>(this.API_URL, { params });
+    return this.http.get<Page<VehicleResponse>>(this.API_URL, { params, context });
   }
 
   addVehicle(request: VehicleRequest): Observable<VehicleResponse> {
@@ -75,8 +76,8 @@ export class VehicleService {
     return this.http.patch<VehicleResponse>(`${this.API_URL}/${id}`, request);
   }
 
-  deleteVehicleById(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.API_URL}/${id}`);
+  deleteVehicleById(id: string, context?: HttpContext): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/${id}`, { context });
   }
 
   updateVehicleStatus(id: string, request: VehicleStatusRequest): Observable<VehicleResponse> {

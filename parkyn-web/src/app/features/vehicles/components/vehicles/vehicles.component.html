@@ -36,24 +36,31 @@
     }
   </div>
 
-  <!-- Pagination -->
-  <div class="flex items-center justify-between mt-6 text-sm text-black">
-    <span>{{ page()?.page?.totalElements ?? 0 }} résultats</span>
-    <div class="flex gap-2">
-      <button
-        (click)="goTo(currentPage() - 1)"
-        [disabled]="currentPage() === 0"
-        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
-      >
-        Previous
-      </button>
-      <button
-        (click)="goTo(currentPage() + 1)"
-        [disabled]="currentPage() === (page()?.page?.totalPages ?? 1) - 1"
-        class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
-      >
-        Next
-      </button>
+  @if (loadFailed()) {
+    <!-- Échec du chargement : message en ligne, ni compteur ni pagination -->
+    <p data-testid="vehicles-load-error" class="mt-6 text-sm text-gray-500">
+      Impossible de charger la liste. Rechargez la page.
+    </p>
+  } @else {
+    <!-- Pagination -->
+    <div class="flex items-center justify-between mt-6 text-sm text-black">
+      <span>{{ page()?.page?.totalElements ?? 0 }} résultats</span>
+      <div class="flex gap-2">
+        <button
+          (click)="goTo(currentPage() - 1)"
+          [disabled]="currentPage() === 0"
+          class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+        >
+          Previous
+        </button>
+        <button
+          (click)="goTo(currentPage() + 1)"
+          [disabled]="currentPage() === (page()?.page?.totalPages ?? 1) - 1"
+          class="text-white bg-warning box-border border border-transparent hover:bg-warning-strong focus:ring-4 focus:ring-warning-medium shadow-xs font-medium leading-5 rounded-xl text-sm px-4 py-2.5 focus:outline-none"
+        >
+          Next
+        </button>
+      </div>
     </div>
-  </div>
+  }
 </div>
