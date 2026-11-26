@@ -91,20 +91,28 @@
           </h3>
           <div class="grid grid-cols-2 gap-4">
             <div>
+              @let startDateErrors = fieldErrors('startDate');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Date de début</label>
               <input
                 type="date"
                 formControlName="startDate"
+                [attr.aria-invalid]="startDateErrors.length > 0"
+                [attr.aria-describedby]="startDateErrors.length ? 'startDate-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
+              <app-inline-error [id]="'startDate-error'" [messages]="startDateErrors" />
             </div>
             <div>
+              @let endDateErrors = fieldErrors('endDate');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Date de fin</label>
               <input
                 type="date"
                 formControlName="endDate"
+                [attr.aria-invalid]="endDateErrors.length > 0"
+                [attr.aria-describedby]="endDateErrors.length ? 'endDate-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
+              <app-inline-error [id]="'endDate-error'" [messages]="endDateErrors" />
             </div>
           </div>
         </div>
@@ -126,16 +134,20 @@
               <app-condition-select (conditionChange)="onConditionChange($event)" />
             </div>
             <div>
+              @let mileageStartErrors = fieldErrors('mileageStart');
               <label class="block mb-1.5 text-sm font-medium text-gray-700"
                 >Kilométrage au départ</label
               >
               <input
                 type="number"
                 formControlName="mileageStart"
+                [attr.aria-invalid]="mileageStartErrors.length > 0"
+                [attr.aria-describedby]="mileageStartErrors.length ? 'mileageStart-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="0"
-                min="0"
+                placeholder="1"
+                min="1"
               />
+              <app-inline-error [id]="'mileageStart-error'" [messages]="mileageStartErrors" />
             </div>
           </div>
         </div>
@@ -147,19 +159,31 @@
           <h3 class="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-4">
             Remarques
           </h3>
+          @let notesBeforeErrors = fieldErrors('notesBefore');
           <textarea
             formControlName="notesBefore"
             rows="4"
+            [attr.aria-invalid]="notesBeforeErrors.length > 0"
+            [attr.aria-describedby]="notesBeforeErrors.length ? 'notesBefore-error' : null"
             class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
             placeholder="Remarques avant la location..."
           ></textarea>
+          <app-inline-error [id]="'notesBefore-error'" [messages]="notesBeforeErrors" />
         </div>
 
         <!-- Actions -->
+        @if (alertMessages().length) {
+          <div
+            role="alert"
+            data-testid="form-alert"
+            class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            @for (message of alertMessages(); track $index) {
+              <p>{{ message }}</p>
+            }
+          </div>
+        }
         <div class="flex justify-end">
-          @if (errorMessage) {
-            <p class="text-red-600 text-sm mb-4">{{ errorMessage }}</p>
-          }
           <button
             type="submit"
             [disabled]="reservationForm.invalid || isSubmitting"

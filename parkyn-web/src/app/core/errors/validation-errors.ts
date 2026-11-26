@@ -27,3 +27,24 @@ export function parseValidationErrors(body: unknown): ServerValidationErrors | n
   if (fields.length === 0 && global.length === 0) return null;
   return { fields: Object.fromEntries(fields), global };
 }
+
+export interface SplitValidationErrors {
+  fields: Record<string, string[]>;
+  alerts: string[];
+}
+
+export function splitValidationErrors(
+  parsed: ServerValidationErrors | null,
+  knownFields: readonly string[],
+): SplitValidationErrors {
+  if (!parsed) return { fields: {}, alerts: [] };
+
+  // Les messages globaux d'abord, puis ceux des clés que le formulaire ne connaît pas
+  const fields: Record<string, string[]> = {};
+  const alerts = [...parsed.global];
+  for (const [key, messages] of Object.entries(parsed.fields)) {
+    if (knownFields.includes(key)) fields[key] = messages;
+    else alerts.push(...messages);
+  }
+  return { fields, alerts };
+}

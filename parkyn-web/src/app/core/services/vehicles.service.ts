@@ -64,8 +64,8 @@ export class VehicleService {
     return this.http.get<Page<VehicleResponse>>(this.API_URL, { params, context });
   }
 
-  addVehicle(request: VehicleRequest): Observable<VehicleResponse> {
-    return this.http.post<VehicleResponse>(this.API_URL, request);
+  addVehicle(request: VehicleRequest, context?: HttpContext): Observable<VehicleResponse> {
+    return this.http.post<VehicleResponse>(this.API_URL, request, { context });
   }
 
   getVehicleById(id: string): Observable<VehicleResponse> {

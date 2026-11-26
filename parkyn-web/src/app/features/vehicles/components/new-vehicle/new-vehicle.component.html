@@ -41,73 +41,105 @@
           </h3>
           <div class="grid grid-cols-2 gap-4">
             <div>
+              @let brandErrors = fieldErrors('brand');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Marque</label>
               <input
                 type="text"
                 formControlName="brand"
+                [attr.aria-invalid]="brandErrors.length > 0"
+                [attr.aria-describedby]="brandErrors.length ? 'brand-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Renault"
               />
+              <app-inline-error [id]="'brand-error'" [messages]="brandErrors" />
             </div>
             <div>
+              @let modelErrors = fieldErrors('model');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Modèle</label>
               <input
                 type="text"
                 formControlName="model"
+                [attr.aria-invalid]="modelErrors.length > 0"
+                [attr.aria-describedby]="modelErrors.length ? 'model-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Clio"
               />
+              <app-inline-error [id]="'model-error'" [messages]="modelErrors" />
             </div>
             <div>
+              @let yearErrors = fieldErrors('year');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Année</label>
               <input
                 type="number"
                 formControlName="year"
+                [attr.aria-invalid]="yearErrors.length > 0"
+                [attr.aria-describedby]="yearErrors.length ? 'year-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="2026"
               />
+              <app-inline-error [id]="'year-error'" [messages]="yearErrors" />
             </div>
             <div>
+              @let plateNumberErrors = fieldErrors('plateNumber');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Immatriculation</label>
               <input
                 type="text"
                 formControlName="plateNumber"
+                [attr.aria-invalid]="plateNumberErrors.length > 0"
+                [attr.aria-describedby]="plateNumberErrors.length ? 'plateNumber-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="AB-123-CD"
               />
+              <app-inline-error [id]="'plateNumber-error'" [messages]="plateNumberErrors" />
             </div>
             <div>
+              @let mileageKMErrors = fieldErrors('mileageKM');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Kilométrage</label>
               <input
                 type="number"
                 formControlName="mileageKM"
+                [attr.aria-invalid]="mileageKMErrors.length > 0"
+                [attr.aria-describedby]="mileageKMErrors.length ? 'mileageKM-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="0"
                 min="0"
               />
+              <app-inline-error [id]="'mileageKM-error'" [messages]="mileageKMErrors" />
             </div>
             <div>
-              <label class="block mb-1.5 text-sm font-medium text-gray-700"
-                >État du véhicule</label
-              >
+              <label class="block mb-1.5 text-sm font-medium text-gray-700">État du véhicule</label>
               <app-condition-select (conditionChange)="onConditionChange($event)" />
             </div>
             <div>
+              @let commissionedAtErrors = fieldErrors('commissionedAt');
               <label class="block mb-1.5 text-sm font-medium text-gray-700"
                 >Mise en service le</label
               >
               <input
                 type="date"
                 formControlName="commissionedAt"
+                [attr.aria-invalid]="commissionedAtErrors.length > 0"
+                [attr.aria-describedby]="
+                  commissionedAtErrors.length ? 'commissionedAt-error' : null
+                "
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
+              <app-inline-error [id]="'commissionedAt-error'" [messages]="commissionedAtErrors" />
             </div>
           </div>
         </div>
 
         <!-- Actions -->
-        @if (errorMessage) {
-          <p class="text-red-600 text-sm mb-4 text-right">{{ errorMessage }}</p>
+        @if (alertMessages().length) {
+          <div
+            role="alert"
+            data-testid="form-alert"
+            class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            @for (message of alertMessages(); track $index) {
+              <p>{{ message }}</p>
+            }
+          </div>
         }
         <div class="flex justify-end">
           <button

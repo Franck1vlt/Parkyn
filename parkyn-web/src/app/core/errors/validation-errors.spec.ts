@@ -1,4 +1,8 @@
-import { parseValidationErrors } from './validation-errors';
+import {
+  parseValidationErrors,
+  ServerValidationErrors,
+  splitValidationErrors,
+} from './validation-errors';
 
 describe('parseValidationErrors', () => {
   // A1 : corps nominal
@@ -48,5 +52,29 @@ describe('parseValidationErrors', () => {
     ['errors empty', { errors: {} }],
   ])('returns null for an unusable body (%s)', (_label, body) => {
     expect(parseValidationErrors(body)).toBeNull();
+  });
+});
+
+describe('splitValidationErrors', () => {
+  const known = ['email', 'plateNumber'];
+
+  it('keeps the known fields in fields and sends unknown keys and _global messages to alerts', () => {
+    const parsed: ServerValidationErrors = {
+      fields: { email: ['mail refusé'], plateNumber: ['plaque refusée'], color: ['c1', 'c2'] },
+      global: ['erreur globale'],
+    };
+
+    const result = splitValidationErrors(parsed, known);
+
+    expect(result.fields).toEqual({ email: ['mail refusé'], plateNumber: ['plaque refusée'] });
+    expect(result.alerts).toHaveLength(3);
+    expect(result.alerts).toEqual(expect.arrayContaining(['erreur globale', 'c1', 'c2']));
+  });
+
+  it.each<[string, ServerValidationErrors | null]>([
+    ['null', null],
+    ['an empty result', { fields: {}, global: [] }],
+  ])('returns empty fields and alerts for %s', (_label: string, parsed) => {
+    expect(splitValidationErrors(parsed, known)).toEqual({ fields: {}, alerts: [] });
   });
 });

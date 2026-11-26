@@ -69,8 +69,11 @@ export class ReservationsService {
     return this.http.get<Page<ReservationResponse>>(this.API_URL, { params, context });
   }
 
-  addReservation(request: ReservationRequest): Observable<ReservationResponse> {
-    return this.http.post<ReservationResponse>(this.API_URL, request);
+  addReservation(
+    request: ReservationRequest,
+    context?: HttpContext,
+  ): Observable<ReservationResponse> {
+    return this.http.post<ReservationResponse>(this.API_URL, request, { context });
   }
 
   getReservationById(id: string): Observable<ReservationResponse> {

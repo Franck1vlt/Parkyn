@@ -41,38 +41,53 @@
           </h3>
           <div class="grid grid-cols-2 gap-4">
             <div>
+              @let firstnameErrors = fieldErrors('firstname');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Prénom</label>
               <input
                 type="text"
                 formControlName="firstname"
+                [attr.aria-invalid]="firstnameErrors.length > 0"
+                [attr.aria-describedby]="firstnameErrors.length ? 'firstname-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="John"
               />
+              <app-inline-error [id]="'firstname-error'" [messages]="firstnameErrors" />
             </div>
             <div>
+              @let lastnameErrors = fieldErrors('lastname');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Nom</label>
               <input
                 type="text"
                 formControlName="lastname"
+                [attr.aria-invalid]="lastnameErrors.length > 0"
+                [attr.aria-describedby]="lastnameErrors.length ? 'lastname-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Doe"
               />
+              <app-inline-error [id]="'lastname-error'" [messages]="lastnameErrors" />
             </div>
             <div>
+              @let emailErrors = fieldErrors('email');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Email</label>
               <input
                 type="email"
                 formControlName="email"
+                [attr.aria-invalid]="emailErrors.length > 0"
+                [attr.aria-describedby]="emailErrors.length ? 'email-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="john.doe@parkyn.app"
               />
+              <app-inline-error [id]="'email-error'" [messages]="emailErrors" />
             </div>
             <div>
+              @let passwordErrors = fieldErrors('password');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Mot de passe</label>
               <div class="relative">
                 <input
                   [type]="showPassword ? 'text' : 'password'"
                   formControlName="password"
+                  [attr.aria-invalid]="passwordErrors.length > 0"
+                  [attr.aria-describedby]="passwordErrors.length ? 'password-error' : null"
                   class="w-full px-3 py-2.5 pr-10 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
                 <button
@@ -120,6 +135,7 @@
                   }
                 </button>
               </div>
+              <app-inline-error [id]="'password-error'" [messages]="passwordErrors" />
             </div>
             <div>
               <label class="block mb-1.5 text-sm font-medium text-gray-700"
@@ -178,9 +194,12 @@
               </div>
             </div>
             <div>
+              @let roleErrors = fieldErrors('role');
               <label class="block mb-1.5 text-sm font-medium text-gray-700">Rôle</label>
               <select
                 formControlName="role"
+                [attr.aria-invalid]="roleErrors.length > 0"
+                [attr.aria-describedby]="roleErrors.length ? 'role-error' : null"
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">Sélectionner un rôle</option>
@@ -188,13 +207,22 @@
                 <option value="AGENT">Agent</option>
                 <option value="DRIVER">Conducteur</option>
               </select>
+              <app-inline-error [id]="'role-error'" [messages]="roleErrors" />
             </div>
           </div>
         </div>
 
         <!-- Actions -->
-        @if (errorMessage) {
-          <p class="text-red-600 text-sm mb-4 text-right">{{ errorMessage }}</p>
+        @if (alertMessages().length) {
+          <div
+            role="alert"
+            data-testid="form-alert"
+            class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            @for (message of alertMessages(); track $index) {
+              <p>{{ message }}</p>
+            }
+          </div>
         }
         <div class="flex justify-end">
           <button

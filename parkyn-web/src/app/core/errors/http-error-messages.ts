@@ -6,9 +6,14 @@ export type HttpAction =
   | 'delete-vehicle'
   | 'load-users'
   | 'load-reservations'
-  | 'load-dashboard';
+  | 'load-dashboard'
+  | 'create-vehicle'
+  | 'create-user'
+  | 'create-reservation';
 
 const GENERIC_MESSAGE = 'Une erreur est survenue';
+const GENERIC_400_MESSAGE =
+  "Les informations saisies n'ont pas pu être validées. Veuillez réessayer.";
 
 // Source unique : action puis statut puis texte (alimente le message et le contexte HTTP)
 const MESSAGES: Record<HttpAction, Readonly<Record<number, string>>> = {
@@ -23,6 +28,21 @@ const MESSAGES: Record<HttpAction, Readonly<Record<number, string>>> = {
   },
   'load-users': {
     403: "Vous n'avez pas accès à la liste des utilisateurs.",
+  },
+  'create-vehicle': {
+    400: GENERIC_400_MESSAGE,
+    403: "Vous n'avez pas le droit de créer un véhicule.",
+  },
+  'create-user': {
+    400: GENERIC_400_MESSAGE,
+    403: "Vous n'avez pas le droit de créer cet utilisateur.",
+    409: 'Cette adresse email est déjà utilisée.',
+  },
+  'create-reservation': {
+    400: GENERIC_400_MESSAGE,
+    403: "Vous n'avez pas le droit de créer une réservation.",
+    404: "Ce véhicule ou ce conducteur n'existe plus.",
+    409: "Ce véhicule n'est pas disponible sur cette période.",
   },
   'delete-vehicle': {
     403: "Vous n'avez pas le droit de supprimer ce véhicule.",

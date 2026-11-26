@@ -52,8 +52,8 @@ export class UsersService {
     return this.http.get<Page<UserResponse>>(this.API_URL, { params, context });
   }
 
-  addUser(request: UserRequest): Observable<UserResponse> {
-    return this.http.post<UserResponse>(this.API_URL, request);
+  addUser(request: UserRequest, context?: HttpContext): Observable<UserResponse> {
+    return this.http.post<UserResponse>(this.API_URL, request, { context });
   }
 
   getUserById(id: string): Observable<UserResponse> {
