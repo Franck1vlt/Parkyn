@@ -77,7 +77,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     fixture.detectChanges();
   }
 
-  // Cas 16 : le texte de l'action remplace le toast générique, sans doublon
+  // Le texte de l'action remplace le toast générique, sans doublon
   it('shows exactly one toast with the action text on a 404 delete, not the generic one', () => {
     deleteWith(404);
     // Le rechargement n'est pas l'objet de ce test : on referme sa requête
@@ -88,7 +88,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     expect(show.mock.calls[0][0]).not.toBe('Ressource introuvable');
   });
 
-  // Cas 409 : le texte de l'action remplace le toast générique, sans doublon
+  // Le texte de l'action remplace le toast générique, sans doublon
   it('shows exactly one toast with the action text on a 409 delete, not the generic one', () => {
     deleteWith(409);
 
@@ -112,7 +112,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     fixture.detectChanges();
   }
 
-  // Garde, vert d'emblée : statut non déclaré, un seul toast, celui de l'intercepteur
+  // Un statut non déclaré donne un seul toast, celui de l'intercepteur
   it('shows only the interceptor toast on a 400 delete', () => {
     deleteWith(400);
 
@@ -120,7 +120,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     expect(show).toHaveBeenCalledWith('Une erreur est survenue');
   });
 
-  // Garde, vert d'emblée : le 404 de chargement n'est pas déclaré
+  // Le 404 du chargement n'est pas déclaré : seul le toast de l'intercepteur s'affiche
   it('shows only the interceptor toast on a 404 list load', () => {
     failListWith(404);
 
@@ -128,7 +128,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     expect(show).toHaveBeenCalledWith('Ressource introuvable');
   });
 
-  // Garde, vert d'emblée : le 500 reste au seul intercepteur
+  // Un 500 au chargement reste géré par le seul intercepteur
   it('shows only the interceptor toast on a 500 list load', () => {
     failListWith(500);
 
@@ -136,7 +136,7 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     expect(show).toHaveBeenCalledWith('Erreur serveur interne');
   });
 
-  // Cas 17 : garde, vert d'emblée ; le 500 reste au seul intercepteur
+  // Un 500 à la suppression reste géré par le seul intercepteur, sans rechargement
   it('keeps a single interceptor toast and does not reload on a 500 delete', () => {
     deleteWith(500);
 

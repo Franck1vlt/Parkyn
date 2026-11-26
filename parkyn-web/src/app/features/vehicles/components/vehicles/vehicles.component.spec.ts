@@ -130,7 +130,7 @@ describe('VehiclesComponent error display', () => {
     select.dispatchEvent(new Event('change'));
   }
 
-  // Cas 6 : garde, vert d'emblée
+  // Un chargement réussi affiche le nombre de résultats et aucune erreur
   it('shows the result count after a successful load', () => {
     answerList(pageOf(3, 1));
 
@@ -138,7 +138,7 @@ describe('VehiclesComponent error display', () => {
     expect(loadError()).toBeNull();
   });
 
-  // Cas 7
+  // Au premier échec, un message remplace la liste, le compteur et la pagination
   it('shows an inline message instead of a fake empty list when the first load fails', () => {
     answerList({ message: 'SQL boom' }, 500);
 
@@ -151,7 +151,7 @@ describe('VehiclesComponent error display', () => {
     expect(buttonByText('Next')).toBeUndefined();
   });
 
-  // Cas 8
+  // Un échec de chargement met fin à l'état de chargement
   it('stops the loading state when the load fails', () => {
     expect(fixture.componentInstance.isLoading()).toBe(true);
 
@@ -160,7 +160,7 @@ describe('VehiclesComponent error display', () => {
     expect(fixture.componentInstance.isLoading()).toBe(false);
   });
 
-  // Cas 9
+  // Un 403 au chargement est déclaré géré et affiche un seul toast dédié
   it('toasts the load-vehicles message on a 403 and declares 403 as handled', () => {
     const request = httpMock.expectOne(isList);
     expect(request.request.context.get(HANDLED_STATUSES)).toContain(403);
@@ -171,7 +171,7 @@ describe('VehiclesComponent error display', () => {
     expect(show.mock.calls[0][0]).toBe(LOAD_FORBIDDEN_TEXT);
   });
 
-  // Cas 9 (suite) : un 403 de chargement ne laisse pas un faux compteur à 0
+  // Un 403 de chargement ne laisse pas un faux compteur à 0
   it('shows the load error and no fake count when the list load returns a 403', () => {
     answerList({ message: 'forbidden' }, 403);
 
@@ -181,7 +181,7 @@ describe('VehiclesComponent error display', () => {
     expect(loadError()!.textContent?.trim()).toBe(LOAD_ERROR_TEXT);
   });
 
-  // Cas 10 : garde, vert d'emblée
+  // Une suppression réussie recharge la liste sans toast
   it('reloads the list after a successful delete', () => {
     loadFirstPage();
 
@@ -192,7 +192,7 @@ describe('VehiclesComponent error display', () => {
     expect(show).not.toHaveBeenCalled();
   });
 
-  // Cas 11
+  // Un 404 à la suppression affiche le message « véhicule disparu »
   it('toasts the vanished-vehicle message when the delete returns a 404', () => {
     loadFirstPage();
 
@@ -205,7 +205,7 @@ describe('VehiclesComponent error display', () => {
     expect(show.mock.calls[0][0]).toBe(NOT_FOUND_TEXT);
   });
 
-  // Cas 12 : le véhicule a disparu, la liste doit se rafraîchir
+  // Le véhicule a disparu, la liste doit se rafraîchir
   it('reloads the list after a delete that returns a 404', () => {
     loadFirstPage();
 
@@ -215,7 +215,7 @@ describe('VehiclesComponent error display', () => {
     expect(httpMock.match(isList)).toHaveLength(1);
   });
 
-  // Cas 13
+  // Un 403 à la suppression affiche le message de droits, sans rechargement
   it('toasts the rights message and does not reload when the delete returns a 403', () => {
     loadFirstPage();
 
@@ -227,7 +227,7 @@ describe('VehiclesComponent error display', () => {
     httpMock.expectNone(isList);
   });
 
-  // Cas 409 : le véhicule existe toujours, donc un toast et aucun rechargement
+  // Le véhicule existe toujours : un toast et aucun rechargement
   it('toasts the active-reservations message and does not reload when the delete returns a 409', () => {
     loadFirstPage();
 
@@ -239,7 +239,7 @@ describe('VehiclesComponent error display', () => {
     httpMock.expectNone(isList);
   });
 
-  // Cas 409 (suite) : la liste reste affichée, sans message de chargement
+  // La liste reste affichée, sans message de chargement
   it('keeps the list and shows no load error when the delete returns a 409', () => {
     loadFirstPage();
 
@@ -291,7 +291,7 @@ describe('VehiclesComponent error display', () => {
     expect(host().textContent).toContain('3 résultats');
   });
 
-  // Cas 14
+  // La requête de suppression déclare les statuts 403, 404 et 409 comme gérés
   it('sends the delete request with 403, 404 and 409 declared as handled', () => {
     loadFirstPage();
 
@@ -305,7 +305,7 @@ describe('VehiclesComponent error display', () => {
     httpMock.match(isList);
   });
 
-  // Cas 15
+  // Aucune erreur n'est écrite dans la console, quel que soit l'échec
   it.each([
     ['a failed load', () => answerList(null, 500)],
     [
@@ -341,7 +341,7 @@ describe('VehiclesComponent error display', () => {
     expect(consoleError).not.toHaveBeenCalled();
   });
 
-  // Cas 18 : un échec de page ou de filtre vaut un échec initial
+  // Un échec de page ou de filtre vaut un échec initial
   it.each([
     ['page change', () => buttonByText('Next')!.click()],
     [
@@ -367,7 +367,7 @@ describe('VehiclesComponent error display', () => {
     expect(buttonByText('Next')).toBeUndefined();
   });
 
-  // Cas 18 (suite) : page effacée, l'index repasse à 0 comme après un échec initial
+  // Page effacée, l'index repasse à 0 comme après un échec initial
   it('resets the page index to 0 when a page change fails', () => {
     loadFirstPage();
 
