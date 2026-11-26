@@ -106,6 +106,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID>,
     @Query("SELECT DISTINCT r.tenantId FROM Reservation r WHERE r.returnedAt IS NULL AND r.cancelledAt IS NULL")
     List<UUID> findTenantIdsWithActiveReservations();
 
+    // Réservation à venir ou en cours (ni retournée ni annulée) : filtrée par tenant via @TenantId
+    boolean existsByVehicleIdAndReturnedAtIsNullAndCancelledAtIsNull(UUID vehicleId);
+
     List<Reservation> findTop5ByOrderByCreatedAtDesc();
 
     List<Reservation> findTop5ByAgentIdOrderByCreatedAtDesc(UUID agentId);

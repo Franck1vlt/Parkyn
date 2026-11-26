@@ -31,6 +31,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VehicleService {
 
+    private static final String DELETE_BLOCKED_MESSAGE =
+        "Ce véhicule a des réservations à venir ou en cours : annulez-les avant de le supprimer";
+
     private final VehicleRepository vehicleRepository;
     private final ReservationRepository reservationRepository;
     private final NotificationService notificationService;
@@ -117,6 +120,9 @@ public class VehicleService {
     @Transactional
     public void deleteVehicleById(UUID id) {
         Vehicle vehicle = findActiveVehicle(id);
+        if (reservationRepository.existsByVehicleIdAndReturnedAtIsNullAndCancelledAtIsNull(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, DELETE_BLOCKED_MESSAGE);
+        }
         vehicle.setDeletedAt(OffsetDateTime.now());
         vehicleRepository.saveAndFlush(vehicle);
     }

@@ -195,13 +195,13 @@ class TenantIsolationTest {
     // --- Accès direct par id : une donnée d'un autre tenant répond 404, et rien ne change en base ---
 
     // Requêtes de B sur les données de A ; le contrôle positif envoie les mêmes requêtes en tant que A
-    // Dernière colonne : réponse attendue chez A (contrôle positif). reservationA est à venir :
-    // ni remise (rendez-vous pas encore atteint) ni retour (pas remise) ne sont possibles, d'où 409
+    // Dernière colonne : réponse attendue chez A (contrôle positif). reservationA est à venir : ni remise
+    // (rendez-vous pas atteint) ni retour (pas remise) possibles, et la suppression du véhicule est refusée : 409
     private static final String CROSS_TENANT_REQUESTS = """
         GET    | /api/v1/vehicles/{vehicleA}                  |                          | 200
         PATCH  | /api/v1/vehicles/{vehicleA}                  | {"brand":"Pirate"}       | 200
         PATCH  | /api/v1/vehicles/{vehicleA}/status           | {"status":"MAINTENANCE"} | 200
-        DELETE | /api/v1/vehicles/{vehicleA}                  |                          | 204
+        DELETE | /api/v1/vehicles/{vehicleA}                  |                          | 409
         GET    | /api/v1/reservations/{reservationA}          |                          | 200
         POST   | /api/v1/reservations/{reservationA}/return   | RETURN                   | 409
         GET    | /api/v1/users/{driverA}                      |                          | 200
