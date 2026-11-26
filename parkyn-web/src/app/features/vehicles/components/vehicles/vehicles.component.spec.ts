@@ -35,6 +35,8 @@ describe('VehiclesComponent error display', () => {
   const NOT_FOUND_TEXT = "Ce véhicule n'existe plus.";
   const DELETE_FORBIDDEN_TEXT = "Vous n'avez pas le droit de supprimer ce véhicule.";
   const LOAD_FORBIDDEN_TEXT = "Vous n'avez pas accès à la liste des véhicules.";
+  const DELETE_CONFLICT_TEXT =
+    'Ce véhicule a des réservations à venir ou en cours : annulez-les avant de le supprimer.';
 
   let fixture: ComponentFixture<VehiclesComponent>;
   let httpMock: HttpTestingController;
@@ -225,6 +227,32 @@ describe('VehiclesComponent error display', () => {
     httpMock.expectNone(isList);
   });
 
+  // Cas 409 : le véhicule existe toujours, donc un toast et aucun rechargement
+  it('toasts the active-reservations message and does not reload when the delete returns a 409', () => {
+    loadFirstPage();
+
+    clickDelete();
+    answerDelete(409);
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show.mock.calls[0][0]).toBe(DELETE_CONFLICT_TEXT);
+    httpMock.expectNone(isList);
+  });
+
+  // Cas 409 (suite) : la liste reste affichée, sans message de chargement
+  it('keeps the list and shows no load error when the delete returns a 409', () => {
+    loadFirstPage();
+
+    clickDelete();
+    answerDelete(409);
+    // Pas de rechargement attendu : on referme l'éventuelle requête pour isoler l'affichage
+    httpMock.match(isList);
+
+    expect(host().querySelectorAll('app-vehicle-card')).toHaveLength(1);
+    expect(host().textContent).toContain('25 résultats');
+    expect(loadError()).toBeNull();
+  });
+
   // Suppression refusée : la liste reste affichée, sans message de chargement
   it('keeps the list and shows no load error when the delete returns a 403', () => {
     loadFirstPage();
@@ -264,7 +292,7 @@ describe('VehiclesComponent error display', () => {
   });
 
   // Cas 14
-  it('sends the delete request with 403 and 404 declared as handled', () => {
+  it('sends the delete request with 403, 404 and 409 declared as handled', () => {
     loadFirstPage();
 
     clickDelete();
@@ -272,6 +300,7 @@ describe('VehiclesComponent error display', () => {
     const request = httpMock.expectOne(isDelete);
     expect(request.request.context.get(HANDLED_STATUSES)).toContain(403);
     expect(request.request.context.get(HANDLED_STATUSES)).toContain(404);
+    expect(request.request.context.get(HANDLED_STATUSES)).toContain(409);
     request.flush(null, { status: 204, statusText: 'No Content' });
     httpMock.match(isList);
   });
@@ -295,6 +324,15 @@ describe('VehiclesComponent error display', () => {
         loadFirstPage();
         clickDelete();
         answerDelete(403);
+      },
+    ],
+    [
+      'a 409 on delete',
+      () => {
+        loadFirstPage();
+        clickDelete();
+        answerDelete(409);
+        httpMock.match(isList);
       },
     ],
   ])('never calls console.error after %s', (_label, scenario) => {

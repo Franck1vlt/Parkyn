@@ -88,6 +88,19 @@ describe('VehiclesComponent with the real ErrorInterceptor', () => {
     expect(show.mock.calls[0][0]).not.toBe('Ressource introuvable');
   });
 
+  // Cas 409 : le texte de l'action remplace le toast générique, sans doublon
+  it('shows exactly one toast with the action text on a 409 delete, not the generic one', () => {
+    deleteWith(409);
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show.mock.calls[0][0]).toBe(
+      'Ce véhicule a des réservations à venir ou en cours : annulez-les avant de le supprimer.',
+    );
+    expect(show.mock.calls[0][0]).not.toBe('Une erreur est survenue');
+    // Le véhicule existe toujours : aucun rechargement
+    httpMock.expectNone(isList);
+  });
+
   // Recharge la liste par le filtre et la fait échouer avec ce statut
   function failListWith(status: number) {
     const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(

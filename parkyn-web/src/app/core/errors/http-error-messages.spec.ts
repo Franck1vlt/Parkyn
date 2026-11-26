@@ -5,6 +5,8 @@ import { describeHttpError, HttpAction, httpErrorContext } from './http-error-me
 const NOT_FOUND_TEXT = "Ce véhicule n'existe plus.";
 const DELETE_FORBIDDEN_TEXT = "Vous n'avez pas le droit de supprimer ce véhicule.";
 const LOAD_FORBIDDEN_TEXT = "Vous n'avez pas accès à la liste des véhicules.";
+const DELETE_CONFLICT_TEXT =
+  'Ce véhicule a des réservations à venir ou en cours : annulez-les avant de le supprimer.';
 
 function httpError(status: number, body: unknown = null): HttpErrorResponse {
   return new HttpErrorResponse({ status, error: body });
@@ -21,6 +23,18 @@ describe('describeHttpError', () => {
     const message = describeHttpError(httpError(403), 'delete-vehicle');
 
     expect(message).toBe(DELETE_FORBIDDEN_TEXT);
+    expect(message).not.toBe(describeHttpError(httpError(404), 'delete-vehicle'));
+  });
+
+  // Cas 409 : texte fixe, jamais le corps texte brut de l'API
+  it('describes active reservations on a 409 when deleting, distinct from the 403 and 404 texts', () => {
+    const message = describeHttpError(
+      httpError(409, 'Vehicle has active reservations'),
+      'delete-vehicle',
+    );
+
+    expect(message).toBe(DELETE_CONFLICT_TEXT);
+    expect(message).not.toBe(describeHttpError(httpError(403), 'delete-vehicle'));
     expect(message).not.toBe(describeHttpError(httpError(404), 'delete-vehicle'));
   });
 
@@ -49,12 +63,13 @@ describe('describeHttpError', () => {
 });
 
 describe('httpErrorContext', () => {
-  // Cas 5 : seuls 403 et 404 ont un texte, le reste reste à l'intercepteur
-  it('lists 403 and 404 as handled for delete-vehicle and leaves the global statuses out', () => {
+  // Cas 5 : seuls 403, 404 et 409 ont un texte, le reste reste à l'intercepteur
+  it('lists 403, 404 and 409 as handled for delete-vehicle and leaves the global statuses out', () => {
     const handled = httpErrorContext('delete-vehicle').get(HANDLED_STATUSES);
 
     expect(handled).toContain(403);
     expect(handled).toContain(404);
+    expect(handled).toContain(409);
     for (const status of [401, 429, 0, 500]) {
       expect(handled).not.toContain(status);
     }

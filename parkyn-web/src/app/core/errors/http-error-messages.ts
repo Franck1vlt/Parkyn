@@ -13,6 +13,7 @@ const MESSAGES: Record<HttpAction, Readonly<Record<number, string>>> = {
   'delete-vehicle': {
     403: "Vous n'avez pas le droit de supprimer ce véhicule.",
     404: "Ce véhicule n'existe plus.",
+    409: 'Ce véhicule a des réservations à venir ou en cours : annulez-les avant de le supprimer.',
   },
 };
 
